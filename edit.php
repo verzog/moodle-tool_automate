@@ -23,6 +23,7 @@
  */
 
 require(__DIR__ . '/../../../config.php');
+require_once($CFG->libdir . '/adminlib.php');
 
 use tool_automate\form\rule_form;
 

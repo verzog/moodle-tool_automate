@@ -23,6 +23,7 @@
  */
 
 require(__DIR__ . '/../../../config.php');
+require_once($CFG->libdir . '/adminlib.php');
 
 require_sesskey();
 admin_externalpage_setup('tool_automate');
