@@ -24,7 +24,6 @@ namespace tool_automate;
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
  */
 class manager {
     /**

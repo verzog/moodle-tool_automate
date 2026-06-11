@@ -61,9 +61,9 @@ abstract class action_base {
      * Add this action's config fields to a form.
      *
      * @param \MoodleQuickForm $mform
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
+        unset($mform);
     }
 
     /**
@@ -71,9 +71,9 @@ abstract class action_base {
      *
      * @param \stdClass $formdata
      * @return array Decoded config to be JSON-encoded into configdata.
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function extract_config(\stdClass $formdata): array {
+        unset($formdata);
         return [];
     }
 
@@ -82,9 +82,9 @@ abstract class action_base {
      *
      * @param array $config
      * @return array Field name => value.
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function config_to_form_defaults(array $config): array {
+        unset($config);
         return [];
     }
 
@@ -93,9 +93,9 @@ abstract class action_base {
      *
      * @param array $config
      * @return string
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function describe(array $config): string {
+        unset($config);
         return static::get_name();
     }
 }
