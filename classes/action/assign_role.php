@@ -66,7 +66,7 @@ class assign_role extends action_base {
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
         $context = \context_system::instance();
-        $roles = role_get_names($context, ROLENAME_ALIAS, true);
+        $roles = role_get_names($context, ROLENAME_ALIAS);
         $options = [];
         foreach ($roles as $r) {
             $options[$r->id] = $r->localname;

@@ -75,7 +75,7 @@ class rule_form extends \moodleform {
         $mform->hideIf('courseid', 'triggertype', 'neq', 'event');
         $mform->hideIf('courseid', 'eventname', 'neq', '\core\event\course_completed');
 
-        $roles = role_get_names(\context_system::instance(), ROLENAME_ALIAS, true);
+        $roles = role_get_names(\context_system::instance(), ROLENAME_ALIAS);
         $roleoptions = [];
         foreach ($roles as $r) {
             $roleoptions[$r->id] = $r->localname;
