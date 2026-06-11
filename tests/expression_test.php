@@ -40,11 +40,11 @@ final class expression_test extends \basic_testcase {
      * AND/OR/NOT precedence: AND binds tighter than OR.
      */
     public function test_and_or_not_precedence(): void {
-        // c1 OR c2 AND c3  =>  c1 OR (c2 AND c3).
-        $this->assertTrue(expression::evaluate('c1 OR c2 AND c3',
-            ['c1' => true, 'c2' => false, 'c3' => true]));
-        $this->assertFalse(expression::evaluate('c1 OR c2 AND c3',
-            ['c1' => false, 'c2' => true, 'c3' => false]));
+        // The "c1 OR c2 AND c3" expression parses as "c1 OR (c2 AND c3)".
+        $values = ['c1' => true, 'c2' => false, 'c3' => true];
+        $this->assertTrue(expression::evaluate('c1 OR c2 AND c3', $values));
+        $values = ['c1' => false, 'c2' => true, 'c3' => false];
+        $this->assertFalse(expression::evaluate('c1 OR c2 AND c3', $values));
         $this->assertTrue(expression::evaluate('NOT c1', ['c1' => false]));
         $this->assertFalse(expression::evaluate('NOT c1', ['c1' => true]));
     }
@@ -53,10 +53,10 @@ final class expression_test extends \basic_testcase {
      * Parentheses override default precedence.
      */
     public function test_parentheses(): void {
-        $this->assertTrue(expression::evaluate('(c1 OR c2) AND c3',
-            ['c1' => false, 'c2' => true, 'c3' => true]));
-        $this->assertFalse(expression::evaluate('(c1 OR c2) AND c3',
-            ['c1' => false, 'c2' => true, 'c3' => false]));
+        $values = ['c1' => false, 'c2' => true, 'c3' => true];
+        $this->assertTrue(expression::evaluate('(c1 OR c2) AND c3', $values));
+        $values = ['c1' => false, 'c2' => true, 'c3' => false];
+        $this->assertFalse(expression::evaluate('(c1 OR c2) AND c3', $values));
     }
 
     /**

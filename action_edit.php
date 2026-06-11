@@ -38,13 +38,11 @@ $delete = optional_param('delete', 0, PARAM_BOOL);
 
 $rule = $DB->get_record('tool_automate_rule', ['id' => $ruleid], '*', MUST_EXIST);
 $ruleurl = new moodle_url('/admin/tool/automate/edit.php', ['id' => $ruleid]);
-$PAGE->set_url(new moodle_url('/admin/tool/automate/action_edit.php',
-    ['ruleid' => $ruleid, 'id' => $id]));
+$PAGE->set_url(new moodle_url('/admin/tool/automate/action_edit.php', ['ruleid' => $ruleid, 'id' => $id]));
 
 $existing = null;
 if ($id) {
-    $existing = $DB->get_record('tool_automate_action',
-        ['id' => $id, 'ruleid' => $ruleid], '*', MUST_EXIST);
+    $existing = $DB->get_record('tool_automate_action', ['id' => $id, 'ruleid' => $ruleid], '*', MUST_EXIST);
     $type = $existing->type;
 }
 
@@ -55,8 +53,7 @@ if ($delete && $id && confirm_sesskey()) {
 
 $types = manager::get_action_types();
 if (!isset($types[$type])) {
-    redirect($ruleurl, get_string('chooseatype', 'tool_automate'), null,
-        \core\output\notification::NOTIFY_WARNING);
+    redirect($ruleurl, get_string('chooseatype', 'tool_automate'), null, \core\output\notification::NOTIFY_WARNING);
 }
 $class = $types[$type];
 
@@ -81,8 +78,8 @@ if ($mform->is_cancelled()) {
         $existing->configdata = json_encode($config);
         $DB->update_record('tool_automate_action', $existing);
     } else {
-        $maxsort = (int) $DB->get_field('tool_automate_action', 'COALESCE(MAX(sortorder), -1)',
-            ['ruleid' => $ruleid]);
+        $sql = 'COALESCE(MAX(sortorder), -1)';
+        $maxsort = (int) $DB->get_field('tool_automate_action', $sql, ['ruleid' => $ruleid]);
         $DB->insert_record('tool_automate_action', (object) [
             'ruleid'     => $ruleid,
             'type'       => $type,

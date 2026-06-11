@@ -22,8 +22,6 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Run the upgrade steps.
  *
@@ -37,14 +35,30 @@ function xmldb_tool_automate_upgrade(int $oldversion): bool {
     if ($oldversion < 2026061200) {
         $table = new xmldb_table('tool_automate_rule');
 
-        $field = new xmldb_field('logic', XMLDB_TYPE_CHAR, '20', null,
-            XMLDB_NOTNULL, null, 'all', 'eventname');
+        $field = new xmldb_field(
+            'logic',
+            XMLDB_TYPE_CHAR,
+            '20',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            'all',
+            'eventname'
+        );
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
 
-        $field = new xmldb_field('expression', XMLDB_TYPE_TEXT, null, null,
-            null, null, null, 'logic');
+        $field = new xmldb_field(
+            'expression',
+            XMLDB_TYPE_TEXT,
+            null,
+            null,
+            null,
+            null,
+            null,
+            'logic'
+        );
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }

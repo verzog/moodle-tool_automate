@@ -137,7 +137,7 @@ class manager {
             return false;
         }
 
-        // Default: all (AND).
+        // Default logic is "all" - every condition must match.
         foreach ($conditions as $entry) {
             if (!$entry['object']->matches($user)) {
                 return false;
