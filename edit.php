@@ -26,6 +26,7 @@ require(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
 use tool_automate\form\rule_form;
+use tool_automate\form\logic_form;
 use tool_automate\manager;
 
 admin_externalpage_setup('tool_automate');
@@ -36,10 +37,28 @@ $baseurl = new moodle_url('/admin/tool/automate/index.php');
 $PAGE->set_url(new moodle_url('/admin/tool/automate/edit.php', ['id' => $id]));
 
 $mform = new rule_form();
+$logicform = $id ? new logic_form() : null;
 
 if ($id) {
     $rule = $DB->get_record('tool_automate_rule', ['id' => $id], '*', MUST_EXIST);
     $mform->set_data((array) $rule);
+    $logicform->set_data([
+        'ruleid'     => $rule->id,
+        'logic'      => $rule->logic ?? 'all',
+        'expression' => $rule->expression ?? '',
+    ]);
+}
+
+// Logic-only submit: update logic/expression and reload.
+if ($logicform && ($logicdata = $logicform->get_data()) && !empty($logicdata->updatelogic)) {
+    $DB->update_record('tool_automate_rule', (object) [
+        'id'           => (int) $logicdata->ruleid,
+        'logic'        => $logicdata->logic,
+        'expression'   => $logicdata->logic === 'expression' ? trim($logicdata->expression) : null,
+        'usermodified' => $USER->id,
+        'timemodified' => time(),
+    ]);
+    redirect(new moodle_url('/admin/tool/automate/edit.php', ['id' => (int) $logicdata->ruleid]));
 }
 
 if ($mform->is_cancelled()) {
@@ -57,8 +76,6 @@ if ($mform->is_cancelled()) {
             ? (int) ($formdata->courseid ?? 0) : 0,
         'roleid'       => ($isevent && $eventname === '\\core\\event\\role_assigned')
             ? (int) ($formdata->roleid ?? 0) : 0,
-        'logic'        => $formdata->logic,
-        'expression'   => $formdata->logic === 'expression' ? trim($formdata->expression) : null,
         'enabled'      => $formdata->enabled,
         'usermodified' => $USER->id,
         'timemodified' => $now,
@@ -69,6 +86,7 @@ if ($mform->is_cancelled()) {
         $ruleid = $record->id;
     } else {
         $record->timecreated = $now;
+        $record->logic = 'all';
         $ruleid = $DB->insert_record('tool_automate_rule', $record);
     }
     redirect(new moodle_url('/admin/tool/automate/edit.php', ['id' => $ruleid]));
@@ -131,6 +149,12 @@ if ($id) {
         'type' => 'submit', 'value' => get_string('add', 'tool_automate'),
     ]);
     echo html_writer::end_tag('form');
+
+    // Logic — only meaningful with 2+ conditions.
+    if (count($conditions) >= 2) {
+        echo $OUTPUT->heading(get_string('logicheading', 'tool_automate'), 3);
+        $logicform->display();
+    }
 
     // Actions list.
     echo $OUTPUT->heading(get_string('actionheading', 'tool_automate'), 3);

@@ -80,46 +80,9 @@ class rule_form extends \moodleform {
         $mform->hideIf('roleid', 'triggertype', 'neq', 'event');
         $mform->hideIf('roleid', 'eventname', 'neq', '\core\event\role_assigned');
 
-        // Logic.
-        $logics = [
-            'all'        => get_string('logic_all', 'tool_automate'),
-            'any'        => get_string('logic_any', 'tool_automate'),
-            'expression' => get_string('logic_expression', 'tool_automate'),
-        ];
-        $mform->addElement('select', 'logic', get_string('logic', 'tool_automate'), $logics);
-        $mform->addElement(
-            'textarea',
-            'expression',
-            get_string('expression', 'tool_automate'),
-            ['rows' => 2, 'cols' => 50, 'placeholder' => 'c1 AND (c2 OR c3)']
-        );
-        $mform->setType('expression', PARAM_TEXT);
-        $mform->addHelpButton('expression', 'expression', 'tool_automate');
-        $mform->hideIf('expression', 'logic', 'neq', 'expression');
-
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
 
         $this->add_action_buttons(true, get_string('savechanges', 'tool_automate'));
-    }
-
-    /**
-     * Server-side validation.
-     *
-     * @param array $data
-     * @param array $files
-     * @return array
-     */
-    public function validation($data, $files) {
-        $errors = parent::validation($data, $files);
-        if (($data['logic'] ?? '') === 'expression') {
-            $expr = trim((string) ($data['expression'] ?? ''));
-            if ($expr === '') {
-                $errors['expression'] = get_string('required');
-            } else if ($err = \tool_automate\expression::validate($expr)) {
-                $errors['expression'] = $err;
-            }
-        }
-        return $errors;
     }
 }
