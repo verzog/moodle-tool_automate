@@ -13,7 +13,7 @@ user is created, or manually.
 
 ## Requirements
 
-* Moodle 5.0+ (PHP 8.2 or later)
+* Moodle 5.0+ (PHP 8.2 or later; Moodle 5.2 requires PHP 8.3 or later)
 
 ## Installing via uploaded ZIP file
 
@@ -28,6 +28,11 @@ user is created, or manually.
 The plugin can be also installed by putting the contents of this directory to
 
     {your/moodle/dirroot}/admin/tool/automate
+
+Note that on Moodle 5.1 and later the web root is the `public/` directory, so
+the plugin directory is `{your/moodle/projectroot}/public/admin/tool/automate`.
+The plugin supports both layouts - its pages resolve `config.php` relative to
+the web root, exactly as core admin tools do.
 
 Afterwards, log in to your Moodle site as an admin and go to *Site
 administration > Notifications* to complete the installation.
