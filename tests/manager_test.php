@@ -78,6 +78,12 @@ final class manager_test extends \advanced_testcase {
         // An empty pattern never matches.
         $empty = new condition\email_matches(['pattern' => '']);
         $this->assertFalse($empty->matches((object) ['email' => 'jane@sccaorg.au']));
+
+        // A pattern with no wildcard is treated as a substring match.
+        $substring = new condition\email_matches(['pattern' => '@example.com']);
+        $this->assertTrue($substring->matches((object) ['email' => 'alice@example.com']));
+        $this->assertTrue($substring->matches((object) ['email' => 'Alice@Example.com']));
+        $this->assertFalse($substring->matches((object) ['email' => 'alice@other.org']));
     }
 
     /**

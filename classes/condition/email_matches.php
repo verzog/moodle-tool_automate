@@ -44,6 +44,11 @@ class email_matches extends condition_base {
         if ($pattern === '' || empty($user->email)) {
             return false;
         }
+        // If the admin didn't use any wildcards, treat the pattern as a
+        // substring match — so "@example.com" finds "alice@example.com".
+        if (strpos($pattern, '*') === false) {
+            $pattern = '*' . $pattern . '*';
+        }
         // Turn the wildcard pattern into a safe, case-insensitive regex.
         $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/i';
         return (bool) preg_match($regex, $user->email);
