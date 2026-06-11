@@ -39,10 +39,11 @@ to `tool_automate_log`.
 
 The trigger/condition/action design and several action concepts are inspired by
 the open-source work of [Catalyst IT Australia](https://www.catalyst-au.net/),
-in particular [`tool_dataflows`](https://github.com/catalyst/moodle-tool_dataflows)
-(GPL v3). Sincere thanks to Catalyst IT and the contributors to that project,
-whose work this plugin builds on conceptually. This is an independent plugin and
-is not affiliated with or endorsed by Catalyst IT.
+in particular their `tool_dataflows` plugin (GPL v3), which has since been
+withdrawn from public distribution. Sincere thanks to Catalyst IT and the
+contributors to that project, whose work this plugin builds on conceptually.
+This is an independent plugin - it shares no code with `tool_dataflows` and is
+not affiliated with or endorsed by Catalyst IT.
 
 Thanks also to the wider Moodle community, whose core APIs (events, scheduled
 tasks, forms, and the privacy API) make plugins like this possible.
