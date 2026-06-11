@@ -63,6 +63,7 @@ abstract class action_base {
      * @param \MoodleQuickForm $mform
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
+        unset($mform);
     }
 
     /**
@@ -72,6 +73,7 @@ abstract class action_base {
      * @return array Decoded config to be JSON-encoded into configdata.
      */
     public static function extract_config(\stdClass $formdata): array {
+        unset($formdata);
         return [];
     }
 
@@ -82,6 +84,7 @@ abstract class action_base {
      * @return array Field name => value.
      */
     public static function config_to_form_defaults(array $config): array {
+        unset($config);
         return [];
     }
 
@@ -92,6 +95,7 @@ abstract class action_base {
      * @return string
      */
     public static function describe(array $config): string {
+        unset($config);
         return static::get_name();
     }
 }
