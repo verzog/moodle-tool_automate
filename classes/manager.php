@@ -33,11 +33,13 @@ class manager {
      */
     public static function get_condition_types(): array {
         return [
-            'email_matches'      => condition\email_matches::class,
-            'inactive_for_days'  => condition\inactive_for_days::class,
-            'profile_field'      => condition\profile_field::class,
-            'auth_method'        => condition\auth_method::class,
-            'cohort_membership'  => condition\cohort_membership::class,
+            'email_matches'        => condition\email_matches::class,
+            'inactive_for_days'    => condition\inactive_for_days::class,
+            'profile_field'        => condition\profile_field::class,
+            'auth_method'          => condition\auth_method::class,
+            'cohort_membership'    => condition\cohort_membership::class,
+            'account_age'          => condition\account_age::class,
+            'custom_profile_field' => condition\custom_profile_field::class,
         ];
     }
 
@@ -54,6 +56,10 @@ class manager {
             'unsuspend_user'     => action\unsuspend_user::class,
             'assign_role'        => action\assign_role::class,
             'revoke_role'        => action\revoke_role::class,
+            'enrol_in_course'    => action\enrol_in_course::class,
+            'add_to_group'       => action\add_to_group::class,
+            'send_email'         => action\send_email::class,
+            'set_profile_field'  => action\set_profile_field::class,
         ];
     }
 

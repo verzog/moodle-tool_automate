@@ -45,17 +45,33 @@ echo $OUTPUT->header();
 if ($dryrun) {
     echo $OUTPUT->notification(get_string('dryrunnotice', 'tool_automate'), 'info');
 }
-echo html_writer::tag('p', get_string('matchedusers', 'tool_automate', count($results)));
 
-if ($results) {
+// Group action results by user so each user shows up once with the list
+// of changes underneath, then count distinct users matched.
+$byuser = [];
+foreach ($results as $row) {
+    $byuser[$row->userid]['fullname'] = $row->fullname;
+    $byuser[$row->userid]['changes'][] = $row;
+}
+echo html_writer::tag('p', get_string('matchedusers', 'tool_automate', count($byuser)));
+
+if ($byuser) {
     $table = new html_table();
     $table->head = [
         get_string('user', 'tool_automate'),
-        get_string('outcome', 'tool_automate'),
-        get_string('message', 'tool_automate'),
+        $dryrun
+            ? get_string('plannedchanges', 'tool_automate')
+            : get_string('changes', 'tool_automate'),
     ];
-    foreach ($results as $row) {
-        $table->data[] = [s($row->fullname), s($row->outcome), s($row->message)];
+    $table->attributes['class'] = 'generaltable tool_automate_results';
+    foreach ($byuser as $entry) {
+        $items = [];
+        foreach ($entry['changes'] as $r) {
+            $cls = $r->outcome === 'error' ? 'text-danger' : '';
+            $items[] = html_writer::tag('li', s($r->message), ['class' => $cls]);
+        }
+        $list = html_writer::tag('ul', implode('', $items), ['class' => 'mb-0']);
+        $table->data[] = [s($entry['fullname']), $list];
     }
     echo html_writer::table($table);
 }

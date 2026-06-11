@@ -26,19 +26,74 @@ namespace tool_automate;
  */
 class observer {
     /**
+     * Run matching rules against a user for the given event name.
+     *
+     * @param string $eventname Fully qualified event class.
+     * @param int $userid The user the event acted on.
+     * @param array $extra Extra filters: ['courseid' => int] / ['roleid' => int].
+     */
+    protected static function dispatch(string $eventname, int $userid, array $extra = []): void {
+        global $DB;
+        if (!$userid) {
+            return;
+        }
+        $where = ['enabled' => 1, 'triggertype' => 'event', 'eventname' => $eventname];
+        foreach (['courseid', 'roleid'] as $field) {
+            if (array_key_exists($field, $extra)) {
+                $where[$field] = (int) $extra[$field];
+            }
+        }
+        $rules = $DB->get_records('tool_automate_rule', $where);
+        foreach ($rules as $rule) {
+            manager::run_rule((int) $rule->id, false, $userid);
+        }
+    }
+
+    /**
      * Handle a new user being created.
      *
      * @param \core\event\user_created $event
      */
     public static function user_created(\core\event\user_created $event): void {
-        global $DB;
-        $rules = $DB->get_records('tool_automate_rule', [
-            'enabled'     => 1,
-            'triggertype' => 'event',
-            'eventname'   => '\core\event\user_created',
-        ]);
-        foreach ($rules as $rule) {
-            manager::run_rule((int) $rule->id, false, (int) $event->objectid);
-        }
+        self::dispatch('\\core\\event\\user_created', (int) $event->objectid);
+    }
+
+    /**
+     * Handle a user being updated.
+     *
+     * @param \core\event\user_updated $event
+     */
+    public static function user_updated(\core\event\user_updated $event): void {
+        self::dispatch('\\core\\event\\user_updated', (int) $event->objectid);
+    }
+
+    /**
+     * Handle a user logging in.
+     *
+     * @param \core\event\user_loggedin $event
+     */
+    public static function user_loggedin(\core\event\user_loggedin $event): void {
+        self::dispatch('\\core\\event\\user_loggedin', (int) $event->objectid);
+    }
+
+    /**
+     * Handle a user completing a course. Only rules pinned to that course fire.
+     *
+     * @param \core\event\course_completed $event
+     */
+    public static function course_completed(\core\event\course_completed $event): void {
+        $userid = (int) ($event->relateduserid ?: $event->userid);
+        self::dispatch('\\core\\event\\course_completed', $userid, ['courseid' => (int) $event->courseid]);
+    }
+
+    /**
+     * Handle a role being assigned. Only rules pinned to that role fire.
+     *
+     * @param \core\event\role_assigned $event
+     */
+    public static function role_assigned(\core\event\role_assigned $event): void {
+        $userid = (int) ($event->relateduserid ?: $event->userid);
+        $roleid = (int) ($event->other['id'] ?? 0);
+        self::dispatch('\\core\\event\\role_assigned', $userid, ['roleid' => $roleid]);
     }
 }

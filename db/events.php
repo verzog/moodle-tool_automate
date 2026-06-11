@@ -29,4 +29,20 @@ $observers = [
         'eventname' => '\core\event\user_created',
         'callback'  => 'tool_automate\observer::user_created',
     ],
+    [
+        'eventname' => '\core\event\user_updated',
+        'callback'  => 'tool_automate\observer::user_updated',
+    ],
+    [
+        'eventname' => '\core\event\user_loggedin',
+        'callback'  => 'tool_automate\observer::user_loggedin',
+    ],
+    [
+        'eventname' => '\core\event\course_completed',
+        'callback'  => 'tool_automate\observer::course_completed',
+    ],
+    [
+        'eventname' => '\core\event\role_assigned',
+        'callback'  => 'tool_automate\observer::role_assigned',
+    ],
 ];

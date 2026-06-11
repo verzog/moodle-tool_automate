@@ -66,5 +66,39 @@ function xmldb_tool_automate_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026061200, 'tool', 'automate');
     }
 
+    if ($oldversion < 2026061300) {
+        $table = new xmldb_table('tool_automate_rule');
+
+        $field = new xmldb_field(
+            'courseid',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'expression'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $field = new xmldb_field(
+            'roleid',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'courseid'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026061300, 'tool', 'automate');
+    }
+
     return true;
 }
