@@ -24,6 +24,7 @@ namespace tool_automate;
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
  */
 class manager {
     /**
@@ -122,16 +123,7 @@ class manager {
         $logic = $rule->logic ?? 'all';
 
         if ($logic === 'expression' && !empty($rule->expression)) {
-            $values = [];
-            foreach ($conditions as $i => $entry) {
-                $key = 'c' . ($i + 1);
-                $values[$key] = (bool) $entry['object']->matches($user);
-            }
-            try {
-                return expression::evaluate($rule->expression, $values);
-            } catch (\Throwable $e) {
-                return false;
-            }
+            return self::evaluate_expression((string) $rule->expression, $conditions, $user);
         }
 
         if ($logic === 'any') {
@@ -150,6 +142,26 @@ class manager {
             }
         }
         return true;
+    }
+
+    /**
+     * Evaluate the boolean expression against the per-condition results.
+     *
+     * @param string $expression
+     * @param array $conditions
+     * @param \stdClass $user
+     * @return bool
+     */
+    protected static function evaluate_expression(string $expression, array $conditions, \stdClass $user): bool {
+        $values = [];
+        foreach ($conditions as $i => $entry) {
+            $values['c' . ($i + 1)] = (bool) $entry['object']->matches($user);
+        }
+        try {
+            return expression::evaluate($expression, $values);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**

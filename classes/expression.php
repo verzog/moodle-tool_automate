@@ -62,23 +62,37 @@ class expression {
                 continue;
             }
             if (ctype_alpha($ch) || $ch === '_') {
-                $j = $i + 1;
-                while ($j < $len && (ctype_alnum($input[$j]) || $input[$j] === '_')) {
-                    $j++;
-                }
-                $word = substr($input, $i, $j - $i);
-                $upper = strtoupper($word);
-                if (in_array($upper, ['AND', 'OR', 'NOT', 'TRUE', 'FALSE'], true)) {
-                    $tokens[] = ['type' => $upper, 'value' => $upper];
-                } else {
-                    $tokens[] = ['type' => 'IDENT', 'value' => $word];
-                }
-                $i = $j;
+                $i = self::tokenise_word($input, $i, $len, $tokens);
                 continue;
             }
             throw new \invalid_parameter_exception("Unexpected character '$ch' in expression");
         }
         return $tokens;
+    }
+
+    /**
+     * Read an identifier (or reserved word) starting at $i and append a
+     * token. Returns the new cursor position.
+     *
+     * @param string $input
+     * @param int $i
+     * @param int $len
+     * @param array $tokens
+     * @return int
+     */
+    private static function tokenise_word(string $input, int $i, int $len, array &$tokens): int {
+        $j = $i + 1;
+        while ($j < $len && (ctype_alnum($input[$j]) || $input[$j] === '_')) {
+            $j++;
+        }
+        $word = substr($input, $i, $j - $i);
+        $upper = strtoupper($word);
+        if (in_array($upper, ['AND', 'OR', 'NOT', 'TRUE', 'FALSE'], true)) {
+            $tokens[] = ['type' => $upper, 'value' => $upper];
+        } else {
+            $tokens[] = ['type' => 'IDENT', 'value' => $word];
+        }
+        return $j;
     }
 
     /**

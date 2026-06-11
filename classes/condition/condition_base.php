@@ -62,6 +62,7 @@ abstract class condition_base {
      * generic condition_form can read them back unambiguously.
      *
      * @param \MoodleQuickForm $mform
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
     }
@@ -71,6 +72,7 @@ abstract class condition_base {
      *
      * @param \stdClass $formdata
      * @return array Decoded config to be JSON-encoded into configdata.
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function extract_config(\stdClass $formdata): array {
         return [];
@@ -81,6 +83,7 @@ abstract class condition_base {
      *
      * @param array $config Decoded configdata.
      * @return array Field name => value, ready for $mform->set_data().
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function config_to_form_defaults(array $config): array {
         return [];
@@ -91,6 +94,7 @@ abstract class condition_base {
      *
      * @param array $config Decoded configdata.
      * @return string
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function describe(array $config): string {
         return static::get_name();
@@ -103,6 +107,7 @@ abstract class condition_base {
      * @param array $config Decoded configdata.
      * @return array [string $sqlfragment, array $params] where the
      *               fragment references the user table alias `u`.
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public static function get_user_sql_filter(array $config): array {
         return ['', []];
