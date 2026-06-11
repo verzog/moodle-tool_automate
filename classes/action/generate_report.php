@@ -86,8 +86,8 @@ class generate_report extends action_base {
         }
 
         if ($dryrun) {
-            return get_string('reportwould', 'tool_automate',
-                (object) ['count' => $count, 'recipient' => s($recipient ?: '?')]);
+            $a = (object) ['count' => $count, 'recipient' => s($recipient ?: '?')];
+            return get_string('reportwould', 'tool_automate', $a);
         }
 
         $savedurl = $this->save_to_filearea($body, $attachment);
@@ -110,8 +110,8 @@ class generate_report extends action_base {
      */
     protected function build_summary(string $rulename, int $count): string {
         $when = userdate(time());
-        return get_string('reportsummary', 'tool_automate',
-            (object) ['rule' => s($rulename), 'when' => $when, 'count' => $count]);
+        $a = (object) ['rule' => s($rulename), 'when' => $when, 'count' => $count];
+        return get_string('reportsummary', 'tool_automate', $a);
     }
 
     /**
@@ -215,12 +215,12 @@ class generate_report extends action_base {
         ];
         $mform->addElement('select', 'config_content', get_string('reportcontent', 'tool_automate'), $modes);
 
-        $mform->addElement('text', 'config_recipient',
-            get_string('reportrecipient', 'tool_automate'), ['size' => 40]);
+        $recipientlabel = get_string('reportrecipient', 'tool_automate');
+        $mform->addElement('text', 'config_recipient', $recipientlabel, ['size' => 40]);
         $mform->setType('config_recipient', PARAM_EMAIL);
 
-        $mform->addElement('text', 'config_reporturl',
-            get_string('reporturl', 'tool_automate'), ['size' => 60]);
+        $urllabel = get_string('reporturl', 'tool_automate');
+        $mform->addElement('text', 'config_reporturl', $urllabel, ['size' => 60]);
         $mform->setType('config_reporturl', PARAM_URL);
         $mform->hideIf('config_reporturl', 'config_content', 'neq', 'trigger');
     }
