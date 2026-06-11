@@ -73,7 +73,7 @@ class enrol_in_course extends action_base {
         global $DB;
         $courses = $DB->get_records_menu('course', null, 'fullname', 'id, fullname', 0, 500);
         unset($courses[SITEID]);
-        $roles = role_get_names(\context_system::instance(), ROLENAME_ALIAS, true);
+        $roles = role_get_names(\context_system::instance(), ROLENAME_ALIAS);
         $roleoptions = [0 => get_string('defaultrole', 'tool_automate')];
         foreach ($roles as $r) {
             $roleoptions[$r->id] = $r->localname;
