@@ -1,4 +1,19 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
 namespace tool_automate;
 
 /**
@@ -7,11 +22,10 @@ namespace tool_automate;
  * and log everything.
  *
  * @package    tool_automate
- * @copyright  2026 Your Name <you@example.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @copyright  2026 verzog <verzog@gmail.com>
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class manager {
-
     /**
      * Registry of condition types. To add a condition, add one line here.
      *
@@ -146,6 +160,12 @@ class manager {
 
     /**
      * Write a log row.
+     *
+     * @param int $ruleid The rule that ran.
+     * @param int|null $userid The user the rule acted on.
+     * @param bool $dryrun Whether this was a preview run.
+     * @param string $outcome Short outcome code ('actioned' or 'error').
+     * @param string $message Human-readable detail of what happened.
      */
     protected static function log(int $ruleid, ?int $userid, bool $dryrun, string $outcome, string $message): void {
         global $DB;

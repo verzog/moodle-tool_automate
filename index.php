@@ -1,5 +1,26 @@
 <?php
-// GPL v3 or later. @package tool_automate.
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * Rule list and delete handling.
+ *
+ * @package    tool_automate
+ * @copyright  2026 verzog <verzog@gmail.com>
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 require(__DIR__ . '/../../../config.php');
 
@@ -26,7 +47,7 @@ if ($delete && confirm_sesskey()) {
     }
     echo $OUTPUT->header();
     $yesurl = new moodle_url($baseurl, ['delete' => $delete, 'confirm' => 1, 'sesskey' => sesskey()]);
-    echo $OUTPUT->confirm(get_string('confirmdelete', 'tool_automate', $rule->name), $yesurl, $baseurl);
+    echo $OUTPUT->confirm(get_string('confirmdelete', 'tool_automate', format_string($rule->name)), $yesurl, $baseurl);
     echo $OUTPUT->footer();
     exit;
 }
@@ -52,10 +73,14 @@ if (!$rules) {
     ];
     foreach ($rules as $rule) {
         $editurl = new moodle_url('/admin/tool/automate/edit.php', ['id' => $rule->id]);
-        $previewurl = new moodle_url('/admin/tool/automate/run.php',
-            ['id' => $rule->id, 'dryrun' => 1, 'sesskey' => sesskey()]);
-        $runurl = new moodle_url('/admin/tool/automate/run.php',
-            ['id' => $rule->id, 'dryrun' => 0, 'sesskey' => sesskey()]);
+        $previewurl = new moodle_url(
+            '/admin/tool/automate/run.php',
+            ['id' => $rule->id, 'dryrun' => 1, 'sesskey' => sesskey()]
+        );
+        $runurl = new moodle_url(
+            '/admin/tool/automate/run.php',
+            ['id' => $rule->id, 'dryrun' => 0, 'sesskey' => sesskey()]
+        );
         $deleteurl = new moodle_url($baseurl, ['delete' => $rule->id, 'sesskey' => sesskey()]);
 
         $links = html_writer::link($editurl, get_string('edit', 'tool_automate')) . ' | ' .

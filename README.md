@@ -7,19 +7,38 @@ language - every rule is a single form.
 
 ## Status
 
-Version 0.1.0 (alpha). The first working slice is **"add users to a cohort when
+Version 0.1.1 (alpha). The first working slice is **"add users to a cohort when
 their email matches a pattern"**, which can be triggered on a schedule, when a
 user is created, or manually.
 
 ## Requirements
 
-* Moodle 4.5+ (PHP 8.1-8.3)
+* Moodle 5.0+ (PHP 8.2 or later)
 
-## Install
+## Installing via uploaded ZIP file
 
-Copy this folder to `admin/tool/automate` in your Moodle, then visit
-*Site administration > Notifications* to complete the install. Manage rules at
-*Site administration > Plugins > Admin tools > Automate*.
+1. Log in to your Moodle site as an admin and go to *Site administration >
+   Plugins > Install plugins*.
+2. Upload the ZIP file with the plugin code. You should only be prompted to
+   add extra details if your plugin type is not automatically detected.
+3. Check the plugin validation report and finish the installation.
+
+## Installing manually
+
+The plugin can be also installed by putting the contents of this directory to
+
+    {your/moodle/dirroot}/admin/tool/automate
+
+Afterwards, log in to your Moodle site as an admin and go to *Site
+administration > Notifications* to complete the installation.
+
+Alternatively, you can run
+
+    $ php admin/cli/upgrade.php
+
+to complete the installation from the command line.
+
+Manage rules at *Site administration > Plugins > Admin tools > Automate*.
 
 ## Safety
 
@@ -56,4 +75,16 @@ please open an issue or pull request.
 
 ## Licence
 
-GNU GPL v3 or later.
+2026 verzog <verzog@gmail.com>
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <https://www.gnu.org/licenses/>.
