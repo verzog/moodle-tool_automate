@@ -29,7 +29,7 @@ class manager {
     /**
      * Registry of condition types.
      *
-     * @return array<string, class-string<condition\condition_base>>
+     * @return array Type code => fully qualified class name.
      */
     public static function get_condition_types(): array {
         return [
@@ -44,7 +44,7 @@ class manager {
     /**
      * Registry of action types.
      *
-     * @return array<string, class-string<action\action_base>>
+     * @return array Type code => fully qualified class name.
      */
     public static function get_action_types(): array {
         return [
@@ -63,7 +63,7 @@ class manager {
      * @param int $ruleid
      * @param bool $dryrun
      * @param int|null $onlyuserid Restrict to one user (used by event triggers).
-     * @return array<int, \stdClass> Result rows {userid, fullname, outcome, message}.
+     * @return array Result rows {userid, fullname, outcome, message}.
      */
     public static function run_rule(int $ruleid, bool $dryrun, ?int $onlyuserid = null): array {
         global $DB;
@@ -105,7 +105,7 @@ class manager {
      * Evaluate a rule's conditions for one user.
      *
      * @param \stdClass $rule
-     * @param array<int, array{record: \stdClass, object: condition\condition_base}> $conditions
+     * @param array $conditions Output of self::load_conditions().
      * @param \stdClass $user
      * @return bool
      */
@@ -151,7 +151,7 @@ class manager {
      * can read configdata for SQL pre-filters) and the instantiated object.
      *
      * @param int $ruleid
-     * @return array<int, array{record: \stdClass, object: condition\condition_base}>
+     * @return array List of ['record' => stdClass, 'object' => condition_base].
      */
     public static function load_conditions(int $ruleid): array {
         global $DB;

@@ -58,7 +58,6 @@ if (!isset($types[$type])) {
     redirect($ruleurl, get_string('chooseatype', 'tool_automate'), null,
         \core\output\notification::NOTIFY_WARNING);
 }
-/** @var class-string<\tool_automate\action\action_base> $class */
 $class = $types[$type];
 
 $mform = new action_form(null, ['type' => $type]);

@@ -39,7 +39,6 @@ class action_form extends \moodleform {
         if (!isset($types[$type])) {
             throw new \moodle_exception('invalidparameter');
         }
-        /** @var class-string<\tool_automate\action\action_base> $class */
         $class = $types[$type];
         $class::add_config_form_elements($mform);
 

@@ -33,7 +33,7 @@ namespace tool_automate;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class expression {
-    /** @var array<int, array{type:string, value:string}> */
+    /** @var array Token list. */
     private array $tokens;
 
     /** @var int Current token index. */
@@ -43,7 +43,7 @@ class expression {
      * Tokenise the input.
      *
      * @param string $input
-     * @return array<int, array{type:string, value:string}>
+     * @return array
      * @throws \invalid_parameter_exception On invalid input.
      */
     private static function tokenise(string $input): array {
@@ -85,7 +85,7 @@ class expression {
      * Evaluate the expression against a map of identifier => bool.
      *
      * @param string $input
-     * @param array<string, bool> $values
+     * @param array $values Map of identifier => bool.
      * @return bool
      * @throws \invalid_parameter_exception On parse error.
      */
@@ -121,7 +121,7 @@ class expression {
     /**
      * Parse expr = term (OR term)*.
      *
-     * @param array<string, bool> $values
+     * @param array $values Identifier map.
      * @return bool
      */
     private function parse_expr(array $values): bool {
@@ -137,7 +137,7 @@ class expression {
     /**
      * Parse term = factor (AND factor)*.
      *
-     * @param array<string, bool> $values
+     * @param array $values Identifier map.
      * @return bool
      */
     private function parse_term(array $values): bool {
@@ -153,7 +153,7 @@ class expression {
     /**
      * Parse factor = NOT factor | '(' expr ')' | IDENT | TRUE | FALSE.
      *
-     * @param array<string, bool> $values
+     * @param array $values Identifier map.
      * @return bool
      */
     private function parse_factor(array $values): bool {
