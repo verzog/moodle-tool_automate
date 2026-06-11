@@ -73,8 +73,12 @@ class rule_form extends \moodleform {
             $condtypes[$type] = $class::get_name();
         }
         $mform->addElement('select', 'conditiontype', get_string('conditiontype', 'tool_automate'), $condtypes);
-        $mform->addElement('text', 'emailpattern', get_string('emailpattern', 'tool_automate'),
-            ['size' => 40, 'placeholder' => '@example.com']);
+        $mform->addElement(
+            'text',
+            'emailpattern',
+            get_string('emailpattern', 'tool_automate'),
+            ['size' => 40, 'placeholder' => '@example.com']
+        );
         $mform->setType('emailpattern', PARAM_TEXT);
         $mform->addHelpButton('emailpattern', 'emailpattern', 'tool_automate');
 
