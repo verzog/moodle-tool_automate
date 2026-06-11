@@ -1,6 +1,9 @@
 name: Moodle Plugin CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 env:
   TZ: Australia/Sydney
@@ -35,6 +38,10 @@ jobs:
         php: ['8.2', '8.3']
         moodle-branch: ['MOODLE_500_STABLE', 'MOODLE_501_STABLE', 'MOODLE_502_STABLE']
         database: [pgsql, mysqli]
+        exclude:
+          # Moodle 5.2 requires PHP 8.3 or later.
+          - php: '8.2'
+            moodle-branch: 'MOODLE_502_STABLE'
         include:
           - php: '8.4'
             moodle-branch: 'MOODLE_502_STABLE'

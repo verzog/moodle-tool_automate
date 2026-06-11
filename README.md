@@ -13,7 +13,7 @@ user is created, or manually.
 
 ## Requirements
 
-* Moodle 5.0+ (PHP 8.2 or later)
+* Moodle 5.0+ (PHP 8.2 or later; Moodle 5.2 requires PHP 8.3 or later)
 
 ## Installing via uploaded ZIP file
 
