@@ -14,19 +14,41 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+namespace tool_automate\action;
+
 /**
- * Plugin version and metadata.
+ * Action: unsuspend the user account.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+class unsuspend_user extends action_base {
+    /**
+     * Name.
+     *
+     * @return string
+     */
+    public static function get_name(): string {
+        return get_string('act_unsuspend_user', 'tool_automate');
+    }
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'tool_automate';
-$plugin->version   = 2026061200;
-$plugin->requires  = 2025041400; // Moodle 5.0.
-$plugin->supported = [500, 502];
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = '0.2.0 (Build 2026061200)';
+    /**
+     * Unsuspend.
+     *
+     * @param \stdClass $user
+     * @param bool $dryrun
+     * @return string
+     */
+    public function execute(\stdClass $user, bool $dryrun): string {
+        global $DB;
+        if (empty($user->suspended)) {
+            return get_string('notsuspended', 'tool_automate');
+        }
+        if ($dryrun) {
+            return get_string('wouldunsuspend', 'tool_automate');
+        }
+        $DB->set_field('user', 'suspended', 0, ['id' => $user->id]);
+        return get_string('unsuspended', 'tool_automate');
+    }
+}

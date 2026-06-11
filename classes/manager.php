@@ -18,8 +18,8 @@ namespace tool_automate;
 
 /**
  * The engine. Holds the registry of available condition/action types and
- * runs a rule: find the target users, check the conditions, run the actions,
- * and log everything.
+ * runs a rule: find target users, evaluate conditions per the rule's
+ * logic, run actions, log everything.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
@@ -27,34 +27,43 @@ namespace tool_automate;
  */
 class manager {
     /**
-     * Registry of condition types. To add a condition, add one line here.
+     * Registry of condition types.
      *
-     * @return array type => fully qualified class name
+     * @return array<string, class-string<condition\condition_base>>
      */
     public static function get_condition_types(): array {
         return [
-            'email_matches' => \tool_automate\condition\email_matches::class,
+            'email_matches'      => condition\email_matches::class,
+            'inactive_for_days'  => condition\inactive_for_days::class,
+            'profile_field'      => condition\profile_field::class,
+            'auth_method'        => condition\auth_method::class,
+            'cohort_membership'  => condition\cohort_membership::class,
         ];
     }
 
     /**
-     * Registry of action types. To add an action, add one line here.
+     * Registry of action types.
      *
-     * @return array type => fully qualified class name
+     * @return array<string, class-string<action\action_base>>
      */
     public static function get_action_types(): array {
         return [
-            'add_to_cohort' => \tool_automate\action\add_to_cohort::class,
+            'add_to_cohort'      => action\add_to_cohort::class,
+            'remove_from_cohort' => action\remove_from_cohort::class,
+            'suspend_user'       => action\suspend_user::class,
+            'unsuspend_user'     => action\unsuspend_user::class,
+            'assign_role'        => action\assign_role::class,
+            'revoke_role'        => action\revoke_role::class,
         ];
     }
 
     /**
-     * Run a rule. Returns a list of result rows for display/logging.
+     * Run a rule.
      *
      * @param int $ruleid
-     * @param bool $dryrun If true, make no changes.
-     * @param int|null $onlyuserid Restrict to a single user (used by event triggers).
-     * @return array Array of objects: {userid, fullname, outcome, message}
+     * @param bool $dryrun
+     * @param int|null $onlyuserid Restrict to one user (used by event triggers).
+     * @return array<int, \stdClass> Result rows {userid, fullname, outcome, message}.
      */
     public static function run_rule(int $ruleid, bool $dryrun, ?int $onlyuserid = null): array {
         global $DB;
@@ -62,23 +71,16 @@ class manager {
         $rule = $DB->get_record('tool_automate_rule', ['id' => $ruleid], '*', MUST_EXIST);
         $conditions = self::load_conditions($ruleid);
         $actions = self::load_actions($ruleid);
-        $users = self::get_target_users($onlyuserid);
+        $users = self::get_target_users($ruleid, $onlyuserid);
 
         $results = [];
         foreach ($users as $user) {
-            // A user must satisfy every condition (logical AND).
-            $matched = true;
-            foreach ($conditions as $condition) {
-                if (!$condition->matches($user)) {
-                    $matched = false;
-                    break;
-                }
-            }
-            if (!$matched) {
+            if (!self::evaluate_conditions($rule, $conditions, $user)) {
                 continue;
             }
-
-            // Run each action and record the outcome.
+            if (empty($actions)) {
+                continue;
+            }
             foreach ($actions as $action) {
                 try {
                     $message = $action->execute($user, $dryrun);
@@ -100,72 +102,138 @@ class manager {
     }
 
     /**
-     * Instantiate the condition objects attached to a rule.
+     * Evaluate a rule's conditions for one user.
      *
-     * @param int $ruleid
-     * @return condition\condition_base[]
+     * @param \stdClass $rule
+     * @param array<int, array{record: \stdClass, object: condition\condition_base}> $conditions
+     * @param \stdClass $user
+     * @return bool
      */
-    protected static function load_conditions(int $ruleid): array {
-        global $DB;
-        $types = self::get_condition_types();
-        $objects = [];
-        $records = $DB->get_records('tool_automate_condition', ['ruleid' => $ruleid], 'sortorder');
-        foreach ($records as $record) {
-            if (isset($types[$record->type])) {
-                $class = $types[$record->type];
-                $config = (array) json_decode($record->configdata ?? '{}', true);
-                $objects[] = new $class($config);
+    protected static function evaluate_conditions(\stdClass $rule, array $conditions, \stdClass $user): bool {
+        if (empty($conditions)) {
+            return true;
+        }
+        $logic = $rule->logic ?? 'all';
+
+        if ($logic === 'expression' && !empty($rule->expression)) {
+            $values = [];
+            foreach ($conditions as $i => $entry) {
+                $key = 'c' . ($i + 1);
+                $values[$key] = (bool) $entry['object']->matches($user);
+            }
+            try {
+                return expression::evaluate($rule->expression, $values);
+            } catch (\Throwable $e) {
+                return false;
             }
         }
-        return $objects;
+
+        if ($logic === 'any') {
+            foreach ($conditions as $entry) {
+                if ($entry['object']->matches($user)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Default: all (AND).
+        foreach ($conditions as $entry) {
+            if (!$entry['object']->matches($user)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
-     * Instantiate the action objects attached to a rule.
+     * Load conditions for a rule. Returns both the DB record (so callers
+     * can read configdata for SQL pre-filters) and the instantiated object.
+     *
+     * @param int $ruleid
+     * @return array<int, array{record: \stdClass, object: condition\condition_base}>
+     */
+    public static function load_conditions(int $ruleid): array {
+        global $DB;
+        $types = self::get_condition_types();
+        $out = [];
+        $records = $DB->get_records('tool_automate_condition', ['ruleid' => $ruleid], 'sortorder, id');
+        foreach ($records as $record) {
+            if (!isset($types[$record->type])) {
+                continue;
+            }
+            $class = $types[$record->type];
+            $config = (array) json_decode($record->configdata ?? '{}', true);
+            $out[] = ['record' => $record, 'object' => new $class($config)];
+        }
+        return $out;
+    }
+
+    /**
+     * Load actions for a rule.
      *
      * @param int $ruleid
      * @return action\action_base[]
      */
-    protected static function load_actions(int $ruleid): array {
+    public static function load_actions(int $ruleid): array {
         global $DB;
         $types = self::get_action_types();
-        $objects = [];
-        $records = $DB->get_records('tool_automate_action', ['ruleid' => $ruleid], 'sortorder');
+        $out = [];
+        $records = $DB->get_records('tool_automate_action', ['ruleid' => $ruleid], 'sortorder, id');
         foreach ($records as $record) {
-            if (isset($types[$record->type])) {
-                $class = $types[$record->type];
-                $config = (array) json_decode($record->configdata ?? '{}', true);
-                $objects[] = new $class($config);
+            if (!isset($types[$record->type])) {
+                continue;
             }
+            $class = $types[$record->type];
+            $config = (array) json_decode($record->configdata ?? '{}', true);
+            $out[] = new $class($config);
         }
-        return $objects;
+        return $out;
     }
 
     /**
-     * The set of users a rule is evaluated against.
+     * Build the candidate user set for a rule.
      *
+     * For event/manual single-user runs this is just that one user. For
+     * cron and manual all-user runs we start from all real, active users
+     * and let each condition apply an optional SQL pre-filter.
+     *
+     * @param int $ruleid
      * @param int|null $onlyuserid
      * @return \stdClass[]
      */
-    protected static function get_target_users(?int $onlyuserid): array {
+    protected static function get_target_users(int $ruleid, ?int $onlyuserid): array {
         global $DB, $CFG;
         if ($onlyuserid) {
             $user = $DB->get_record('user', ['id' => $onlyuserid, 'deleted' => 0]);
             return $user ? [$user] : [];
         }
-        // All real, active users. The guest account is excluded.
-        $select = 'deleted = 0 AND suspended = 0 AND id <> :guestid';
-        return $DB->get_records_select('user', $select, ['guestid' => $CFG->siteguest]);
+
+        $where = ['u.deleted = 0', 'u.id <> :guestid'];
+        $params = ['guestid' => $CFG->siteguest];
+
+        foreach (self::load_conditions($ruleid) as $entry) {
+            $class = get_class($entry['object']);
+            $config = (array) json_decode($entry['record']->configdata ?? '{}', true);
+            [$sql, $sqlparams] = $class::get_user_sql_filter($config);
+            if ($sql !== '') {
+                $where[] = $sql;
+                $params += $sqlparams;
+            }
+        }
+
+        $sql = 'SELECT u.* FROM {user} u WHERE ' . implode(' AND ', $where);
+        return $DB->get_records_sql($sql, $params);
     }
 
     /**
      * Write a log row.
      *
-     * @param int $ruleid The rule that ran.
-     * @param int|null $userid The user the rule acted on.
-     * @param bool $dryrun Whether this was a preview run.
-     * @param string $outcome Short outcome code ('actioned' or 'error').
-     * @param string $message Human-readable detail of what happened.
+     * @param int $ruleid
+     * @param int|null $userid
+     * @param bool $dryrun
+     * @param string $outcome
+     * @param string $message
      */
     protected static function log(int $ruleid, ?int $userid, bool $dryrun, string $outcome, string $message): void {
         global $DB;

@@ -60,6 +60,11 @@ echo $OUTPUT->single_button(
     get_string('newrule', 'tool_automate'),
     'get'
 );
+echo $OUTPUT->single_button(
+    new moodle_url('/admin/tool/automate/log.php'),
+    get_string('runhistory', 'tool_automate'),
+    'get'
+);
 
 $rules = $DB->get_records('tool_automate_rule', null, 'name');
 if (!$rules) {
