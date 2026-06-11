@@ -17,40 +17,31 @@
 namespace tool_automate\condition;
 
 /**
- * Condition: the user's email matches a wildcard or substring pattern.
+ * Condition: the user's auth method equals a configured value.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class email_matches extends condition_base {
+class auth_method extends condition_base {
     /**
-     * Human-readable name shown in the rule form.
+     * Name.
      *
      * @return string
      */
     public static function get_name(): string {
-        return get_string('cond_email_matches', 'tool_automate');
+        return get_string('cond_auth_method', 'tool_automate');
     }
 
     /**
-     * Does the user's email address match the configured pattern?
+     * Match.
      *
-     * @param \stdClass $user A full user record.
+     * @param \stdClass $user
      * @return bool
      */
     public function matches(\stdClass $user): bool {
-        $pattern = trim($this->config['pattern'] ?? '');
-        if ($pattern === '' || empty($user->email)) {
-            return false;
-        }
-        // If no wildcard, treat as a substring match so "@example.com"
-        // matches "alice@example.com".
-        if (strpos($pattern, '*') === false) {
-            $pattern = '*' . $pattern . '*';
-        }
-        $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/i';
-        return (bool) preg_match($regex, $user->email);
+        $auth = (string) ($this->config['auth'] ?? '');
+        return $auth !== '' && (string) ($user->auth ?? '') === $auth;
     }
 
     /**
@@ -59,14 +50,12 @@ class email_matches extends condition_base {
      * @param \MoodleQuickForm $mform
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
-        $mform->addElement(
-            'text',
-            'config_pattern',
-            get_string('emailpattern', 'tool_automate'),
-            ['size' => 40, 'placeholder' => '@example.com']
-        );
-        $mform->setType('config_pattern', PARAM_TEXT);
-        $mform->addHelpButton('config_pattern', 'emailpattern', 'tool_automate');
+        $enabled = get_enabled_auth_plugins();
+        $options = [];
+        foreach ($enabled as $a) {
+            $options[$a] = $a;
+        }
+        $mform->addElement('select', 'config_auth', get_string('authmethod', 'tool_automate'), $options);
     }
 
     /**
@@ -76,7 +65,7 @@ class email_matches extends condition_base {
      * @return array
      */
     public static function extract_config(\stdClass $formdata): array {
-        return ['pattern' => trim($formdata->config_pattern ?? '')];
+        return ['auth' => (string) ($formdata->config_auth ?? '')];
     }
 
     /**
@@ -86,7 +75,7 @@ class email_matches extends condition_base {
      * @return array
      */
     public static function config_to_form_defaults(array $config): array {
-        return ['config_pattern' => $config['pattern'] ?? ''];
+        return ['config_auth' => $config['auth'] ?? 'manual'];
     }
 
     /**
@@ -96,6 +85,6 @@ class email_matches extends condition_base {
      * @return string
      */
     public static function describe(array $config): string {
-        return get_string('cond_email_matches_desc', 'tool_automate', s($config['pattern'] ?? ''));
+        return get_string('cond_auth_method_desc', 'tool_automate', s($config['auth'] ?? ''));
     }
 }

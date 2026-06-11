@@ -54,4 +54,57 @@ abstract class condition_base {
      * @return bool
      */
     abstract public function matches(\stdClass $user): bool;
+
+    /**
+     * Add this condition's config fields to a form.
+     *
+     * Each implementation prefixes its field names with "config_" so the
+     * generic condition_form can read them back unambiguously.
+     *
+     * @param \MoodleQuickForm $mform
+     */
+    public static function add_config_form_elements(\MoodleQuickForm $mform): void {
+    }
+
+    /**
+     * Pull this condition's config out of submitted form data.
+     *
+     * @param \stdClass $formdata
+     * @return array Decoded config to be JSON-encoded into configdata.
+     */
+    public static function extract_config(\stdClass $formdata): array {
+        return [];
+    }
+
+    /**
+     * Map stored config back to form field defaults.
+     *
+     * @param array $config Decoded configdata.
+     * @return array Field name => value, ready for $mform->set_data().
+     */
+    public static function config_to_form_defaults(array $config): array {
+        return [];
+    }
+
+    /**
+     * One-line summary of the condition shown on the rule edit page.
+     *
+     * @param array $config Decoded configdata.
+     * @return string
+     */
+    public static function describe(array $config): string {
+        return static::get_name();
+    }
+
+    /**
+     * Optional SQL pre-filter to narrow the candidate user set on a cron
+     * scan. Returning ['', []] means "no pre-filter".
+     *
+     * @param array $config Decoded configdata.
+     * @return array [string $sqlfragment, array $params] where the
+     *               fragment references the user table alias `u`.
+     */
+    public static function get_user_sql_filter(array $config): array {
+        return ['', []];
+    }
 }

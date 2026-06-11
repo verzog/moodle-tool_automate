@@ -17,47 +17,46 @@
 namespace tool_automate\action;
 
 /**
- * Action: add the user to a cohort (cohort sync then handles enrolment).
+ * Action: assign a system-context role to the user.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class add_to_cohort extends action_base {
+class assign_role extends action_base {
     /**
-     * Human-readable name shown in the rule form.
+     * Name.
      *
      * @return string
      */
     public static function get_name(): string {
-        return get_string('act_add_to_cohort', 'tool_automate');
+        return get_string('act_assign_role', 'tool_automate');
     }
 
     /**
-     * Add the user to the configured cohort, or report what would happen.
+     * Assign.
      *
-     * @param \stdClass $user A full user record.
-     * @param bool $dryrun If true, make no changes.
-     * @return string A short message describing the outcome.
+     * @param \stdClass $user
+     * @param bool $dryrun
+     * @return string
      */
     public function execute(\stdClass $user, bool $dryrun): string {
-        global $CFG, $DB;
-        require_once($CFG->dirroot . '/cohort/lib.php');
-
-        $cohortid = (int) ($this->config['cohortid'] ?? 0);
-        if (!$cohortid || !$DB->record_exists('cohort', ['id' => $cohortid])) {
-            return get_string('cohortgone', 'tool_automate');
+        global $DB;
+        $roleid = (int) ($this->config['roleid'] ?? 0);
+        if (!$roleid || !$DB->record_exists('role', ['id' => $roleid])) {
+            return get_string('rolegone', 'tool_automate');
         }
-        $cohortname = $DB->get_field('cohort', 'name', ['id' => $cohortid]);
+        $rolename = role_get_name($DB->get_record('role', ['id' => $roleid]));
+        $context = \context_system::instance();
 
-        if (cohort_is_member($cohortid, $user->id)) {
-            return get_string('cohortalready', 'tool_automate', $cohortname);
+        if (user_has_role_assignment($user->id, $roleid, $context->id)) {
+            return get_string('rolealready', 'tool_automate', $rolename);
         }
         if ($dryrun) {
-            return get_string('cohortwouldadd', 'tool_automate', $cohortname);
+            return get_string('rolewouldassign', 'tool_automate', $rolename);
         }
-        cohort_add_member($cohortid, $user->id);
-        return get_string('cohortadded', 'tool_automate', $cohortname);
+        role_assign($roleid, $user->id, $context->id, 'tool_automate');
+        return get_string('roleassigned', 'tool_automate', $rolename);
     }
 
     /**
@@ -66,34 +65,33 @@ class add_to_cohort extends action_base {
      * @param \MoodleQuickForm $mform
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
-        global $DB;
-        $cohorts = $DB->get_records_menu('cohort', null, 'name', 'id, name');
-        $mform->addElement(
-            'select',
-            'config_cohortid',
-            get_string('cohort', 'tool_automate'),
-            $cohorts
-        );
+        $context = \context_system::instance();
+        $roles = role_get_names($context, ROLENAME_ALIAS, true);
+        $options = [];
+        foreach ($roles as $r) {
+            $options[$r->id] = $r->localname;
+        }
+        $mform->addElement('select', 'config_roleid', get_string('role', 'tool_automate'), $options);
     }
 
     /**
-     * Extract config.
+     * Extract.
      *
      * @param \stdClass $formdata
      * @return array
      */
     public static function extract_config(\stdClass $formdata): array {
-        return ['cohortid' => (int) ($formdata->config_cohortid ?? 0)];
+        return ['roleid' => (int) ($formdata->config_roleid ?? 0)];
     }
 
     /**
-     * Form defaults.
+     * Defaults.
      *
      * @param array $config
      * @return array
      */
     public static function config_to_form_defaults(array $config): array {
-        return ['config_cohortid' => (int) ($config['cohortid'] ?? 0)];
+        return ['config_roleid' => (int) ($config['roleid'] ?? 0)];
     }
 
     /**
@@ -104,7 +102,8 @@ class add_to_cohort extends action_base {
      */
     public static function describe(array $config): string {
         global $DB;
-        $name = $DB->get_field('cohort', 'name', ['id' => (int) ($config['cohortid'] ?? 0)]);
-        return get_string('act_add_to_cohort_desc', 'tool_automate', s($name ?: '?'));
+        $role = $DB->get_record('role', ['id' => (int) ($config['roleid'] ?? 0)]);
+        $name = $role ? role_get_name($role) : '?';
+        return get_string('act_assign_role_desc', 'tool_automate', s($name));
     }
 }

@@ -22,11 +22,8 @@ global $CFG;
 require_once($CFG->libdir . '/formslib.php');
 
 /**
- * Add/edit form for a rule.
- *
- * For this first version the form shows the config for the single available
- * condition (email pattern) and action (cohort) directly. When more types are
- * added, this graduates to per-type config supplied by each class.
+ * Add/edit form for a rule (metadata only). Conditions and actions are
+ * managed below the form on the same page via their own edit pages.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
@@ -37,7 +34,6 @@ class rule_form extends \moodleform {
      * Define the form fields.
      */
     protected function definition() {
-        global $DB;
         $mform = $this->_form;
 
         $mform->addElement('text', 'name', get_string('rulename', 'tool_automate'), ['size' => 50]);
@@ -66,36 +62,46 @@ class rule_form extends \moodleform {
         $mform->addElement('select', 'eventname', get_string('eventname', 'tool_automate'), $events);
         $mform->hideIf('eventname', 'triggertype', 'neq', 'event');
 
-        // Condition.
-        $mform->addElement('header', 'conditionheader', get_string('conditionheading', 'tool_automate'));
-        $condtypes = [];
-        foreach (\tool_automate\manager::get_condition_types() as $type => $class) {
-            $condtypes[$type] = $class::get_name();
-        }
-        $mform->addElement('select', 'conditiontype', get_string('conditiontype', 'tool_automate'), $condtypes);
+        // Logic.
+        $logics = [
+            'all'        => get_string('logic_all', 'tool_automate'),
+            'any'        => get_string('logic_any', 'tool_automate'),
+            'expression' => get_string('logic_expression', 'tool_automate'),
+        ];
+        $mform->addElement('select', 'logic', get_string('logic', 'tool_automate'), $logics);
         $mform->addElement(
-            'text',
-            'emailpattern',
-            get_string('emailpattern', 'tool_automate'),
-            ['size' => 40, 'placeholder' => '@example.com']
+            'textarea',
+            'expression',
+            get_string('expression', 'tool_automate'),
+            ['rows' => 2, 'cols' => 50, 'placeholder' => 'c1 AND (c2 OR c3)']
         );
-        $mform->setType('emailpattern', PARAM_TEXT);
-        $mform->addHelpButton('emailpattern', 'emailpattern', 'tool_automate');
-
-        // Action.
-        $mform->addElement('header', 'actionheader', get_string('actionheading', 'tool_automate'));
-        $acttypes = [];
-        foreach (\tool_automate\manager::get_action_types() as $type => $class) {
-            $acttypes[$type] = $class::get_name();
-        }
-        $mform->addElement('select', 'actiontype', get_string('actiontype', 'tool_automate'), $acttypes);
-
-        $cohorts = $DB->get_records_menu('cohort', null, 'name', 'id, name');
-        $mform->addElement('select', 'cohortid', get_string('cohort', 'tool_automate'), $cohorts);
+        $mform->setType('expression', PARAM_TEXT);
+        $mform->addHelpButton('expression', 'expression', 'tool_automate');
+        $mform->hideIf('expression', 'logic', 'neq', 'expression');
 
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
 
         $this->add_action_buttons(true, get_string('savechanges', 'tool_automate'));
+    }
+
+    /**
+     * Server-side validation.
+     *
+     * @param array $data
+     * @param array $files
+     * @return array
+     */
+    public function validation($data, $files) {
+        $errors = parent::validation($data, $files);
+        if (($data['logic'] ?? '') === 'expression') {
+            $expr = trim((string) ($data['expression'] ?? ''));
+            if ($expr === '') {
+                $errors['expression'] = get_string('required');
+            } else if ($err = \tool_automate\expression::validate($expr)) {
+                $errors['expression'] = $err;
+            }
+        }
+        return $errors;
     }
 }

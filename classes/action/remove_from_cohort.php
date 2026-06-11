@@ -17,28 +17,28 @@
 namespace tool_automate\action;
 
 /**
- * Action: add the user to a cohort (cohort sync then handles enrolment).
+ * Action: remove the user from a cohort.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class add_to_cohort extends action_base {
+class remove_from_cohort extends action_base {
     /**
-     * Human-readable name shown in the rule form.
+     * Name.
      *
      * @return string
      */
     public static function get_name(): string {
-        return get_string('act_add_to_cohort', 'tool_automate');
+        return get_string('act_remove_from_cohort', 'tool_automate');
     }
 
     /**
-     * Add the user to the configured cohort, or report what would happen.
+     * Remove.
      *
-     * @param \stdClass $user A full user record.
-     * @param bool $dryrun If true, make no changes.
-     * @return string A short message describing the outcome.
+     * @param \stdClass $user
+     * @param bool $dryrun
+     * @return string
      */
     public function execute(\stdClass $user, bool $dryrun): string {
         global $CFG, $DB;
@@ -49,15 +49,14 @@ class add_to_cohort extends action_base {
             return get_string('cohortgone', 'tool_automate');
         }
         $cohortname = $DB->get_field('cohort', 'name', ['id' => $cohortid]);
-
-        if (cohort_is_member($cohortid, $user->id)) {
-            return get_string('cohortalready', 'tool_automate', $cohortname);
+        if (!cohort_is_member($cohortid, $user->id)) {
+            return get_string('cohortnotmember', 'tool_automate', $cohortname);
         }
         if ($dryrun) {
-            return get_string('cohortwouldadd', 'tool_automate', $cohortname);
+            return get_string('cohortwouldremove', 'tool_automate', $cohortname);
         }
-        cohort_add_member($cohortid, $user->id);
-        return get_string('cohortadded', 'tool_automate', $cohortname);
+        cohort_remove_member($cohortid, $user->id);
+        return get_string('cohortremoved', 'tool_automate', $cohortname);
     }
 
     /**
@@ -68,16 +67,11 @@ class add_to_cohort extends action_base {
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
         global $DB;
         $cohorts = $DB->get_records_menu('cohort', null, 'name', 'id, name');
-        $mform->addElement(
-            'select',
-            'config_cohortid',
-            get_string('cohort', 'tool_automate'),
-            $cohorts
-        );
+        $mform->addElement('select', 'config_cohortid', get_string('cohort', 'tool_automate'), $cohorts);
     }
 
     /**
-     * Extract config.
+     * Extract.
      *
      * @param \stdClass $formdata
      * @return array
@@ -87,7 +81,7 @@ class add_to_cohort extends action_base {
     }
 
     /**
-     * Form defaults.
+     * Defaults.
      *
      * @param array $config
      * @return array
@@ -105,6 +99,6 @@ class add_to_cohort extends action_base {
     public static function describe(array $config): string {
         global $DB;
         $name = $DB->get_field('cohort', 'name', ['id' => (int) ($config['cohortid'] ?? 0)]);
-        return get_string('act_add_to_cohort_desc', 'tool_automate', s($name ?: '?'));
+        return get_string('act_remove_from_cohort_desc', 'tool_automate', s($name ?: '?'));
     }
 }

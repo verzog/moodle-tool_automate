@@ -56,4 +56,42 @@ abstract class action_base {
      * @return string A short message describing the outcome.
      */
     abstract public function execute(\stdClass $user, bool $dryrun): string;
+
+    /**
+     * Add this action's config fields to a form.
+     *
+     * @param \MoodleQuickForm $mform
+     */
+    public static function add_config_form_elements(\MoodleQuickForm $mform): void {
+    }
+
+    /**
+     * Pull this action's config out of submitted form data.
+     *
+     * @param \stdClass $formdata
+     * @return array Decoded config to be JSON-encoded into configdata.
+     */
+    public static function extract_config(\stdClass $formdata): array {
+        return [];
+    }
+
+    /**
+     * Map stored config back to form field defaults.
+     *
+     * @param array $config
+     * @return array Field name => value.
+     */
+    public static function config_to_form_defaults(array $config): array {
+        return [];
+    }
+
+    /**
+     * One-line summary of the action shown on the rule edit page.
+     *
+     * @param array $config
+     * @return string
+     */
+    public static function describe(array $config): string {
+        return static::get_name();
+    }
 }

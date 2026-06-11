@@ -14,50 +14,41 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-namespace tool_automate\action;
+namespace tool_automate\condition;
 
 /**
- * Action: add the user to a cohort (cohort sync then handles enrolment).
+ * Condition: the user is (or is not) a member of a cohort.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class add_to_cohort extends action_base {
+class cohort_membership extends condition_base {
     /**
-     * Human-readable name shown in the rule form.
+     * Name.
      *
      * @return string
      */
     public static function get_name(): string {
-        return get_string('act_add_to_cohort', 'tool_automate');
+        return get_string('cond_cohort_membership', 'tool_automate');
     }
 
     /**
-     * Add the user to the configured cohort, or report what would happen.
+     * Match.
      *
-     * @param \stdClass $user A full user record.
-     * @param bool $dryrun If true, make no changes.
-     * @return string A short message describing the outcome.
+     * @param \stdClass $user
+     * @return bool
      */
-    public function execute(\stdClass $user, bool $dryrun): string {
+    public function matches(\stdClass $user): bool {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/cohort/lib.php');
-
         $cohortid = (int) ($this->config['cohortid'] ?? 0);
+        $mode = (string) ($this->config['mode'] ?? 'in');
         if (!$cohortid || !$DB->record_exists('cohort', ['id' => $cohortid])) {
-            return get_string('cohortgone', 'tool_automate');
+            return false;
         }
-        $cohortname = $DB->get_field('cohort', 'name', ['id' => $cohortid]);
-
-        if (cohort_is_member($cohortid, $user->id)) {
-            return get_string('cohortalready', 'tool_automate', $cohortname);
-        }
-        if ($dryrun) {
-            return get_string('cohortwouldadd', 'tool_automate', $cohortname);
-        }
-        cohort_add_member($cohortid, $user->id);
-        return get_string('cohortadded', 'tool_automate', $cohortname);
+        $ismember = cohort_is_member($cohortid, $user->id);
+        return $mode === 'in' ? $ismember : !$ismember;
     }
 
     /**
@@ -68,12 +59,12 @@ class add_to_cohort extends action_base {
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
         global $DB;
         $cohorts = $DB->get_records_menu('cohort', null, 'name', 'id, name');
-        $mform->addElement(
-            'select',
-            'config_cohortid',
-            get_string('cohort', 'tool_automate'),
-            $cohorts
-        );
+        $modes = [
+            'in'    => get_string('cohortmode_in', 'tool_automate'),
+            'notin' => get_string('cohortmode_notin', 'tool_automate'),
+        ];
+        $mform->addElement('select', 'config_mode', get_string('membership', 'tool_automate'), $modes);
+        $mform->addElement('select', 'config_cohortid', get_string('cohort', 'tool_automate'), $cohorts);
     }
 
     /**
@@ -83,7 +74,10 @@ class add_to_cohort extends action_base {
      * @return array
      */
     public static function extract_config(\stdClass $formdata): array {
-        return ['cohortid' => (int) ($formdata->config_cohortid ?? 0)];
+        return [
+            'mode'     => (string) ($formdata->config_mode ?? 'in'),
+            'cohortid' => (int) ($formdata->config_cohortid ?? 0),
+        ];
     }
 
     /**
@@ -93,7 +87,10 @@ class add_to_cohort extends action_base {
      * @return array
      */
     public static function config_to_form_defaults(array $config): array {
-        return ['config_cohortid' => (int) ($config['cohortid'] ?? 0)];
+        return [
+            'config_mode'     => $config['mode'] ?? 'in',
+            'config_cohortid' => (int) ($config['cohortid'] ?? 0),
+        ];
     }
 
     /**
@@ -105,6 +102,9 @@ class add_to_cohort extends action_base {
     public static function describe(array $config): string {
         global $DB;
         $name = $DB->get_field('cohort', 'name', ['id' => (int) ($config['cohortid'] ?? 0)]);
-        return get_string('act_add_to_cohort_desc', 'tool_automate', s($name ?: '?'));
+        $key = ($config['mode'] ?? 'in') === 'notin'
+            ? 'cond_cohort_membership_desc_notin'
+            : 'cond_cohort_membership_desc_in';
+        return get_string($key, 'tool_automate', s($name ?: '?'));
     }
 }
