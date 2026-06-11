@@ -71,8 +71,7 @@ class enrol_in_course extends action_base {
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
         global $DB;
-        $courses = $DB->get_records_menu('course', null, 'fullname',
-            'id, fullname', 0, 500);
+        $courses = $DB->get_records_menu('course', null, 'fullname', 'id, fullname', 0, 500);
         unset($courses[SITEID]);
         $roles = role_get_names(\context_system::instance(), ROLENAME_ALIAS, true);
         $roleoptions = [0 => get_string('defaultrole', 'tool_automate')];

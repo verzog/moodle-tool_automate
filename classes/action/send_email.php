@@ -85,13 +85,13 @@ class send_email extends action_base {
      * @param \MoodleQuickForm $mform
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
-        $mform->addElement('text', 'config_subject', get_string('emailsubject', 'tool_automate'),
-            ['size' => 60]);
+        $subjectlabel = get_string('emailsubject', 'tool_automate');
+        $mform->addElement('text', 'config_subject', $subjectlabel, ['size' => 60]);
         $mform->setType('config_subject', PARAM_TEXT);
         $mform->addRule('config_subject', null, 'required', null, 'client');
 
-        $mform->addElement('editor', 'config_body', get_string('emailbody', 'tool_automate'),
-            null, ['enable_filemanagement' => false]);
+        $bodylabel = get_string('emailbody', 'tool_automate');
+        $mform->addElement('editor', 'config_body', $bodylabel, null, ['enable_filemanagement' => false]);
         $mform->setType('config_body', PARAM_RAW);
         $mform->addHelpButton('config_body', 'emailbody', 'tool_automate');
     }

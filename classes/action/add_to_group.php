@@ -75,8 +75,7 @@ class add_to_group extends action_base {
               ORDER BY c.fullname, g.name";
         $groups = $DB->get_records_sql_menu($sql, [], 0, 500);
         if (empty($groups)) {
-            $mform->addElement('static', 'config_nogroups', '',
-                get_string('nogroups', 'tool_automate'));
+            $mform->addElement('static', 'config_nogroups', '', get_string('nogroups', 'tool_automate'));
             return;
         }
         $mform->addElement('select', 'config_groupid', get_string('group', 'tool_automate'), $groups);

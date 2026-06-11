@@ -68,8 +68,7 @@ class custom_profile_field extends condition_base {
             'contains' => get_string('op_contains', 'tool_automate'),
         ];
         if (empty($fields)) {
-            $mform->addElement('static', 'config_nofields', '',
-                get_string('nocustomfields', 'tool_automate'));
+            $mform->addElement('static', 'config_nofields', '', get_string('nocustomfields', 'tool_automate'));
             return;
         }
         $mform->addElement('select', 'config_fieldid', get_string('field', 'tool_automate'), $fields);

@@ -54,17 +54,15 @@ class set_profile_field extends action_base {
             return get_string('invalidfield', 'tool_automate');
         }
         $current = (string) ($user->$field ?? '');
+        $a = (object) ['field' => $field, 'value' => $value, 'from' => $current, 'to' => $value];
         if ($current === $value) {
-            return get_string('fieldalready', 'tool_automate',
-                (object) ['field' => $field, 'value' => $value]);
+            return get_string('fieldalready', 'tool_automate', $a);
         }
         if ($dryrun) {
-            return get_string('fieldwouldset', 'tool_automate',
-                (object) ['field' => $field, 'from' => $current, 'to' => $value]);
+            return get_string('fieldwouldset', 'tool_automate', $a);
         }
         $DB->set_field('user', $field, $value, ['id' => $user->id]);
-        return get_string('fieldset', 'tool_automate',
-            (object) ['field' => $field, 'from' => $current, 'to' => $value]);
+        return get_string('fieldset', 'tool_automate', $a);
     }
 
     /**
