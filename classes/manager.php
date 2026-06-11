@@ -40,6 +40,7 @@ class manager {
             'cohort_membership'    => condition\cohort_membership::class,
             'account_age'          => condition\account_age::class,
             'custom_profile_field' => condition\custom_profile_field::class,
+            'enrolled_in_course'   => condition\enrolled_in_course::class,
         ];
     }
 
@@ -60,6 +61,7 @@ class manager {
             'add_to_group'       => action\add_to_group::class,
             'send_email'         => action\send_email::class,
             'set_profile_field'  => action\set_profile_field::class,
+            'generate_report'    => action\generate_report::class,
         ];
     }
 
@@ -104,6 +106,34 @@ class manager {
                 ];
             }
         }
+
+        // Aggregating actions (e.g. generate_report) emit their result now.
+        foreach ($actions as $action) {
+            try {
+                $message = $action->finalise($dryrun);
+            } catch (\Throwable $e) {
+                $message = $e->getMessage();
+                self::log($ruleid, null, $dryrun, 'error', $message);
+                $results[] = (object) [
+                    'userid'   => 0,
+                    'fullname' => '-',
+                    'outcome'  => 'error',
+                    'message'  => $message,
+                ];
+                continue;
+            }
+            if ($message === null) {
+                continue;
+            }
+            self::log($ruleid, null, $dryrun, 'finalised', $message);
+            $results[] = (object) [
+                'userid'   => 0,
+                'fullname' => '-',
+                'outcome'  => 'finalised',
+                'message'  => $message,
+            ];
+        }
+
         return $results;
     }
 

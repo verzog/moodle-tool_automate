@@ -58,6 +58,22 @@ abstract class action_base {
     abstract public function execute(\stdClass $user, bool $dryrun): string;
 
     /**
+     * Called once after the per-user loop finishes. Aggregating actions
+     * (like 'generate report') accumulate state in execute() and emit
+     * their real result here.
+     *
+     * Returning null means "no aggregate result" - the manager won't log
+     * anything for this action's finalise step.
+     *
+     * @param bool $dryrun
+     * @return string|null
+     */
+    public function finalise(bool $dryrun): ?string {
+        unset($dryrun);
+        return null;
+    }
+
+    /**
      * Add this action's config fields to a form.
      *
      * @param \MoodleQuickForm $mform

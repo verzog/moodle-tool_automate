@@ -17,7 +17,7 @@
 namespace tool_automate\condition;
 
 /**
- * Condition: the user's auth method equals a configured value.
+ * Condition: the user's auth method equals or does not equal a value.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
@@ -41,7 +41,12 @@ class auth_method extends condition_base {
      */
     public function matches(\stdClass $user): bool {
         $auth = (string) ($this->config['auth'] ?? '');
-        return $auth !== '' && (string) ($user->auth ?? '') === $auth;
+        if ($auth === '') {
+            return false;
+        }
+        $useauth = (string) ($user->auth ?? '');
+        $equals = $useauth === $auth;
+        return ($this->config['op'] ?? 'equals') === 'notequals' ? !$equals : $equals;
     }
 
     /**
@@ -55,6 +60,11 @@ class auth_method extends condition_base {
         foreach ($enabled as $a) {
             $options[$a] = $a;
         }
+        $ops = [
+            'equals'    => get_string('op_equals', 'tool_automate'),
+            'notequals' => get_string('op_notequals', 'tool_automate'),
+        ];
+        $mform->addElement('select', 'config_op', get_string('operator', 'tool_automate'), $ops);
         $mform->addElement('select', 'config_auth', get_string('authmethod', 'tool_automate'), $options);
     }
 
@@ -65,7 +75,10 @@ class auth_method extends condition_base {
      * @return array
      */
     public static function extract_config(\stdClass $formdata): array {
-        return ['auth' => (string) ($formdata->config_auth ?? '')];
+        return [
+            'op'   => (string) ($formdata->config_op ?? 'equals'),
+            'auth' => (string) ($formdata->config_auth ?? ''),
+        ];
     }
 
     /**
@@ -75,7 +88,10 @@ class auth_method extends condition_base {
      * @return array
      */
     public static function config_to_form_defaults(array $config): array {
-        return ['config_auth' => $config['auth'] ?? 'manual'];
+        return [
+            'config_op'   => $config['op'] ?? 'equals',
+            'config_auth' => $config['auth'] ?? 'manual',
+        ];
     }
 
     /**
@@ -85,6 +101,9 @@ class auth_method extends condition_base {
      * @return string
      */
     public static function describe(array $config): string {
-        return get_string('cond_auth_method_desc', 'tool_automate', s($config['auth'] ?? ''));
+        $key = ($config['op'] ?? 'equals') === 'notequals'
+            ? 'cond_auth_method_desc_notequals'
+            : 'cond_auth_method_desc';
+        return get_string($key, 'tool_automate', s($config['auth'] ?? ''));
     }
 }
