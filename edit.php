@@ -46,11 +46,17 @@ if ($mform->is_cancelled()) {
     redirect($baseurl);
 } else if ($formdata = $mform->get_data()) {
     $now = time();
+    $isevent = $formdata->triggertype === 'event';
+    $eventname = $isevent ? $formdata->eventname : null;
     $record = (object) [
         'name'         => $formdata->name,
         'description'  => $formdata->description ?? '',
         'triggertype'  => $formdata->triggertype,
-        'eventname'    => $formdata->triggertype === 'event' ? $formdata->eventname : null,
+        'eventname'    => $eventname,
+        'courseid'     => ($isevent && $eventname === '\\core\\event\\course_completed')
+            ? (int) ($formdata->courseid ?? 0) : 0,
+        'roleid'       => ($isevent && $eventname === '\\core\\event\\role_assigned')
+            ? (int) ($formdata->roleid ?? 0) : 0,
         'logic'        => $formdata->logic,
         'expression'   => $formdata->logic === 'expression' ? trim($formdata->expression) : null,
         'enabled'      => $formdata->enabled,

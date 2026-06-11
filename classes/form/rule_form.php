@@ -34,6 +34,7 @@ class rule_form extends \moodleform {
      * Define the form fields.
      */
     protected function definition() {
+        global $DB;
         $mform = $this->_form;
 
         $mform->addElement('text', 'name', get_string('rulename', 'tool_automate'), ['size' => 50]);
@@ -58,9 +59,30 @@ class rule_form extends \moodleform {
         ];
         $mform->addElement('select', 'triggertype', get_string('triggertype', 'tool_automate'), $triggers);
 
-        $events = ['\core\event\user_created' => get_string('event_user_created', 'tool_automate')];
+        $events = [
+            '\core\event\user_created'     => get_string('event_user_created', 'tool_automate'),
+            '\core\event\user_updated'     => get_string('event_user_updated', 'tool_automate'),
+            '\core\event\user_loggedin'    => get_string('event_user_loggedin', 'tool_automate'),
+            '\core\event\course_completed' => get_string('event_course_completed', 'tool_automate'),
+            '\core\event\role_assigned'    => get_string('event_role_assigned', 'tool_automate'),
+        ];
         $mform->addElement('select', 'eventname', get_string('eventname', 'tool_automate'), $events);
         $mform->hideIf('eventname', 'triggertype', 'neq', 'event');
+
+        $courses = $DB->get_records_menu('course', null, 'fullname', 'id, fullname', 0, 500);
+        unset($courses[SITEID]);
+        $mform->addElement('select', 'courseid', get_string('course', 'tool_automate'), $courses);
+        $mform->hideIf('courseid', 'triggertype', 'neq', 'event');
+        $mform->hideIf('courseid', 'eventname', 'neq', '\core\event\course_completed');
+
+        $roles = role_get_names(\context_system::instance(), ROLENAME_ALIAS, true);
+        $roleoptions = [];
+        foreach ($roles as $r) {
+            $roleoptions[$r->id] = $r->localname;
+        }
+        $mform->addElement('select', 'roleid', get_string('role', 'tool_automate'), $roleoptions);
+        $mform->hideIf('roleid', 'triggertype', 'neq', 'event');
+        $mform->hideIf('roleid', 'eventname', 'neq', '\core\event\role_assigned');
 
         // Logic.
         $logics = [
