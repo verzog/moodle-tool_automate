@@ -73,11 +73,8 @@ class enrol_in_course extends action_base {
         global $DB;
         $courses = $DB->get_records_menu('course', null, 'fullname', 'id, fullname', 0, 500);
         unset($courses[SITEID]);
-        $roles = role_get_names(\context_system::instance(), ROLENAME_ALIAS);
-        $roleoptions = [0 => get_string('defaultrole', 'tool_automate')];
-        foreach ($roles as $r) {
-            $roleoptions[$r->id] = $r->localname;
-        }
+        $roles = role_get_names(\context_system::instance(), ROLENAME_ALIAS, true);
+        $roleoptions = [0 => get_string('defaultrole', 'tool_automate')] + $roles;
         $mform->addElement('select', 'config_courseid', get_string('course', 'tool_automate'), $courses);
         $mform->addElement('select', 'config_roleid', get_string('role', 'tool_automate'), $roleoptions);
     }

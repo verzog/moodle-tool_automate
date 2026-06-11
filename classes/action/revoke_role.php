@@ -73,12 +73,7 @@ class revoke_role extends action_base {
      * @param \MoodleQuickForm $mform
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
-        $context = \context_system::instance();
-        $roles = role_get_names($context, ROLENAME_ALIAS);
-        $options = [];
-        foreach ($roles as $r) {
-            $options[$r->id] = $r->localname;
-        }
+        $options = role_get_names(\context_system::instance(), ROLENAME_ALIAS, true);
         $mform->addElement('select', 'config_roleid', get_string('role', 'tool_automate'), $options);
     }
 
