@@ -96,7 +96,17 @@ if ($condtype) {
     $condtypes = manager::get_condition_types_for_subject($rulesubject);
     if (isset($condtypes[$condtype])) {
         $condclass = $condtypes[$condtype];
-        $condform = new condition_form($selfurl, ['type' => $condtype]);
+        // Anchor the form's POST to a URL that carries the discriminator
+        // (addcondition / editcondition) AND the rule id. Without the
+        // discriminator on POST, edit.php would see neither and skip
+        // the save path; without the rule id it loses the parent rule.
+        $condformurl = new moodle_url('/admin/tool/automate/edit.php', ['id' => $id]);
+        if ($editcondition) {
+            $condformurl->param('editcondition', $editcondition);
+        } else {
+            $condformurl->param('addcondition', $condtype);
+        }
+        $condform = new condition_form($condformurl, ['type' => $condtype]);
         if ($existingcondition) {
             $cfg = (array) json_decode($existingcondition->configdata ?? '{}', true);
             $defaults = $condclass::config_to_form_defaults($cfg);
@@ -137,7 +147,16 @@ if ($acttype) {
     $acttypes = manager::get_action_types_for_subject($rulesubject);
     if (isset($acttypes[$acttype])) {
         $actclass = $acttypes[$acttype];
-        $actform = new action_form($selfurl, ['type' => $acttype]);
+        // Same anchoring as condition_form above: keep both the rule id
+        // and the addaction/editaction discriminator on the POST URL so
+        // edit.php can route the submit to the save path.
+        $actformurl = new moodle_url('/admin/tool/automate/edit.php', ['id' => $id]);
+        if ($editaction) {
+            $actformurl->param('editaction', $editaction);
+        } else {
+            $actformurl->param('addaction', $acttype);
+        }
+        $actform = new action_form($actformurl, ['type' => $acttype]);
         if ($existingaction) {
             $cfg = (array) json_decode($existingaction->configdata ?? '{}', true);
             $defaults = $actclass::config_to_form_defaults($cfg);
