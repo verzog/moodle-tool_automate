@@ -97,22 +97,126 @@ class course_generate_report extends action_base {
      * @return string
      */
     protected function build_csv(): string {
+        global $CFG;
+        require_once($CFG->libdir . '/completionlib.php');
+        require_once($CFG->libdir . '/gradelib.php');
+        require_once($CFG->dirroot . '/grade/querylib.php');
+
+        $wantenrolled = !empty($this->config['includeenrolledcount']);
+        $wantcompletion = !empty($this->config['includecompletionrate']);
+        $wantgrade = !empty($this->config['includeavggrade']);
+
+        $header = ['id', 'shortname', 'fullname', 'idnumber', 'category', 'visible'];
+        if ($wantenrolled) {
+            $header[] = 'enrolledcount';
+        }
+        if ($wantcompletion) {
+            $header[] = 'completedcount';
+            $header[] = 'completionrate';
+        }
+        if ($wantgrade) {
+            $header[] = 'averagegrade';
+        }
+
         $fh = fopen('php://temp', 'w+');
-        fputcsv($fh, ['id', 'shortname', 'fullname', 'idnumber', 'category', 'visible']);
+        fputcsv($fh, $header);
         foreach ($this->matched as $course) {
-            fputcsv($fh, [
+            $row = [
                 $course->id,
                 $course->shortname ?? '',
                 $course->fullname ?? '',
                 $course->idnumber ?? '',
                 $course->category ?? '',
                 $course->visible ?? '',
-            ]);
+            ];
+            $enrolled = ($wantenrolled || $wantcompletion || $wantgrade)
+                ? self::enrolled_users($course)
+                : [];
+            if ($wantenrolled) {
+                $row[] = count($enrolled);
+            }
+            if ($wantcompletion) {
+                [$done, $rate] = self::course_completion_stats($course, $enrolled);
+                $row[] = $done;
+                $row[] = $rate;
+            }
+            if ($wantgrade) {
+                $row[] = self::course_average_grade($course, $enrolled);
+            }
+            fputcsv($fh, $row);
         }
         rewind($fh);
         $csv = stream_get_contents($fh);
         fclose($fh);
         return (string) $csv;
+    }
+
+    /**
+     * Active enrolled users in a course (id-only stubs are fine, but we
+     * pull the id list for the stats helpers below).
+     *
+     * @param \stdClass $course
+     * @return int[] Array of user ids.
+     */
+    protected static function enrolled_users(\stdClass $course): array {
+        $context = \context_course::instance((int) $course->id, IGNORE_MISSING);
+        if (!$context) {
+            return [];
+        }
+        $users = get_enrolled_users($context, '', 0, 'u.id', null, 0, 0, true);
+        return array_map(fn($u) => (int) $u->id, $users);
+    }
+
+    /**
+     * Completion completion rate for a course. Returns [completed,
+     * "X%"] or [0, "n/a"] when completion isn't enabled or the course
+     * has no enrolled users.
+     *
+     * @param \stdClass $course
+     * @param int[] $userids
+     * @return array{0:int,1:string}
+     */
+    protected static function course_completion_stats(\stdClass $course, array $userids): array {
+        $info = new \completion_info($course);
+        if (!$info->is_enabled() || empty($userids)) {
+            return [0, 'n/a'];
+        }
+        $done = 0;
+        foreach ($userids as $userid) {
+            if ($info->is_course_complete($userid)) {
+                $done++;
+            }
+        }
+        $pct = round(($done / count($userids)) * 100, 1);
+        return [$done, $pct . '%'];
+    }
+
+    /**
+     * Average course total grade across the enrolled users, formatted
+     * with the course's display preference. Empty string when nobody
+     * has a graded value.
+     *
+     * @param \stdClass $course
+     * @param int[] $userids
+     * @return string
+     */
+    protected static function course_average_grade(\stdClass $course, array $userids): string {
+        if (empty($userids)) {
+            return '';
+        }
+        $sum = 0.0;
+        $n = 0;
+        foreach ($userids as $userid) {
+            $grade = grade_get_course_grade($userid, (int) $course->id);
+            if ($grade && isset($grade->grade) && $grade->grade !== null) {
+                $sum += (float) $grade->grade;
+                $n++;
+            }
+        }
+        if ($n === 0) {
+            return '';
+        }
+        return (string) round($sum / $n, 2);
     }
 
     /**
@@ -201,6 +305,25 @@ class course_generate_report extends action_base {
             ['size' => 40]
         );
         $mform->setType('config_recipient', PARAM_EMAIL);
+
+        // Optional course-level enrichment columns. Each one queries
+        // the matched courses for activity / completion / grade stats,
+        // which costs real DB time on big sites - off by default.
+        $mform->addElement(
+            'advcheckbox',
+            'config_includeenrolledcount',
+            get_string('includeenrolledcount', 'tool_automate')
+        );
+        $mform->addElement(
+            'advcheckbox',
+            'config_includecompletionrate',
+            get_string('includecompletionrate', 'tool_automate')
+        );
+        $mform->addElement(
+            'advcheckbox',
+            'config_includeavggrade',
+            get_string('includeavggrade', 'tool_automate')
+        );
     }
 
     /**
@@ -210,7 +333,12 @@ class course_generate_report extends action_base {
      * @return array
      */
     public static function extract_config(\stdClass $formdata): array {
-        return ['recipient' => trim((string) ($formdata->config_recipient ?? ''))];
+        return [
+            'recipient'              => trim((string) ($formdata->config_recipient ?? '')),
+            'includeenrolledcount'   => !empty($formdata->config_includeenrolledcount) ? 1 : 0,
+            'includecompletionrate'  => !empty($formdata->config_includecompletionrate) ? 1 : 0,
+            'includeavggrade'        => !empty($formdata->config_includeavggrade) ? 1 : 0,
+        ];
     }
 
     /**
@@ -220,7 +348,12 @@ class course_generate_report extends action_base {
      * @return array
      */
     public static function config_to_form_defaults(array $config): array {
-        return ['config_recipient' => $config['recipient'] ?? ''];
+        return [
+            'config_recipient'              => $config['recipient'] ?? '',
+            'config_includeenrolledcount'   => !empty($config['includeenrolledcount']) ? 1 : 0,
+            'config_includecompletionrate'  => !empty($config['includecompletionrate']) ? 1 : 0,
+            'config_includeavggrade'        => !empty($config['includeavggrade']) ? 1 : 0,
+        ];
     }
 
     /**

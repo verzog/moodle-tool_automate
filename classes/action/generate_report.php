@@ -118,27 +118,178 @@ class generate_report extends action_base {
     }
 
     /**
-     * Build a CSV blob of matched users.
+     * Build a CSV blob of matched users. When the action is configured
+     * to enrich rows with course data, also emit completion / activity
+     * completion / course grade columns for the configured course
+     * scope (one specific course, or one row per enrolled course).
      *
      * @return string
      */
     protected function build_csv(): string {
+        global $CFG;
+        require_once($CFG->libdir . '/completionlib.php');
+        require_once($CFG->libdir . '/gradelib.php');
+        require_once($CFG->dirroot . '/grade/querylib.php');
+
+        $scope = (string) ($this->config['coursescope'] ?? 'none');
+        $courseid = (int) ($this->config['enrichcourseid'] ?? 0);
+        $wantcompletion = !empty($this->config['includecompletion']);
+        $wantactivity = !empty($this->config['includeactivitycompletion']);
+        $wantgrade = !empty($this->config['includegrade']);
+        $enrich = $scope !== 'none' && ($wantcompletion || $wantactivity || $wantgrade);
+
+        $header = ['id', 'username', 'firstname', 'lastname', 'email', 'idnumber'];
+        if ($enrich) {
+            $header[] = 'courseid';
+            $header[] = 'courseshortname';
+            $header[] = 'coursefullname';
+            if ($wantcompletion) {
+                $header[] = 'completionstatus';
+                $header[] = 'completiondate';
+            }
+            if ($wantactivity) {
+                $header[] = 'activitiescomplete';
+                $header[] = 'activitiestotal';
+            }
+            if ($wantgrade) {
+                $header[] = 'coursegrade';
+            }
+        }
+
         $fh = fopen('php://temp', 'w+');
-        fputcsv($fh, ['id', 'username', 'firstname', 'lastname', 'email', 'idnumber']);
+        fputcsv($fh, $header);
         foreach ($this->matched as $user) {
-            fputcsv($fh, [
+            $base = [
                 $user->id,
                 $user->username ?? '',
                 $user->firstname ?? '',
                 $user->lastname ?? '',
                 $user->email ?? '',
                 $user->idnumber ?? '',
-            ]);
+            ];
+            if (!$enrich) {
+                fputcsv($fh, $base);
+                continue;
+            }
+            $courses = self::courses_for_user($user, $scope, $courseid);
+            if (!$courses) {
+                fputcsv($fh, array_merge($base, array_fill(0, count($header) - count($base), '')));
+                continue;
+            }
+            foreach ($courses as $course) {
+                $row = $base;
+                $row[] = $course->id;
+                $row[] = $course->shortname ?? '';
+                $row[] = $course->fullname ?? '';
+                [$status, $date] = $wantcompletion
+                    ? self::user_course_completion($user, $course)
+                    : ['', ''];
+                if ($wantcompletion) {
+                    $row[] = $status;
+                    $row[] = $date;
+                }
+                if ($wantactivity) {
+                    [$done, $total] = self::user_activity_completion($user, $course);
+                    $row[] = $done;
+                    $row[] = $total;
+                }
+                if ($wantgrade) {
+                    $row[] = self::user_course_grade($user, $course);
+                }
+                fputcsv($fh, $row);
+            }
         }
         rewind($fh);
         $csv = stream_get_contents($fh);
         fclose($fh);
         return (string) $csv;
+    }
+
+    /**
+     * Resolve which courses to report for a given user.
+     *
+     * @param \stdClass $user
+     * @param string $scope 'one' or 'enrolled'
+     * @param int $courseid
+     * @return \stdClass[]
+     */
+    protected static function courses_for_user(\stdClass $user, string $scope, int $courseid): array {
+        global $DB;
+        if ($scope === 'one' && $courseid > 0) {
+            $course = $DB->get_record('course', ['id' => $courseid]);
+            return $course ? [$course] : [];
+        }
+        if ($scope === 'enrolled') {
+            $courses = enrol_get_users_courses((int) $user->id, true, 'id, shortname, fullname, idnumber');
+            return $courses ?: [];
+        }
+        return [];
+    }
+
+    /**
+     * Course completion status + completion date for a user. Returns
+     * ['', ''] when completion isn't enabled on the course.
+     *
+     * @param \stdClass $user
+     * @param \stdClass $course
+     * @return array{0:string,1:string}
+     */
+    protected static function user_course_completion(\stdClass $user, \stdClass $course): array {
+        $info = new \completion_info($course);
+        if (!$info->is_enabled()) {
+            return ['n/a', ''];
+        }
+        $status = $info->is_course_complete((int) $user->id) ? 'completed' : 'in progress';
+        $date = '';
+        $completion = \completion_completion::fetch([
+            'userid' => (int) $user->id,
+            'course' => (int) $course->id,
+        ]);
+        if ($completion && !empty($completion->timecompleted)) {
+            $date = userdate($completion->timecompleted, get_string('strftimedatetime', 'langconfig'));
+        }
+        return [$status, $date];
+    }
+
+    /**
+     * Number of activities the user has completed in the course, and
+     * the total number with completion tracking enabled.
+     *
+     * @param \stdClass $user
+     * @param \stdClass $course
+     * @return array{0:int,1:int}
+     */
+    protected static function user_activity_completion(\stdClass $user, \stdClass $course): array {
+        $info = new \completion_info($course);
+        if (!$info->is_enabled()) {
+            return [0, 0];
+        }
+        $activities = $info->get_activities();
+        $total = count($activities);
+        $done = 0;
+        foreach ($activities as $activity) {
+            $data = $info->get_data($activity, false, (int) $user->id);
+            if (in_array((int) $data->completionstate, [COMPLETION_COMPLETE, COMPLETION_COMPLETE_PASS], true)) {
+                $done++;
+            }
+        }
+        return [$done, $total];
+    }
+
+    /**
+     * The user's current course total grade, formatted with the course's
+     * grade display preference. Returns '' when no graded value exists.
+     *
+     * @param \stdClass $user
+     * @param \stdClass $course
+     * @return string
+     */
+    protected static function user_course_grade(\stdClass $user, \stdClass $course): string {
+        $grade = grade_get_course_grade((int) $user->id, (int) $course->id);
+        if (!$grade || !isset($grade->str_grade) || $grade->str_grade === '-') {
+            return '';
+        }
+        return (string) $grade->str_grade;
     }
 
     /**
@@ -231,6 +382,7 @@ class generate_report extends action_base {
      * @param \MoodleQuickForm $mform
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
+        global $DB;
         $modes = [
             'csv'     => get_string('reportmode_csv', 'tool_automate'),
             'summary' => get_string('reportmode_summary', 'tool_automate'),
@@ -247,6 +399,51 @@ class generate_report extends action_base {
         $mform->addElement('text', 'config_reporturl', $urllabel, ['size' => 60]);
         $mform->setType('config_reporturl', PARAM_URL);
         $mform->hideIf('config_reporturl', 'config_content', 'neq', 'trigger');
+
+        // Optional course-progress enrichment.
+        $scopes = [
+            'none'     => get_string('coursescope_none', 'tool_automate'),
+            'one'      => get_string('coursescope_one', 'tool_automate'),
+            'enrolled' => get_string('coursescope_enrolled', 'tool_automate'),
+        ];
+        $mform->addElement(
+            'select',
+            'config_coursescope',
+            get_string('coursescope', 'tool_automate'),
+            $scopes
+        );
+        $mform->addHelpButton('config_coursescope', 'coursescope', 'tool_automate');
+
+        $courses = $DB->get_records_menu('course', null, 'fullname', 'id, fullname', 0, 500);
+        unset($courses[SITEID]);
+        $mform->addElement(
+            'select',
+            'config_enrichcourseid',
+            get_string('course', 'tool_automate'),
+            $courses
+        );
+        $mform->hideIf('config_enrichcourseid', 'config_coursescope', 'neq', 'one');
+
+        $mform->addElement(
+            'advcheckbox',
+            'config_includecompletion',
+            get_string('includecompletion', 'tool_automate')
+        );
+        $mform->hideIf('config_includecompletion', 'config_coursescope', 'eq', 'none');
+
+        $mform->addElement(
+            'advcheckbox',
+            'config_includeactivitycompletion',
+            get_string('includeactivitycompletion', 'tool_automate')
+        );
+        $mform->hideIf('config_includeactivitycompletion', 'config_coursescope', 'eq', 'none');
+
+        $mform->addElement(
+            'advcheckbox',
+            'config_includegrade',
+            get_string('includegrade', 'tool_automate')
+        );
+        $mform->hideIf('config_includegrade', 'config_coursescope', 'eq', 'none');
     }
 
     /**
@@ -257,9 +454,14 @@ class generate_report extends action_base {
      */
     public static function extract_config(\stdClass $formdata): array {
         return [
-            'content'   => (string) ($formdata->config_content ?? 'csv'),
-            'recipient' => trim((string) ($formdata->config_recipient ?? '')),
-            'reporturl' => trim((string) ($formdata->config_reporturl ?? '')),
+            'content'                   => (string) ($formdata->config_content ?? 'csv'),
+            'recipient'                 => trim((string) ($formdata->config_recipient ?? '')),
+            'reporturl'                 => trim((string) ($formdata->config_reporturl ?? '')),
+            'coursescope'               => (string) ($formdata->config_coursescope ?? 'none'),
+            'enrichcourseid'            => (int) ($formdata->config_enrichcourseid ?? 0),
+            'includecompletion'         => !empty($formdata->config_includecompletion) ? 1 : 0,
+            'includeactivitycompletion' => !empty($formdata->config_includeactivitycompletion) ? 1 : 0,
+            'includegrade'              => !empty($formdata->config_includegrade) ? 1 : 0,
         ];
     }
 
@@ -271,9 +473,14 @@ class generate_report extends action_base {
      */
     public static function config_to_form_defaults(array $config): array {
         return [
-            'config_content'   => $config['content'] ?? 'csv',
-            'config_recipient' => $config['recipient'] ?? '',
-            'config_reporturl' => $config['reporturl'] ?? '',
+            'config_content'                   => $config['content'] ?? 'csv',
+            'config_recipient'                 => $config['recipient'] ?? '',
+            'config_reporturl'                 => $config['reporturl'] ?? '',
+            'config_coursescope'               => $config['coursescope'] ?? 'none',
+            'config_enrichcourseid'            => (int) ($config['enrichcourseid'] ?? 0),
+            'config_includecompletion'         => !empty($config['includecompletion']) ? 1 : 0,
+            'config_includeactivitycompletion' => !empty($config['includeactivitycompletion']) ? 1 : 0,
+            'config_includegrade'              => !empty($config['includegrade']) ? 1 : 0,
         ];
     }
 
