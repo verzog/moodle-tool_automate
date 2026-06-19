@@ -527,8 +527,10 @@ if ($id) {
     echo $renderactsection();
 
     // Step 5: Trigger - when should this run?
+    echo html_writer::start_tag('div', ['data-inline-target' => 'trigger']);
     echo $OUTPUT->heading(get_string('triggerheading', 'tool_automate'), 3);
     $triggerform->display();
+    echo html_writer::end_tag('div');
 
     // Inline editor: intercept picker submits and edit links, fetch the
     // section's HTML via inline=1, and swap it into the page without a
@@ -584,6 +586,48 @@ if ($id) {
         if (!target) { return; }
         e.preventDefault();
         fetchAndReplace(new URL(a.href, window.location.href), target);
+    }, true);
+    // Any other form submit inside a data-inline-target section (the
+    // condition / action inline edit forms, the trigger form) gets
+    // POSTed via fetch. The response is the full page after PHP's
+    // redirect; we then swap every data-inline-target section from the
+    // response into the live DOM so dependent areas (table refreshes,
+    // condition count) stay consistent without a full page reload.
+    document.addEventListener('submit', function (e) {
+        var form = e.target.closest('form');
+        if (!form) { return; }
+        if (form.classList.contains('tool_automate-picker')) { return; }
+        var target = form.closest('[data-inline-target]');
+        if (!target) { return; }
+        // Honour the click target so a Cancel button still cancels.
+        var submitter = e.submitter;
+        if (submitter && submitter.name === 'cancel') { return; }
+        e.preventDefault();
+        var url = new URL(form.action, window.location.href);
+        fetch(url.toString(), {
+            method: 'POST',
+            body: new FormData(form),
+            credentials: 'same-origin'
+        })
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var scripts = [];
+                doc.querySelectorAll('[data-inline-target]').forEach(function (rep) {
+                    var name = rep.dataset.inlineTarget;
+                    var live = document.querySelector('[data-inline-target="' + name + '"]');
+                    if (!live) { return; }
+                    Array.prototype.slice.call(rep.querySelectorAll('script'))
+                        .forEach(function (s) { scripts.push(s); });
+                    live.replaceWith(rep);
+                });
+                scripts.forEach(function (n) {
+                    var f = document.createElement('script');
+                    if (n.src) { f.src = n.src; } else { f.textContent = n.textContent; }
+                    document.head.appendChild(f);
+                });
+            })
+            .catch(function () { form.submit(); });
     }, true);
 })();
 JS
