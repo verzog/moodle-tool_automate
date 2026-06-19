@@ -145,6 +145,10 @@ if ($mform->is_cancelled()) {
 
 echo $OUTPUT->header();
 
+echo html_writer::link($baseurl, get_string('back', 'tool_automate'), [
+    'class' => 'tool_automate_back',
+]);
+
 // Step 1-3: Rule metadata + subject picker.
 echo $OUTPUT->heading(get_string('step_rule', 'tool_automate'), 3);
 $mform->display();

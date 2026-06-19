@@ -92,6 +92,11 @@ if ($mform->is_cancelled()) {
 }
 
 echo $OUTPUT->header();
+echo html_writer::link(
+    new moodle_url('/admin/tool/automate/index.php'),
+    get_string('back', 'tool_automate'),
+    ['class' => 'tool_automate_back']
+);
 echo $OUTPUT->heading($class::get_name());
 $mform->display();
 echo $OUTPUT->footer();

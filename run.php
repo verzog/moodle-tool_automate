@@ -39,32 +39,46 @@ $PAGE->set_title(get_string('results', 'tool_automate'));
 $PAGE->set_heading(get_string('resultsfor', 'tool_automate', format_string($rule->name)));
 
 $results = \tool_automate\manager::run_rule($id, (bool) $dryrun);
+$iscourse = ($rule->subject ?? 'user') === 'course';
 
 echo $OUTPUT->header();
+
+echo html_writer::link($baseurl, get_string('back', 'tool_automate'), [
+    'class' => 'tool_automate_back',
+]);
 
 if ($dryrun) {
     echo $OUTPUT->notification(get_string('dryrunnotice', 'tool_automate'), 'info');
 }
 
-// Group action results by user so each user shows up once with the list
-// of changes underneath, then count distinct users matched.
-$byuser = [];
+// Group action results by subject so each subject shows up once with the
+// list of changes underneath. Finalise rows (e.g. the report URL emitted
+// after a generate_report action) use a 0 id; keep those separate so
+// they don't inflate the matched-subjects count or render under a
+// blank table row.
+$bysubject = [];
+$finaliserows = [];
 foreach ($results as $row) {
-    $byuser[$row->userid]['fullname'] = $row->fullname;
-    $byuser[$row->userid]['changes'][] = $row;
+    if ((int) $row->userid === 0) {
+        $finaliserows[] = $row;
+        continue;
+    }
+    $bysubject[$row->userid]['fullname'] = $row->fullname;
+    $bysubject[$row->userid]['changes'][] = $row;
 }
-echo html_writer::tag('p', get_string('matchedusers', 'tool_automate', count($byuser)));
+$countstring = $iscourse ? 'matchedcourses' : 'matchedusers';
+echo html_writer::tag('p', get_string($countstring, 'tool_automate', count($bysubject)));
 
-if ($byuser) {
+if ($bysubject) {
     $table = new html_table();
     $table->head = [
-        get_string('user', 'tool_automate'),
+        get_string($iscourse ? 'course' : 'user', 'tool_automate'),
         $dryrun
             ? get_string('plannedchanges', 'tool_automate')
             : get_string('changes', 'tool_automate'),
     ];
     $table->attributes['class'] = 'generaltable tool_automate_results';
-    foreach ($byuser as $entry) {
+    foreach ($bysubject as $entry) {
         $items = [];
         foreach ($entry['changes'] as $r) {
             $cls = $r->outcome === 'error' ? 'text-danger' : '';
@@ -74,6 +88,11 @@ if ($byuser) {
         $table->data[] = [s($entry['fullname']), $list];
     }
     echo html_writer::table($table);
+}
+
+foreach ($finaliserows as $row) {
+    $type = $row->outcome === 'error' ? 'error' : 'info';
+    echo $OUTPUT->notification(s($row->message), $type);
 }
 
 echo $OUTPUT->single_button($baseurl, get_string('back', 'tool_automate'), 'get');

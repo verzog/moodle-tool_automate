@@ -38,6 +38,12 @@ $PAGE->set_heading(get_string('runhistory', 'tool_automate'));
 
 echo $OUTPUT->header();
 
+echo html_writer::link(
+    new moodle_url('/admin/tool/automate/index.php'),
+    get_string('back', 'tool_automate'),
+    ['class' => 'tool_automate_back']
+);
+
 $rules = $DB->get_records_menu('tool_automate_rule', null, 'name', 'id, name');
 $options = [0 => get_string('allrules', 'tool_automate')] + $rules;
 echo html_writer::start_tag('form', [
