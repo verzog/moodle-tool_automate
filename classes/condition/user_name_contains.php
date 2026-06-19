@@ -47,8 +47,8 @@ class user_name_contains extends condition_base {
             return false;
         }
         $name = trim(((string) ($subject->firstname ?? '')) . ' ' . ((string) ($subject->lastname ?? '')));
-        // mb_stripos is Unicode-aware: a needle "andré" matches a user
-        // named "André Müller" which byte-oriented stripos would miss.
+        // Unicode-aware case-insensitive substring search: needle "andré"
+        // matches user "André Müller" which byte-oriented stripos misses.
         return mb_stripos($name, $needle, 0, 'UTF-8') !== false;
     }
 

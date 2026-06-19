@@ -55,9 +55,9 @@ class course_name_contains extends condition_base {
             return false;
         }
         $haystack = (string) ($subject->fullname ?? '');
-        // mb_stripos is Unicode-aware. The byte-oriented stripos would
-        // fail to match accented characters between cases (e.g. needle
-        // "économie" against course "Économie 101").
+        // Unicode-aware case-insensitive substring search. Byte-oriented
+        // stripos would fail to match accented characters between cases
+        // (e.g. needle "économie" against course "Économie 101").
         return mb_stripos($haystack, $needle, 0, 'UTF-8') !== false;
     }
 

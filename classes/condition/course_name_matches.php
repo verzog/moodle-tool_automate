@@ -62,7 +62,7 @@ class course_name_matches extends condition_base {
         if (strpos($pattern, '*') === false) {
             $pattern = '*' . $pattern . '*';
         }
-        // /u + /i makes the case-insensitive match Unicode-aware so an
+        // Unicode-aware case-insensitive match (the /u modifier) so an
         // accented character matches its uppercase form.
         $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/iu';
         return (bool) preg_match($regex, $name);
@@ -133,12 +133,11 @@ class course_name_matches extends condition_base {
         if (strpos($pattern, '*') === false) {
             $pattern = '*' . $pattern . '*';
         }
-        // sql_like_escape neutralises SQL wildcards (% and _) so that
-        // literal user input is matched as-is. After escaping, the
-        // remaining * characters represent the admin's intended
-        // wildcards and become SQL %. The placeholder gets a per-call
-        // counter so two course_name_matches conditions on one rule
-        // don't collide.
+        // Neutralise SQL wildcards (% and _) so literal user input is
+        // matched as-is. After escaping, the remaining * characters
+        // represent the admin's intended wildcards and become SQL %.
+        // The placeholder gets a per-call counter so two
+        // course_name_matches conditions on one rule don't collide.
         $sqlpattern = str_replace('*', '%', $DB->sql_like_escape($pattern));
         $param = 'cnm_pattern_' . (++$n);
         $like = $DB->sql_like('c.fullname', ':' . $param, false);

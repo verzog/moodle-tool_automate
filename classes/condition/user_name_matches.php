@@ -54,7 +54,7 @@ class user_name_matches extends condition_base {
         if (strpos($pattern, '*') === false) {
             $pattern = '*' . $pattern . '*';
         }
-        // /u + /i makes the case-insensitive match Unicode-aware.
+        // Unicode-aware case-insensitive match via the /u modifier.
         $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/iu';
         return (bool) preg_match($regex, $name);
     }
@@ -124,10 +124,10 @@ class user_name_matches extends condition_base {
         if (strpos($pattern, '*') === false) {
             $pattern = '*' . $pattern . '*';
         }
-        // sql_like_escape neutralises any SQL wildcards in the admin's
-        // input; the remaining * then become the SQL %. The per-call
-        // counter on the placeholder lets two of these conditions
-        // co-exist on the same rule.
+        // Neutralise any SQL wildcards in the admin's input; the
+        // remaining * then become the SQL %. The per-call counter on
+        // the placeholder lets two of these conditions co-exist on
+        // the same rule.
         $sqlpattern = str_replace('*', '%', $DB->sql_like_escape($pattern));
         $param = 'unm_pattern_' . (++$n);
         $fullname = $DB->sql_concat('u.firstname', "' '", 'u.lastname');
