@@ -48,9 +48,17 @@ if ($dryrun) {
 }
 
 // Group action results by subject so each subject shows up once with the
-// list of changes underneath, then count distinct subjects matched.
+// list of changes underneath. Finalise rows (e.g. the report URL emitted
+// after a generate_report action) use a 0 id; keep those separate so
+// they don't inflate the matched-subjects count or render under a
+// blank table row.
 $bysubject = [];
+$finaliserows = [];
 foreach ($results as $row) {
+    if ((int) $row->userid === 0) {
+        $finaliserows[] = $row;
+        continue;
+    }
     $bysubject[$row->userid]['fullname'] = $row->fullname;
     $bysubject[$row->userid]['changes'][] = $row;
 }
@@ -76,6 +84,11 @@ if ($bysubject) {
         $table->data[] = [s($entry['fullname']), $list];
     }
     echo html_writer::table($table);
+}
+
+foreach ($finaliserows as $row) {
+    $type = $row->outcome === 'error' ? 'error' : 'info';
+    echo $OUTPUT->notification(s($row->message), $type);
 }
 
 echo $OUTPUT->single_button($baseurl, get_string('back', 'tool_automate'), 'get');
