@@ -38,6 +38,9 @@ class generate_report extends action_base {
     /** @var \stdClass[] Users collected during the run. */
     protected array $matched = [];
 
+    /** @var string|null Filename of the saved report, set in finalise(). */
+    protected ?string $reportfilename = null;
+
     /**
      * Name.
      *
@@ -159,7 +162,11 @@ class generate_report extends action_base {
         ];
         $content = $csv !== null ? $csv : $body;
         $file = $fs->create_file_from_string($info, $content);
-        return $file ? (string) \moodle_url::make_pluginfile_url(
+        if (!$file) {
+            return null;
+        }
+        $this->reportfilename = $info['filename'];
+        return (string) \moodle_url::make_pluginfile_url(
             $context->id,
             'tool_automate',
             'reports',
@@ -167,7 +174,22 @@ class generate_report extends action_base {
             '/',
             $info['filename'],
             false
-        ) : null;
+        );
+    }
+
+    /**
+     * Link to the on-screen view of the report saved during finalise().
+     *
+     * @return string|null
+     */
+    public function get_result_url(): ?string {
+        if ($this->reportfilename === null) {
+            return null;
+        }
+        return (new \moodle_url(
+            '/admin/tool/automate/report.php',
+            ['file' => $this->reportfilename]
+        ))->out(false);
     }
 
     /**

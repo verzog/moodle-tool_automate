@@ -201,6 +201,7 @@ class manager {
                 'fullname' => '-',
                 'outcome'  => 'finalised',
                 'message'  => $message,
+                'url'      => $action->get_result_url(),
             ];
         }
 
