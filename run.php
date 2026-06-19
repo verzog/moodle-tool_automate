@@ -43,6 +43,10 @@ $iscourse = ($rule->subject ?? 'user') === 'course';
 
 echo $OUTPUT->header();
 
+echo html_writer::link($baseurl, get_string('back', 'tool_automate'), [
+    'class' => 'tool_automate_back',
+]);
+
 if ($dryrun) {
     echo $OUTPUT->notification(get_string('dryrunnotice', 'tool_automate'), 'info');
 }
