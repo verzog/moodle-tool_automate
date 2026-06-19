@@ -528,9 +528,18 @@ if ($id) {
                     '[data-inline-target="' + target.dataset.inlineTarget + '"]'
                 );
                 if (!rep) { return; }
+                // Collect every script the server sent BEFORE the section
+                // moves to the main DOM. The fragment is followed by the
+                // moodleform's $PAGE->requires->get_end_code() output -
+                // editor inits, hideIf wiring, AMD module loads - which
+                // sit as siblings of the section in wrapper, not inside
+                // it. Walking rep after replaceWith would miss them.
+                var scripts = Array.prototype.slice.call(
+                    wrapper.querySelectorAll('script')
+                );
                 target.replaceWith(rep);
                 rebind(rep);
-                rep.querySelectorAll('script').forEach(function (n) {
+                scripts.forEach(function (n) {
                     var f = document.createElement('script');
                     if (n.src) { f.src = n.src; } else { f.textContent = n.textContent; }
                     document.head.appendChild(f);
