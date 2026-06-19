@@ -50,9 +50,9 @@ class course_email_teachers extends action_base {
      * @return string
      */
     public function execute(\stdClass $subject, bool $dryrun): string {
-        $subject_line = trim((string) ($this->config['subject'] ?? ''));
+        $subjectline = trim((string) ($this->config['subject'] ?? ''));
         $body = trim((string) ($this->config['body'] ?? ''));
-        if ($subject_line === '' || $body === '') {
+        if ($subjectline === '' || $body === '') {
             return get_string('emailempty', 'tool_automate');
         }
 
@@ -60,22 +60,23 @@ class course_email_teachers extends action_base {
         if (!$context) {
             return get_string('coursegone', 'tool_automate');
         }
-        $teachers = get_role_users(
-            $this->editingteacher_roleid(),
-            $context,
-            false,
-            'u.id, u.firstname, u.lastname, u.email, u.username'
-        );
+        $roleid = $this->editingteacher_roleid();
+        if (!$roleid) {
+            // get_role_users() treats a 0 role id as "any role", which
+            // would email every enrolled user. Bail instead.
+            return get_string('noteachers', 'tool_automate', format_string($subject->fullname));
+        }
+        // Pull u.* so email_to_user() can honour its suspended /
+        // auth=nologin / deleted skip checks. Selecting a narrow column
+        // list dropped those fields, which made the mail helper send to
+        // accounts it would otherwise have filtered.
+        $teachers = get_role_users($roleid, $context, false, 'u.*');
         if (!$teachers) {
             return get_string('noteachers', 'tool_automate', format_string($subject->fullname));
         }
 
-        $placeholders = (object) [
-            'firstname' => format_string($subject->shortname ?? ''),
-            'course'    => format_string($subject->fullname),
-        ];
-        $rendered_subject = self::interpolate($subject_line, $subject);
-        $rendered_body = self::interpolate($body, $subject);
+        $renderedsubject = self::interpolate($subjectline, $subject);
+        $renderedbody = self::interpolate($body, $subject);
 
         if ($dryrun) {
             return get_string('coursewouldemailteachers', 'tool_automate', (object) [
@@ -87,7 +88,7 @@ class course_email_teachers extends action_base {
         $from = \core_user::get_noreply_user();
         $sent = 0;
         foreach ($teachers as $teacher) {
-            if (email_to_user($teacher, $from, $rendered_subject, $rendered_body)) {
+            if (email_to_user($teacher, $from, $renderedsubject, $renderedbody)) {
                 $sent++;
             }
         }
@@ -98,14 +99,18 @@ class course_email_teachers extends action_base {
     }
 
     /**
-     * Resolve the role id for the editingteacher archetype.
+     * Resolve the editing-teacher role id. Looks up by archetype rather
+     * than by hard-coded shortname so a renamed editingteacher role still
+     * resolves. Returns 0 when no such role exists - the caller MUST
+     * treat 0 as "no teachers" rather than passing it to get_role_users(),
+     * which interprets an empty role id as "any role".
      *
      * @return int
      */
     protected function editingteacher_roleid(): int {
         global $DB;
-        $shortname = (string) ($this->config['roleshortname'] ?? 'editingteacher');
-        return (int) $DB->get_field('role', 'id', ['shortname' => $shortname]);
+        $id = $DB->get_field('role', 'id', ['archetype' => 'editingteacher']);
+        return $id ? (int) $id : 0;
     }
 
     /**

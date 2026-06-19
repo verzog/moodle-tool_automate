@@ -50,7 +50,9 @@ class course_move_to_category extends action_base {
      * @return string
      */
     public function execute(\stdClass $subject, bool $dryrun): string {
-        global $DB;
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/course/lib.php');
+
         $categoryid = (int) ($this->config['categoryid'] ?? 0);
         if (!$categoryid) {
             return get_string('categorygone', 'tool_automate');
@@ -68,8 +70,7 @@ class course_move_to_category extends action_base {
                 'category' => format_string($category->name),
             ]);
         }
-        $coursecat = \core_course_category::get($categoryid);
-        $coursecat->move_courses_into([(int) $subject->id]);
+        move_courses([(int) $subject->id], $categoryid);
         return get_string('coursemoved', 'tool_automate', (object) [
             'course'   => format_string($subject->fullname),
             'category' => format_string($category->name),

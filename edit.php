@@ -119,6 +119,19 @@ if ($mform->is_cancelled()) {
     ];
     if ($formdata->id) {
         $record->id = $formdata->id;
+        // If the subject changed, the previously-saved trigger may no
+        // longer make sense - e.g. a user_created event rule switched to
+        // subject=course would still be picked up by the user-event
+        // observer, which would then hand a user id to the course
+        // engine. Reset to manual so the admin explicitly chooses a
+        // valid trigger for the new subject.
+        $oldsubject = $rule->subject ?? 'user';
+        if ($record->subject !== $oldsubject) {
+            $record->triggertype = 'manual';
+            $record->eventname = null;
+            $record->courseid = 0;
+            $record->roleid = 0;
+        }
         $DB->update_record('tool_automate_rule', $record);
         $ruleid = $record->id;
     } else {

@@ -131,11 +131,12 @@ class manager {
 
         $rule = $DB->get_record('tool_automate_rule', ['id' => $ruleid], '*', MUST_EXIST);
         $subject = $rule->subject ?? self::SUBJECT_USER;
+        $logic = $rule->logic ?? 'all';
         $conditions = self::load_conditions($ruleid);
         $actions = self::load_actions($ruleid);
         $subjects = $subject === self::SUBJECT_COURSE
-            ? self::get_target_courses($conditions, $onlysubjectid)
-            : self::get_target_users($conditions, $onlysubjectid);
+            ? self::get_target_courses($conditions, $logic, $onlysubjectid)
+            : self::get_target_users($conditions, $logic, $onlysubjectid);
 
         $results = [];
         foreach ($subjects as $record) {
@@ -330,17 +331,38 @@ class manager {
     }
 
     /**
+     * Is it safe to use a condition's SQL pre-filter? A pre-filter narrows
+     * the candidate set before condition_matches() runs in PHP. That is
+     * sound only when:
+     *   - The rule's logic is "all" (every condition must match, so an
+     *     AND of pre-filters cannot drop a record that should be in the
+     *     final set), AND
+     *   - The condition's polarity is "match" (the pre-filter selects
+     *     records that satisfy the condition; for "notmatch" it would
+     *     select the records we're about to reject).
+     *
+     * @param string $logic
+     * @param string $polarity
+     * @return bool
+     */
+    protected static function prefilter_is_safe(string $logic, string $polarity): bool {
+        return $logic === 'all' && $polarity === self::POLARITY_MATCH;
+    }
+
+    /**
      * Build the candidate user set for a user-subject rule.
      *
      * For event/manual single-user runs this is just that one user. For
      * cron and manual all-user runs we start from all real, active users
-     * and let each condition apply an optional SQL pre-filter.
+     * and let each condition apply an optional SQL pre-filter (when safe
+     * for the rule's logic and the condition's polarity).
      *
      * @param array $conditions Pre-loaded conditions.
+     * @param string $logic Rule logic ('all'|'any'|'expression').
      * @param int|null $onlyuserid
      * @return \stdClass[]
      */
-    protected static function get_target_users(array $conditions, ?int $onlyuserid): array {
+    protected static function get_target_users(array $conditions, string $logic, ?int $onlyuserid): array {
         global $DB, $CFG;
         if ($onlyuserid) {
             $user = $DB->get_record('user', ['id' => $onlyuserid, 'deleted' => 0]);
@@ -353,6 +375,10 @@ class manager {
         foreach ($conditions as $entry) {
             $class = get_class($entry['object']);
             if ($class::get_subject() !== self::SUBJECT_USER) {
+                continue;
+            }
+            $polarity = $entry['record']->polarity ?? self::POLARITY_MATCH;
+            if (!self::prefilter_is_safe($logic, $polarity)) {
                 continue;
             }
             $config = (array) json_decode($entry['record']->configdata ?? '{}', true);
@@ -370,13 +396,15 @@ class manager {
     /**
      * Build the candidate course set for a course-subject rule.
      *
-     * The site course (SITEID) is always excluded.
+     * The site course (SITEID) is always excluded. SQL pre-filters are
+     * only applied when safe (see prefilter_is_safe()).
      *
      * @param array $conditions Pre-loaded conditions.
+     * @param string $logic Rule logic ('all'|'any'|'expression').
      * @param int|null $onlycourseid
      * @return \stdClass[]
      */
-    protected static function get_target_courses(array $conditions, ?int $onlycourseid): array {
+    protected static function get_target_courses(array $conditions, string $logic, ?int $onlycourseid): array {
         global $DB;
         if ($onlycourseid) {
             $course = $DB->get_record('course', ['id' => $onlycourseid]);
@@ -389,6 +417,10 @@ class manager {
         foreach ($conditions as $entry) {
             $class = get_class($entry['object']);
             if ($class::get_subject() !== self::SUBJECT_COURSE) {
+                continue;
+            }
+            $polarity = $entry['record']->polarity ?? self::POLARITY_MATCH;
+            if (!self::prefilter_is_safe($logic, $polarity)) {
                 continue;
             }
             $config = (array) json_decode($entry['record']->configdata ?? '{}', true);

@@ -37,7 +37,16 @@ class observer {
         if (!$userid) {
             return;
         }
-        $where = ['enabled' => 1, 'triggertype' => 'event', 'eventname' => $eventname];
+        // Pin to subject=user so a course-subject rule that was once
+        // configured with a user event (e.g. before its subject was
+        // changed) cannot fire here and have its course actions handed
+        // a user id.
+        $where = [
+            'enabled'     => 1,
+            'triggertype' => 'event',
+            'eventname'   => $eventname,
+            'subject'     => 'user',
+        ];
         foreach (['courseid', 'roleid'] as $field) {
             if (array_key_exists($field, $extra)) {
                 $where[$field] = (int) $extra[$field];
