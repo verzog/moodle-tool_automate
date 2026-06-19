@@ -136,11 +136,15 @@ class generate_report extends action_base {
 
         // Only pull in the completion / grade libraries when enrichment is
         // actually configured - a plain user CSV needs none of them.
+        // querylib.php (where grade_get_course_grade() lives) is under
+        // Moodle's <dirroot>/grade/, not under <dirroot>/lib - $CFG->libdir
+        // points at lib/, so the right base for this one require is
+        // dirroot.
         if ($enrich) {
             require_once($CFG->libdir . '/completionlib.php');
             if ($wantgrade) {
                 require_once($CFG->libdir . '/gradelib.php');
-                require_once($CFG->libdir . '/grade/querylib.php');
+                require_once($CFG->dirroot . '/grade/querylib.php');
             }
         }
 
