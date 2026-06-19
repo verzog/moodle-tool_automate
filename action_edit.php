@@ -51,7 +51,8 @@ if ($delete && $id && confirm_sesskey()) {
     redirect($ruleurl);
 }
 
-$types = manager::get_action_types();
+$rulesubject = $rule->subject ?? 'user';
+$types = manager::get_action_types_for_subject($rulesubject);
 if (!isset($types[$type])) {
     redirect($ruleurl, get_string('chooseatype', 'tool_automate'), null, \core\output\notification::NOTIFY_WARNING);
 }

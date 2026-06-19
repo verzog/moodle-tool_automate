@@ -48,14 +48,26 @@ abstract class action_base {
     abstract public static function get_name(): string;
 
     /**
+     * What kind of record this action operates on. Default is 'user' so
+     * existing actions don't have to opt in. Course-shaped actions
+     * override to return 'course'.
+     *
+     * @return string 'user' or 'course'.
+     */
+    public static function get_subject(): string {
+        return 'user';
+    }
+
+    /**
      * Do the thing - or, in dry-run mode, report what would be done
      * without changing anything.
      *
-     * @param \stdClass $user A full user record.
+     * @param \stdClass $subject A full user record, or a course record for
+     *                            course-subject actions.
      * @param bool $dryrun If true, make no changes.
      * @return string A short message describing the outcome.
      */
-    abstract public function execute(\stdClass $user, bool $dryrun): string;
+    abstract public function execute(\stdClass $subject, bool $dryrun): string;
 
     /**
      * Called once after the per-user loop finishes. Aggregating actions

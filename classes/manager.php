@@ -18,16 +18,28 @@ namespace tool_automate;
 
 /**
  * The engine. Holds the registry of available condition/action types and
- * runs a rule: find target users, evaluate conditions per the rule's
- * logic, run actions, log everything.
+ * runs a rule: find target users (or courses), evaluate conditions per
+ * the rule's logic, run actions, log everything.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class manager {
+    /** Subject discriminator: rule operates on users. */
+    public const SUBJECT_USER = 'user';
+
+    /** Subject discriminator: rule operates on courses. */
+    public const SUBJECT_COURSE = 'course';
+
+    /** Polarity: condition matches if its test is true. */
+    public const POLARITY_MATCH = 'match';
+
+    /** Polarity: condition matches if its test is false. */
+    public const POLARITY_NOTMATCH = 'notmatch';
+
     /**
-     * Registry of condition types.
+     * Registry of condition types (all subjects).
      *
      * @return array Type code => fully qualified class name.
      */
@@ -41,11 +53,31 @@ class manager {
             'account_age'          => condition\account_age::class,
             'custom_profile_field' => condition\custom_profile_field::class,
             'enrolled_in_course'   => condition\enrolled_in_course::class,
+            'course_visibility'    => condition\course_visibility::class,
+            'course_in_category'   => condition\course_in_category::class,
+            'course_idnumber_matches' => condition\course_idnumber_matches::class,
+            'course_no_activity_days' => condition\course_no_activity_days::class,
         ];
     }
 
     /**
-     * Registry of action types.
+     * Registry of condition types filtered by subject.
+     *
+     * @param string $subject 'user' or 'course'.
+     * @return array Type code => fully qualified class name.
+     */
+    public static function get_condition_types_for_subject(string $subject): array {
+        $out = [];
+        foreach (self::get_condition_types() as $code => $class) {
+            if ($class::get_subject() === $subject) {
+                $out[$code] = $class;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Registry of action types (all subjects).
      *
      * @return array Type code => fully qualified class name.
      */
@@ -62,7 +94,28 @@ class manager {
             'send_email'         => action\send_email::class,
             'set_profile_field'  => action\set_profile_field::class,
             'generate_report'    => action\generate_report::class,
+            'course_set_visibility'  => action\course_set_visibility::class,
+            'course_move_to_category' => action\course_move_to_category::class,
+            'course_email_teachers'   => action\course_email_teachers::class,
+            'course_generate_report'  => action\course_generate_report::class,
+            'course_copy'             => action\course_copy::class,
         ];
+    }
+
+    /**
+     * Registry of action types filtered by subject.
+     *
+     * @param string $subject 'user' or 'course'.
+     * @return array Type code => fully qualified class name.
+     */
+    public static function get_action_types_for_subject(string $subject): array {
+        $out = [];
+        foreach (self::get_action_types() as $code => $class) {
+            if ($class::get_subject() === $subject) {
+                $out[$code] = $class;
+            }
+        }
+        return $out;
     }
 
     /**
@@ -70,20 +123,25 @@ class manager {
      *
      * @param int $ruleid
      * @param bool $dryrun
-     * @param int|null $onlyuserid Restrict to one user (used by event triggers).
+     * @param int|null $onlysubjectid Restrict to one subject record (used
+     *                                 by event triggers).
      * @return array Result rows {userid, fullname, outcome, message}.
      */
-    public static function run_rule(int $ruleid, bool $dryrun, ?int $onlyuserid = null): array {
+    public static function run_rule(int $ruleid, bool $dryrun, ?int $onlysubjectid = null): array {
         global $DB;
 
         $rule = $DB->get_record('tool_automate_rule', ['id' => $ruleid], '*', MUST_EXIST);
+        $subject = $rule->subject ?? self::SUBJECT_USER;
+        $logic = $rule->logic ?? 'all';
         $conditions = self::load_conditions($ruleid);
         $actions = self::load_actions($ruleid);
-        $users = self::get_target_users($ruleid, $onlyuserid);
+        $subjects = $subject === self::SUBJECT_COURSE
+            ? self::get_target_courses($conditions, $logic, $onlysubjectid)
+            : self::get_target_users($conditions, $logic, $onlysubjectid);
 
         $results = [];
-        foreach ($users as $user) {
-            if (!self::evaluate_conditions($rule, $conditions, $user)) {
+        foreach ($subjects as $record) {
+            if (!self::evaluate_conditions($rule, $conditions, $record)) {
                 continue;
             }
             if (empty($actions)) {
@@ -91,16 +149,22 @@ class manager {
             }
             foreach ($actions as $action) {
                 try {
-                    $message = $action->execute($user, $dryrun);
+                    $message = $action->execute($record, $dryrun);
                     $outcome = 'actioned';
                 } catch (\Throwable $e) {
                     $message = $e->getMessage();
                     $outcome = 'error';
                 }
-                self::log($ruleid, $user->id, $dryrun, $outcome, $message);
+                $subjectid = (int) $record->id;
+                // Only user IDs go into the log's userid column. For
+                // course-subject rules, the id is reflected in the
+                // message; the log column stays null so the privacy
+                // provider doesn't treat course ids as user ids.
+                $logsubjectid = $subject === self::SUBJECT_USER ? $subjectid : null;
+                self::log($ruleid, $logsubjectid, $dryrun, $outcome, $message);
                 $results[] = (object) [
-                    'userid'   => $user->id,
-                    'fullname' => fullname($user),
+                    'userid'   => $subjectid,
+                    'fullname' => self::describe_subject($subject, $record),
                     'outcome'  => $outcome,
                     'message'  => $message,
                 ];
@@ -138,26 +202,40 @@ class manager {
     }
 
     /**
-     * Evaluate a rule's conditions for one user.
+     * Subject-appropriate display label for a result row.
+     *
+     * @param string $subject
+     * @param \stdClass $record
+     * @return string
+     */
+    protected static function describe_subject(string $subject, \stdClass $record): string {
+        if ($subject === self::SUBJECT_COURSE) {
+            return format_string($record->fullname ?? ('#' . $record->id));
+        }
+        return fullname($record);
+    }
+
+    /**
+     * Evaluate a rule's conditions for one subject record.
      *
      * @param \stdClass $rule
      * @param array $conditions Output of self::load_conditions().
-     * @param \stdClass $user
+     * @param \stdClass $subject
      * @return bool
      */
-    protected static function evaluate_conditions(\stdClass $rule, array $conditions, \stdClass $user): bool {
+    protected static function evaluate_conditions(\stdClass $rule, array $conditions, \stdClass $subject): bool {
         if (empty($conditions)) {
             return true;
         }
         $logic = $rule->logic ?? 'all';
 
         if ($logic === 'expression' && !empty($rule->expression)) {
-            return self::evaluate_expression((string) $rule->expression, $conditions, $user);
+            return self::evaluate_expression((string) $rule->expression, $conditions, $subject);
         }
 
         if ($logic === 'any') {
             foreach ($conditions as $entry) {
-                if ($entry['object']->matches($user)) {
+                if (self::condition_matches($entry, $subject)) {
                     return true;
                 }
             }
@@ -166,7 +244,7 @@ class manager {
 
         // Default logic is "all" - every condition must match.
         foreach ($conditions as $entry) {
-            if (!$entry['object']->matches($user)) {
+            if (!self::condition_matches($entry, $subject)) {
                 return false;
             }
         }
@@ -174,17 +252,31 @@ class manager {
     }
 
     /**
+     * Run a single condition's test, then invert if polarity is "notmatch".
+     *
+     * @param array $entry ['record' => stdClass, 'object' => condition_base]
+     * @param \stdClass $subject
+     * @return bool
+     */
+    protected static function condition_matches(array $entry, \stdClass $subject): bool {
+        $raw = (bool) $entry['object']->matches($subject);
+        $polarity = $entry['record']->polarity ?? self::POLARITY_MATCH;
+        return $polarity === self::POLARITY_NOTMATCH ? !$raw : $raw;
+    }
+
+    /**
      * Evaluate the boolean expression against the per-condition results.
+     * Identifiers (c1, c2, ...) honour each condition's polarity.
      *
      * @param string $expression
      * @param array $conditions
-     * @param \stdClass $user
+     * @param \stdClass $subject
      * @return bool
      */
-    protected static function evaluate_expression(string $expression, array $conditions, \stdClass $user): bool {
+    protected static function evaluate_expression(string $expression, array $conditions, \stdClass $subject): bool {
         $values = [];
         foreach ($conditions as $i => $entry) {
-            $values['c' . ($i + 1)] = (bool) $entry['object']->matches($user);
+            $values['c' . ($i + 1)] = self::condition_matches($entry, $subject);
         }
         try {
             return expression::evaluate($expression, $values);
@@ -195,7 +287,8 @@ class manager {
 
     /**
      * Load conditions for a rule. Returns both the DB record (so callers
-     * can read configdata for SQL pre-filters) and the instantiated object.
+     * can read configdata for SQL pre-filters and polarity) and the
+     * instantiated object.
      *
      * @param int $ruleid
      * @return array List of ['record' => stdClass, 'object' => condition_base].
@@ -239,17 +332,38 @@ class manager {
     }
 
     /**
-     * Build the candidate user set for a rule.
+     * Is it safe to use a condition's SQL pre-filter? A pre-filter narrows
+     * the candidate set before condition_matches() runs in PHP. That is
+     * sound only when:
+     *   - The rule's logic is "all" (every condition must match, so an
+     *     AND of pre-filters cannot drop a record that should be in the
+     *     final set), AND
+     *   - The condition's polarity is "match" (the pre-filter selects
+     *     records that satisfy the condition; for "notmatch" it would
+     *     select the records we're about to reject).
+     *
+     * @param string $logic
+     * @param string $polarity
+     * @return bool
+     */
+    protected static function prefilter_is_safe(string $logic, string $polarity): bool {
+        return $logic === 'all' && $polarity === self::POLARITY_MATCH;
+    }
+
+    /**
+     * Build the candidate user set for a user-subject rule.
      *
      * For event/manual single-user runs this is just that one user. For
      * cron and manual all-user runs we start from all real, active users
-     * and let each condition apply an optional SQL pre-filter.
+     * and let each condition apply an optional SQL pre-filter (when safe
+     * for the rule's logic and the condition's polarity).
      *
-     * @param int $ruleid
+     * @param array $conditions Pre-loaded conditions.
+     * @param string $logic Rule logic ('all'|'any'|'expression').
      * @param int|null $onlyuserid
      * @return \stdClass[]
      */
-    protected static function get_target_users(int $ruleid, ?int $onlyuserid): array {
+    protected static function get_target_users(array $conditions, string $logic, ?int $onlyuserid): array {
         global $DB, $CFG;
         if ($onlyuserid) {
             $user = $DB->get_record('user', ['id' => $onlyuserid, 'deleted' => 0]);
@@ -259,8 +373,15 @@ class manager {
         $where = ['u.deleted = 0', 'u.id <> :guestid'];
         $params = ['guestid' => $CFG->siteguest];
 
-        foreach (self::load_conditions($ruleid) as $entry) {
+        foreach ($conditions as $entry) {
             $class = get_class($entry['object']);
+            if ($class::get_subject() !== self::SUBJECT_USER) {
+                continue;
+            }
+            $polarity = $entry['record']->polarity ?? self::POLARITY_MATCH;
+            if (!self::prefilter_is_safe($logic, $polarity)) {
+                continue;
+            }
             $config = (array) json_decode($entry['record']->configdata ?? '{}', true);
             [$sql, $sqlparams] = $class::get_user_sql_filter($config);
             if ($sql !== '') {
@@ -270,6 +391,48 @@ class manager {
         }
 
         $sql = 'SELECT u.* FROM {user} u WHERE ' . implode(' AND ', $where);
+        return $DB->get_records_sql($sql, $params);
+    }
+
+    /**
+     * Build the candidate course set for a course-subject rule.
+     *
+     * The site course (SITEID) is always excluded. SQL pre-filters are
+     * only applied when safe (see prefilter_is_safe()).
+     *
+     * @param array $conditions Pre-loaded conditions.
+     * @param string $logic Rule logic ('all'|'any'|'expression').
+     * @param int|null $onlycourseid
+     * @return \stdClass[]
+     */
+    protected static function get_target_courses(array $conditions, string $logic, ?int $onlycourseid): array {
+        global $DB;
+        if ($onlycourseid) {
+            $course = $DB->get_record('course', ['id' => $onlycourseid]);
+            return $course && (int) $course->id !== SITEID ? [$course] : [];
+        }
+
+        $where = ['c.id <> :siteid'];
+        $params = ['siteid' => SITEID];
+
+        foreach ($conditions as $entry) {
+            $class = get_class($entry['object']);
+            if ($class::get_subject() !== self::SUBJECT_COURSE) {
+                continue;
+            }
+            $polarity = $entry['record']->polarity ?? self::POLARITY_MATCH;
+            if (!self::prefilter_is_safe($logic, $polarity)) {
+                continue;
+            }
+            $config = (array) json_decode($entry['record']->configdata ?? '{}', true);
+            [$sql, $sqlparams] = $class::get_course_sql_filter($config);
+            if ($sql !== '') {
+                $where[] = $sql;
+                $params += $sqlparams;
+            }
+        }
+
+        $sql = 'SELECT c.* FROM {course} c WHERE ' . implode(' AND ', $where);
         return $DB->get_records_sql($sql, $params);
     }
 

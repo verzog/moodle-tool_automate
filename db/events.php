@@ -45,4 +45,12 @@ $observers = [
         'eventname' => '\core\event\role_assigned',
         'callback'  => 'tool_automate\observer::role_assigned',
     ],
+    [
+        'eventname' => '\core\event\course_created',
+        'callback'  => 'tool_automate\observer::course_created',
+    ],
+    [
+        'eventname' => '\core\event\course_updated',
+        'callback'  => 'tool_automate\observer::course_updated',
+    ],
 ];
