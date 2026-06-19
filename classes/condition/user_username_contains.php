@@ -46,7 +46,7 @@ class user_username_contains extends condition_base {
             return false;
         }
         $username = (string) ($subject->username ?? '');
-        return stripos($username, $needle) !== false;
+        return mb_stripos($username, $needle, 0, 'UTF-8') !== false;
     }
 
     /**
@@ -103,11 +103,13 @@ class user_username_contains extends condition_base {
      */
     public static function get_user_sql_filter(array $config): array {
         global $DB;
+        static $n = 0;
         $needle = trim((string) ($config['needle'] ?? ''));
         if ($needle === '') {
             return ['', []];
         }
-        $like = $DB->sql_like('u.username', ':uuc_needle', false);
-        return [$like, ['uuc_needle' => '%' . $DB->sql_like_escape($needle) . '%']];
+        $param = 'uuc_needle_' . (++$n);
+        $like = $DB->sql_like('u.username', ':' . $param, false);
+        return [$like, [$param => '%' . $DB->sql_like_escape($needle) . '%']];
     }
 }

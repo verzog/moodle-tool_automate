@@ -53,7 +53,7 @@ class user_username_matches extends condition_base {
         if (strpos($pattern, '*') === false) {
             $pattern = '*' . $pattern . '*';
         }
-        $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/i';
+        $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/iu';
         return (bool) preg_match($regex, $username);
     }
 
@@ -112,6 +112,7 @@ class user_username_matches extends condition_base {
      */
     public static function get_user_sql_filter(array $config): array {
         global $DB;
+        static $n = 0;
         $pattern = trim((string) ($config['pattern'] ?? ''));
         if ($pattern === '') {
             return ['', []];
@@ -120,7 +121,8 @@ class user_username_matches extends condition_base {
             $pattern = '*' . $pattern . '*';
         }
         $sqlpattern = str_replace('*', '%', $DB->sql_like_escape($pattern));
-        $like = $DB->sql_like('u.username', ':uun_pattern', false);
-        return [$like, ['uun_pattern' => $sqlpattern]];
+        $param = 'uun_pattern_' . (++$n);
+        $like = $DB->sql_like('u.username', ':' . $param, false);
+        return [$like, [$param => $sqlpattern]];
     }
 }

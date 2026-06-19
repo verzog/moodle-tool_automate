@@ -54,7 +54,8 @@ class user_name_matches extends condition_base {
         if (strpos($pattern, '*') === false) {
             $pattern = '*' . $pattern . '*';
         }
-        $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/i';
+        // /u + /i makes the case-insensitive match Unicode-aware.
+        $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/iu';
         return (bool) preg_match($regex, $name);
     }
 
@@ -115,6 +116,7 @@ class user_name_matches extends condition_base {
      */
     public static function get_user_sql_filter(array $config): array {
         global $DB;
+        static $n = 0;
         $pattern = trim((string) ($config['pattern'] ?? ''));
         if ($pattern === '') {
             return ['', []];
@@ -123,10 +125,13 @@ class user_name_matches extends condition_base {
             $pattern = '*' . $pattern . '*';
         }
         // sql_like_escape neutralises any SQL wildcards in the admin's
-        // input; the remaining * then become the SQL %.
+        // input; the remaining * then become the SQL %. The per-call
+        // counter on the placeholder lets two of these conditions
+        // co-exist on the same rule.
         $sqlpattern = str_replace('*', '%', $DB->sql_like_escape($pattern));
+        $param = 'unm_pattern_' . (++$n);
         $fullname = $DB->sql_concat('u.firstname', "' '", 'u.lastname');
-        $like = $DB->sql_like($fullname, ':unm_pattern', false);
-        return [$like, ['unm_pattern' => $sqlpattern]];
+        $like = $DB->sql_like($fullname, ':' . $param, false);
+        return [$like, [$param => $sqlpattern]];
     }
 }

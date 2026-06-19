@@ -55,7 +55,10 @@ class course_name_contains extends condition_base {
             return false;
         }
         $haystack = (string) ($subject->fullname ?? '');
-        return stripos($haystack, $needle) !== false;
+        // mb_stripos is Unicode-aware. The byte-oriented stripos would
+        // fail to match accented characters between cases (e.g. needle
+        // "économie" against course "Économie 101").
+        return mb_stripos($haystack, $needle, 0, 'UTF-8') !== false;
     }
 
     /**
@@ -112,11 +115,16 @@ class course_name_contains extends condition_base {
      */
     public static function get_course_sql_filter(array $config): array {
         global $DB;
+        static $n = 0;
         $needle = trim((string) ($config['needle'] ?? ''));
         if ($needle === '') {
             return ['', []];
         }
-        $like = $DB->sql_like('c.fullname', ':cnc_needle', false);
-        return [$like, ['cnc_needle' => '%' . $DB->sql_like_escape($needle) . '%']];
+        // Unique placeholder per invocation so two course_name_contains
+        // conditions on the same rule (with logic=all) don't collide on
+        // a shared :cnc_needle name.
+        $param = 'cnc_needle_' . (++$n);
+        $like = $DB->sql_like('c.fullname', ':' . $param, false);
+        return [$like, [$param => '%' . $DB->sql_like_escape($needle) . '%']];
     }
 }

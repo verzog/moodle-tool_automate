@@ -47,7 +47,9 @@ class user_name_contains extends condition_base {
             return false;
         }
         $name = trim(((string) ($subject->firstname ?? '')) . ' ' . ((string) ($subject->lastname ?? '')));
-        return stripos($name, $needle) !== false;
+        // mb_stripos is Unicode-aware: a needle "andré" matches a user
+        // named "André Müller" which byte-oriented stripos would miss.
+        return mb_stripos($name, $needle, 0, 'UTF-8') !== false;
     }
 
     /**
@@ -104,12 +106,16 @@ class user_name_contains extends condition_base {
      */
     public static function get_user_sql_filter(array $config): array {
         global $DB;
+        static $n = 0;
         $needle = trim((string) ($config['needle'] ?? ''));
         if ($needle === '') {
             return ['', []];
         }
+        // Unique placeholder per call so two of these on one rule don't
+        // collide on a shared :unc_needle.
+        $param = 'unc_needle_' . (++$n);
         $fullname = $DB->sql_concat('u.firstname', "' '", 'u.lastname');
-        $like = $DB->sql_like($fullname, ':unc_needle', false);
-        return [$like, ['unc_needle' => '%' . $DB->sql_like_escape($needle) . '%']];
+        $like = $DB->sql_like($fullname, ':' . $param, false);
+        return [$like, [$param => '%' . $DB->sql_like_escape($needle) . '%']];
     }
 }
