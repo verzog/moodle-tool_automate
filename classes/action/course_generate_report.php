@@ -98,13 +98,20 @@ class course_generate_report extends action_base {
      */
     protected function build_csv(): string {
         global $CFG;
-        require_once($CFG->libdir . '/completionlib.php');
-        require_once($CFG->libdir . '/gradelib.php');
-        require_once($CFG->dirroot . '/grade/querylib.php');
 
         $wantenrolled = !empty($this->config['includeenrolledcount']);
         $wantcompletion = !empty($this->config['includecompletionrate']);
         $wantgrade = !empty($this->config['includeavggrade']);
+
+        // Only load the completion / grade libraries when the matching
+        // enrichment column is requested - a plain course CSV needs none.
+        if ($wantcompletion) {
+            require_once($CFG->libdir . '/completionlib.php');
+        }
+        if ($wantgrade) {
+            require_once($CFG->libdir . '/gradelib.php');
+            require_once($CFG->libdir . '/grade/querylib.php');
+        }
 
         $header = ['id', 'shortname', 'fullname', 'idnumber', 'category', 'visible'];
         if ($wantenrolled) {

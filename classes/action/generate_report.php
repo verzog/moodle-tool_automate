@@ -127,15 +127,22 @@ class generate_report extends action_base {
      */
     protected function build_csv(): string {
         global $CFG;
-        require_once($CFG->libdir . '/completionlib.php');
-        require_once($CFG->libdir . '/gradelib.php');
-        require_once($CFG->dirroot . '/grade/querylib.php');
 
         $courseid = (int) ($this->config['enrichcourseid'] ?? 0);
         $wantcompletion = !empty($this->config['includecompletion']);
         $wantactivity = !empty($this->config['includeactivitycompletion']);
         $wantgrade = !empty($this->config['includegrade']);
         $enrich = $courseid !== 0 && ($wantcompletion || $wantactivity || $wantgrade);
+
+        // Only pull in the completion / grade libraries when enrichment is
+        // actually configured - a plain user CSV needs none of them.
+        if ($enrich) {
+            require_once($CFG->libdir . '/completionlib.php');
+            if ($wantgrade) {
+                require_once($CFG->libdir . '/gradelib.php');
+                require_once($CFG->libdir . '/grade/querylib.php');
+            }
+        }
 
         $header = ['id', 'username', 'firstname', 'lastname', 'email', 'idnumber'];
         if ($enrich) {
