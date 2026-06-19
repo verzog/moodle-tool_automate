@@ -194,6 +194,7 @@ $string['logic_any'] = 'Any condition matches (OR)';
 $string['logic_expression'] = 'A custom expression';
 $string['logicheading'] = 'Advanced: how to combine these conditions';
 $string['manualenrolmissing'] = 'Manual enrolment is not available in "{$a}"';
+$string['matchedcourses'] = 'Matched courses: {$a}';
 $string['matchedusers'] = 'Matched users: {$a}';
 $string['membership'] = 'Membership';
 $string['message'] = 'Detail';

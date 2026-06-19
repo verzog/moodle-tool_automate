@@ -39,6 +39,7 @@ $PAGE->set_title(get_string('results', 'tool_automate'));
 $PAGE->set_heading(get_string('resultsfor', 'tool_automate', format_string($rule->name)));
 
 $results = \tool_automate\manager::run_rule($id, (bool) $dryrun);
+$iscourse = ($rule->subject ?? 'user') === 'course';
 
 echo $OUTPUT->header();
 
@@ -46,25 +47,26 @@ if ($dryrun) {
     echo $OUTPUT->notification(get_string('dryrunnotice', 'tool_automate'), 'info');
 }
 
-// Group action results by user so each user shows up once with the list
-// of changes underneath, then count distinct users matched.
-$byuser = [];
+// Group action results by subject so each subject shows up once with the
+// list of changes underneath, then count distinct subjects matched.
+$bysubject = [];
 foreach ($results as $row) {
-    $byuser[$row->userid]['fullname'] = $row->fullname;
-    $byuser[$row->userid]['changes'][] = $row;
+    $bysubject[$row->userid]['fullname'] = $row->fullname;
+    $bysubject[$row->userid]['changes'][] = $row;
 }
-echo html_writer::tag('p', get_string('matchedusers', 'tool_automate', count($byuser)));
+$countstring = $iscourse ? 'matchedcourses' : 'matchedusers';
+echo html_writer::tag('p', get_string($countstring, 'tool_automate', count($bysubject)));
 
-if ($byuser) {
+if ($bysubject) {
     $table = new html_table();
     $table->head = [
-        get_string('user', 'tool_automate'),
+        get_string($iscourse ? 'course' : 'user', 'tool_automate'),
         $dryrun
             ? get_string('plannedchanges', 'tool_automate')
             : get_string('changes', 'tool_automate'),
     ];
     $table->attributes['class'] = 'generaltable tool_automate_results';
-    foreach ($byuser as $entry) {
+    foreach ($bysubject as $entry) {
         $items = [];
         foreach ($entry['changes'] as $r) {
             $cls = $r->outcome === 'error' ? 'text-danger' : '';
