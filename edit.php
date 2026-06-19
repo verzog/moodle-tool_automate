@@ -96,7 +96,7 @@ if ($condtype) {
     $condtypes = manager::get_condition_types_for_subject($rulesubject);
     if (isset($condtypes[$condtype])) {
         $condclass = $condtypes[$condtype];
-        $condform = new condition_form(null, ['type' => $condtype]);
+        $condform = new condition_form($selfurl, ['type' => $condtype]);
         if ($existingcondition) {
             $cfg = (array) json_decode($existingcondition->configdata ?? '{}', true);
             $defaults = $condclass::config_to_form_defaults($cfg);
@@ -137,7 +137,7 @@ if ($acttype) {
     $acttypes = manager::get_action_types_for_subject($rulesubject);
     if (isset($acttypes[$acttype])) {
         $actclass = $acttypes[$acttype];
-        $actform = new action_form(null, ['type' => $acttype]);
+        $actform = new action_form($selfurl, ['type' => $acttype]);
         if ($existingaction) {
             $cfg = (array) json_decode($existingaction->configdata ?? '{}', true);
             $defaults = $actclass::config_to_form_defaults($cfg);
@@ -257,11 +257,15 @@ if ($triggerform && ($triggerdata = $triggerform->get_data()) && !empty($trigger
         'usermodified' => $USER->id,
         'timemodified' => time(),
     ];
-    // Reset the one-off run marker so the rule fires once after switching
-    // to a one-off date, even if it has run before under another schedule
-    // and lastrunat sits later than the chosen scheduledate.
+    // Reset the one-off run marker so a one-off date in the past fires
+    // once after the admin commits to a new scheduledate. Only when the
+    // date actually changes - re-saving the same oncedate trigger must
+    // not refire a rule that has already run.
     if ($iscron && $schedule === 'oncedate') {
-        $update->lastrunat = 0;
+        $oldscheduledate = (int) ($rule->scheduledate ?? 0);
+        if ($oldscheduledate !== $scheduledate) {
+            $update->lastrunat = 0;
+        }
     }
     $DB->update_record('tool_automate_rule', $update);
     redirect($selfurl);
@@ -300,16 +304,18 @@ if ($mform->is_cancelled()) {
     redirect(new moodle_url('/admin/tool/automate/edit.php', ['id' => $ruleid]));
 }
 
-/**
- * Render the Step 3 conditions section, including the table, the inline
- * form (if any), and the picker. Returned as a string so it can be sent
- * either as part of the full edit page, or as the AJAX payload that
- * inline_editor.js swaps into the page on type pick / edit click.
- *
- * @return string
- */
+// Render the Step 3 conditions section (table, inline form if any, and
+// picker) as a string so it can be sent either as part of the full edit
+// page or as the AJAX payload that the inline JS swaps in on type pick
+// or edit click.
 $rendercondsection = function () use (
-    $id, $selfurl, $conditions, $condform, $condclass, $rulesubject, $OUTPUT
+    $id,
+    $selfurl,
+    $conditions,
+    $condform,
+    $condclass,
+    $rulesubject,
+    $OUTPUT
 ) {
     $condtypes = manager::get_condition_types_for_subject($rulesubject);
     ob_start();
@@ -387,14 +393,16 @@ $rendercondsection = function () use (
     return ob_get_clean();
 };
 
-/**
- * Render the Step 4 actions section. Same shape as the conditions
- * renderer above.
- *
- * @return string
- */
+// Render the Step 4 actions section. Same shape as the conditions
+// renderer above.
 $renderactsection = function () use (
-    $id, $selfurl, $actions, $actform, $actclass, $rulesubject, $OUTPUT
+    $id,
+    $selfurl,
+    $actions,
+    $actform,
+    $actclass,
+    $rulesubject,
+    $OUTPUT
 ) {
     $acttypes = manager::get_action_types_for_subject($rulesubject);
     ob_start();
@@ -457,16 +465,20 @@ $renderactsection = function () use (
     return ob_get_clean();
 };
 
-// Inline AJAX response: emit only the requested section, no page chrome.
+// Inline AJAX response: emit only the requested section, plus the JS
+// requirements the moodleform registered (editor inits, hideIf wiring,
+// etc.) so widgets in the inline-loaded form initialise correctly.
 if ($id && $inline) {
     $section = ($addcondition !== '' || $editcondition) ? 'conditions'
         : (($addaction !== '' || $editaction) ? 'actions' : '');
     if ($section === 'conditions') {
         echo $rendercondsection();
+        echo $PAGE->requires->get_end_code();
         exit;
     }
     if ($section === 'actions') {
         echo $renderactsection();
+        echo $PAGE->requires->get_end_code();
         exit;
     }
 }
