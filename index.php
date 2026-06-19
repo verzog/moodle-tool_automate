@@ -65,6 +65,11 @@ echo $OUTPUT->single_button(
     get_string('runhistory', 'tool_automate'),
     'get'
 );
+echo $OUTPUT->single_button(
+    new moodle_url('/admin/tool/automate/report.php'),
+    get_string('savedreports', 'tool_automate'),
+    'get'
+);
 
 $rules = $DB->get_records('tool_automate_rule', null, 'name');
 if (!$rules) {

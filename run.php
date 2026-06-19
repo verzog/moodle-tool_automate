@@ -93,6 +93,12 @@ if ($bysubject) {
 foreach ($finaliserows as $row) {
     $type = $row->outcome === 'error' ? 'error' : 'info';
     echo $OUTPUT->notification(s($row->message), $type);
+    if (!empty($row->url)) {
+        echo html_writer::div(
+            html_writer::link($row->url, get_string('viewreport', 'tool_automate')),
+            'tool_automate_viewreport mb-3'
+        );
+    }
 }
 
 echo $OUTPUT->single_button($baseurl, get_string('back', 'tool_automate'), 'get');

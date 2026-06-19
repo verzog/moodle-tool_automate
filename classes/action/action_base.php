@@ -86,6 +86,18 @@ abstract class action_base {
     }
 
     /**
+     * Optional link to a viewable result produced by this action, shown
+     * next to the finalise message on the results page. Aggregating
+     * actions that save an artefact (like the report actions) return a
+     * URL to view it on screen; everything else returns null.
+     *
+     * @return string|null
+     */
+    public function get_result_url(): ?string {
+        return null;
+    }
+
+    /**
      * Add this action's config fields to a form.
      *
      * @param \MoodleQuickForm $mform
