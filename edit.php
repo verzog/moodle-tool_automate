@@ -193,6 +193,16 @@ if ($rule) {
     ]);
 }
 
+// Cancel on an inline condition / action form returns to the clean
+// rule URL so the conditions / actions section re-renders with its
+// picker instead of the half-filled form.
+if ($condform && $condform->is_cancelled()) {
+    redirect($selfurl);
+}
+if ($actform && $actform->is_cancelled()) {
+    redirect($selfurl);
+}
+
 // Inline condition submit.
 if ($condform && ($conddata = $condform->get_data()) && !empty($conddata->updatecondition)) {
     $config = $condclass::extract_config($conddata);
@@ -599,14 +609,17 @@ if ($id) {
         if (form.classList.contains('tool_automate-picker')) { return; }
         var target = form.closest('[data-inline-target]');
         if (!target) { return; }
-        // Honour the click target so a Cancel button still cancels.
-        var submitter = e.submitter;
-        if (submitter && submitter.name === 'cancel') { return; }
         e.preventDefault();
         var url = new URL(form.action, window.location.href);
+        // Pass the submitter so the clicked button's name/value is
+        // included; without it, PHP's $mform->is_cancelled() never sees
+        // the cancel button and the save path runs instead.
+        var fd = e.submitter
+            ? new FormData(form, e.submitter)
+            : new FormData(form);
         fetch(url.toString(), {
             method: 'POST',
-            body: new FormData(form),
+            body: fd,
             credentials: 'same-origin'
         })
             .then(function (r) { return r.text(); })

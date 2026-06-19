@@ -53,9 +53,15 @@ class manager {
             'account_age'          => condition\account_age::class,
             'custom_profile_field' => condition\custom_profile_field::class,
             'enrolled_in_course'   => condition\enrolled_in_course::class,
+            'user_name_contains'   => condition\user_name_contains::class,
+            'user_name_matches'    => condition\user_name_matches::class,
+            'user_username_contains' => condition\user_username_contains::class,
+            'user_username_matches' => condition\user_username_matches::class,
             'course_visibility'    => condition\course_visibility::class,
             'course_in_category'   => condition\course_in_category::class,
             'course_idnumber_matches' => condition\course_idnumber_matches::class,
+            'course_name_contains' => condition\course_name_contains::class,
+            'course_name_matches'  => condition\course_name_matches::class,
             'course_no_activity_days' => condition\course_no_activity_days::class,
         ];
     }
