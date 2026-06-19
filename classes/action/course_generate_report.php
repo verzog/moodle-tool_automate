@@ -105,12 +105,14 @@ class course_generate_report extends action_base {
 
         // Only load the completion / grade libraries when the matching
         // enrichment column is requested - a plain course CSV needs none.
+        // querylib.php lives at <dirroot>/grade/querylib.php (not under
+        // lib/), so it has to come off dirroot rather than libdir.
         if ($wantcompletion) {
             require_once($CFG->libdir . '/completionlib.php');
         }
         if ($wantgrade) {
             require_once($CFG->libdir . '/gradelib.php');
-            require_once($CFG->libdir . '/grade/querylib.php');
+            require_once($CFG->dirroot . '/grade/querylib.php');
         }
 
         $header = ['id', 'shortname', 'fullname', 'idnumber', 'category', 'visible'];
