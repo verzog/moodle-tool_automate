@@ -131,12 +131,11 @@ class generate_report extends action_base {
         require_once($CFG->libdir . '/gradelib.php');
         require_once($CFG->dirroot . '/grade/querylib.php');
 
-        $scope = (string) ($this->config['coursescope'] ?? 'none');
         $courseid = (int) ($this->config['enrichcourseid'] ?? 0);
         $wantcompletion = !empty($this->config['includecompletion']);
         $wantactivity = !empty($this->config['includeactivitycompletion']);
         $wantgrade = !empty($this->config['includegrade']);
-        $enrich = $scope !== 'none' && ($wantcompletion || $wantactivity || $wantgrade);
+        $enrich = $courseid !== 0 && ($wantcompletion || $wantactivity || $wantgrade);
 
         $header = ['id', 'username', 'firstname', 'lastname', 'email', 'idnumber'];
         if ($enrich) {
@@ -171,7 +170,7 @@ class generate_report extends action_base {
                 fputcsv($fh, $base);
                 continue;
             }
-            $courses = self::courses_for_user($user, $scope, $courseid);
+            $courses = self::courses_for_user($user, $courseid);
             if (!$courses) {
                 fputcsv($fh, array_merge($base, array_fill(0, count($header) - count($base), '')));
                 continue;
@@ -206,20 +205,21 @@ class generate_report extends action_base {
     }
 
     /**
-     * Resolve which courses to report for a given user.
+     * Resolve which courses to report for a given user. `courseid` of
+     * -1 means every enrolled course; positive ids mean that specific
+     * course; 0 (no enrichment) never reaches here.
      *
      * @param \stdClass $user
-     * @param string $scope 'one' or 'enrolled'
      * @param int $courseid
      * @return \stdClass[]
      */
-    protected static function courses_for_user(\stdClass $user, string $scope, int $courseid): array {
+    protected static function courses_for_user(\stdClass $user, int $courseid): array {
         global $DB;
-        if ($scope === 'one' && $courseid > 0) {
+        if ($courseid > 0) {
             $course = $DB->get_record('course', ['id' => $courseid]);
             return $course ? [$course] : [];
         }
-        if ($scope === 'enrolled') {
+        if ($courseid === -1) {
             $courses = enrol_get_users_courses((int) $user->id, true, 'id, shortname, fullname, idnumber');
             return $courses ?: [];
         }
@@ -400,50 +400,42 @@ class generate_report extends action_base {
         $mform->setType('config_reporturl', PARAM_URL);
         $mform->hideIf('config_reporturl', 'config_content', 'neq', 'trigger');
 
-        // Optional course-progress enrichment.
-        $scopes = [
-            'none'     => get_string('coursescope_none', 'tool_automate'),
-            'one'      => get_string('coursescope_one', 'tool_automate'),
-            'enrolled' => get_string('coursescope_enrolled', 'tool_automate'),
-        ];
-        $mform->addElement(
-            'select',
-            'config_coursescope',
-            get_string('coursescope', 'tool_automate'),
-            $scopes
-        );
-        $mform->addHelpButton('config_coursescope', 'coursescope', 'tool_automate');
-
+        // Optional course-progress enrichment. The course picker doubles
+        // as the on/off switch: 0 means no extra columns, -1 means one
+        // row per matched user per enrolled course, any other id picks
+        // that course. Toggles are always visible so admins notice them
+        // (a hideIf wouldn't survive the inline-AJAX form swap anyway).
         $courses = $DB->get_records_menu('course', null, 'fullname', 'id, fullname', 0, 500);
         unset($courses[SITEID]);
+        $courseopts = [
+            0  => get_string('coursescope_none', 'tool_automate'),
+            -1 => get_string('coursescope_enrolled', 'tool_automate'),
+        ] + $courses;
         $mform->addElement(
             'select',
             'config_enrichcourseid',
-            get_string('course', 'tool_automate'),
-            $courses
+            get_string('coursescope', 'tool_automate'),
+            $courseopts
         );
-        $mform->hideIf('config_enrichcourseid', 'config_coursescope', 'neq', 'one');
+        $mform->addHelpButton('config_enrichcourseid', 'coursescope', 'tool_automate');
 
         $mform->addElement(
             'advcheckbox',
             'config_includecompletion',
             get_string('includecompletion', 'tool_automate')
         );
-        $mform->hideIf('config_includecompletion', 'config_coursescope', 'eq', 'none');
 
         $mform->addElement(
             'advcheckbox',
             'config_includeactivitycompletion',
             get_string('includeactivitycompletion', 'tool_automate')
         );
-        $mform->hideIf('config_includeactivitycompletion', 'config_coursescope', 'eq', 'none');
 
         $mform->addElement(
             'advcheckbox',
             'config_includegrade',
             get_string('includegrade', 'tool_automate')
         );
-        $mform->hideIf('config_includegrade', 'config_coursescope', 'eq', 'none');
     }
 
     /**
@@ -457,7 +449,6 @@ class generate_report extends action_base {
             'content'                   => (string) ($formdata->config_content ?? 'csv'),
             'recipient'                 => trim((string) ($formdata->config_recipient ?? '')),
             'reporturl'                 => trim((string) ($formdata->config_reporturl ?? '')),
-            'coursescope'               => (string) ($formdata->config_coursescope ?? 'none'),
             'enrichcourseid'            => (int) ($formdata->config_enrichcourseid ?? 0),
             'includecompletion'         => !empty($formdata->config_includecompletion) ? 1 : 0,
             'includeactivitycompletion' => !empty($formdata->config_includeactivitycompletion) ? 1 : 0,
@@ -476,7 +467,6 @@ class generate_report extends action_base {
             'config_content'                   => $config['content'] ?? 'csv',
             'config_recipient'                 => $config['recipient'] ?? '',
             'config_reporturl'                 => $config['reporturl'] ?? '',
-            'config_coursescope'               => $config['coursescope'] ?? 'none',
             'config_enrichcourseid'            => (int) ($config['enrichcourseid'] ?? 0),
             'config_includecompletion'         => !empty($config['includecompletion']) ? 1 : 0,
             'config_includeactivitycompletion' => !empty($config['includeactivitycompletion']) ? 1 : 0,

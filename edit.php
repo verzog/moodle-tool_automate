@@ -297,7 +297,10 @@ if ($triggerform && ($triggerdata = $triggerform->get_data()) && !empty($trigger
         }
     }
     $DB->update_record('tool_automate_rule', $update);
-    redirect($selfurl);
+    // Saving the trigger is the last editing step - return the admin to
+    // the rules overview so they can see the rule alongside its peers
+    // (and reach the Run now / Preview shortcuts there).
+    redirect($baseurl);
 }
 
 if ($mform->is_cancelled()) {
@@ -661,8 +664,21 @@ if ($id) {
             body: fd,
             credentials: 'same-origin'
         })
-            .then(function (r) { return r.text(); })
+            .then(function (r) {
+                // If PHP redirected us off the edit page (the trigger
+                // save sends us back to the rules overview), follow it
+                // with a real navigation - the fragment-swap below
+                // would silently no-op against a page that has no
+                // matching [data-inline-target] sections.
+                var finalUrl = new URL(r.url, window.location.href);
+                if (finalUrl.pathname !== window.location.pathname) {
+                    window.location.href = finalUrl.toString();
+                    return null;
+                }
+                return r.text();
+            })
             .then(function (html) {
+                if (html === null) { return; }
                 var doc = new DOMParser().parseFromString(html, 'text/html');
                 var scripts = [];
                 doc.querySelectorAll('[data-inline-target]').forEach(function (rep) {
