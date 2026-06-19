@@ -48,6 +48,8 @@ class action_form extends \moodleform {
         $mform->setType('id', PARAM_INT);
         $mform->addElement('hidden', 'type');
         $mform->setType('type', PARAM_ALPHANUMEXT);
+        $mform->addElement('hidden', 'updateaction', 1);
+        $mform->setType('updateaction', PARAM_INT);
 
         $this->add_action_buttons(true, get_string('savechanges', 'tool_automate'));
     }
