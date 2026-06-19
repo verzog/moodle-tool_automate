@@ -56,6 +56,8 @@ class manager {
             'course_visibility'    => condition\course_visibility::class,
             'course_in_category'   => condition\course_in_category::class,
             'course_idnumber_matches' => condition\course_idnumber_matches::class,
+            'course_name_contains' => condition\course_name_contains::class,
+            'course_name_matches'  => condition\course_name_matches::class,
             'course_no_activity_days' => condition\course_no_activity_days::class,
         ];
     }
