@@ -94,10 +94,19 @@ if (!$rules) {
         );
         $deleteurl = new moodle_url($baseurl, ['delete' => $rule->id, 'sesskey' => sesskey()]);
 
-        $links = html_writer::link($editurl, get_string('edit', 'tool_automate')) . ' | ' .
-                 html_writer::link($previewurl, get_string('preview', 'tool_automate')) . ' | ' .
-                 html_writer::link($runurl, get_string('runnow', 'tool_automate')) . ' | ' .
-                 html_writer::link($deleteurl, get_string('delete', 'tool_automate'));
+        // Render Preview / Run now as buttons so they stand out from the
+        // edit/delete text links - admins kept missing them when they
+        // were styled the same as the rest of the row.
+        $btn = function ($url, $label, $variant) {
+            return html_writer::link($url, $label, [
+                'class' => 'btn btn-sm btn-' . $variant . ' me-1',
+            ]);
+        };
+        $links = $btn($previewurl, get_string('preview', 'tool_automate'), 'secondary')
+            . $btn($runurl, get_string('runnow', 'tool_automate'), 'primary')
+            . html_writer::link($editurl, get_string('edit', 'tool_automate'))
+            . ' | '
+            . html_writer::link($deleteurl, get_string('delete', 'tool_automate'));
 
         $triggerlabel = ($rule->triggertype ?? '') === ''
             ? get_string('trigger_none', 'tool_automate')
