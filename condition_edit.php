@@ -37,6 +37,11 @@ $delete = optional_param('delete', 0, PARAM_BOOL);
 
 $params = ['id' => $ruleid];
 if ($delete && $id) {
+    // Confirm the inbound request already carries a valid sesskey before
+    // forwarding it as a delete. Minting a fresh sesskey here would
+    // accept any GET request as authorised once the admin is logged in,
+    // creating a CSRF path.
+    require_sesskey();
     $params['delcondition'] = $id;
     $params['sesskey'] = sesskey();
 } else if ($id) {

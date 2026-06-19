@@ -44,6 +44,7 @@ $delcondition = optional_param('delcondition', 0, PARAM_INT);
 $addaction = optional_param('addaction', '', PARAM_ALPHANUMEXT);
 $editaction = optional_param('editaction', 0, PARAM_INT);
 $delaction = optional_param('delaction', 0, PARAM_INT);
+$inline = optional_param('inline', 0, PARAM_INT);
 
 $baseurl = new moodle_url('/admin/tool/automate/index.php');
 $selfurl = new moodle_url('/admin/tool/automate/edit.php', ['id' => $id]);
@@ -95,11 +96,11 @@ if ($condtype) {
     $condtypes = manager::get_condition_types_for_subject($rulesubject);
     if (isset($condtypes[$condtype])) {
         $condclass = $condtypes[$condtype];
-        $condform = new condition_form(null, ['type' => $condtype]);
+        $condform = new condition_form($selfurl, ['type' => $condtype]);
         if ($existingcondition) {
             $cfg = (array) json_decode($existingcondition->configdata ?? '{}', true);
             $defaults = $condclass::config_to_form_defaults($cfg);
-            $defaults['id'] = $existingcondition->id;
+            $defaults['condid'] = $existingcondition->id;
             $defaults['ruleid'] = $id;
             $defaults['type'] = $condtype;
             $defaults['polarity'] = $existingcondition->polarity ?? manager::POLARITY_MATCH;
@@ -136,11 +137,11 @@ if ($acttype) {
     $acttypes = manager::get_action_types_for_subject($rulesubject);
     if (isset($acttypes[$acttype])) {
         $actclass = $acttypes[$acttype];
-        $actform = new action_form(null, ['type' => $acttype]);
+        $actform = new action_form($selfurl, ['type' => $acttype]);
         if ($existingaction) {
             $cfg = (array) json_decode($existingaction->configdata ?? '{}', true);
             $defaults = $actclass::config_to_form_defaults($cfg);
-            $defaults['id'] = $existingaction->id;
+            $defaults['actid'] = $existingaction->id;
             $defaults['ruleid'] = $id;
             $defaults['type'] = $acttype;
             $defaults['updateaction'] = 1;
@@ -243,7 +244,7 @@ if ($triggerform && ($triggerdata = $triggerform->get_data()) && !empty($trigger
     $scheduledate = ($iscron && $schedule === 'oncedate')
         ? (int) ($triggerdata->scheduledate ?? 0)
         : 0;
-    $DB->update_record('tool_automate_rule', (object) [
+    $update = (object) [
         'id'           => (int) $triggerdata->ruleid,
         'triggertype'  => $triggerdata->triggertype,
         'eventname'    => $eventname,
@@ -255,7 +256,18 @@ if ($triggerform && ($triggerdata = $triggerform->get_data()) && !empty($trigger
         'scheduledate' => $scheduledate,
         'usermodified' => $USER->id,
         'timemodified' => time(),
-    ]);
+    ];
+    // Reset the one-off run marker so a one-off date in the past fires
+    // once after the admin commits to a new scheduledate. Only when the
+    // date actually changes - re-saving the same oncedate trigger must
+    // not refire a rule that has already run.
+    if ($iscron && $schedule === 'oncedate') {
+        $oldscheduledate = (int) ($rule->scheduledate ?? 0);
+        if ($oldscheduledate !== $scheduledate) {
+            $update->lastrunat = 0;
+        }
+    }
+    $DB->update_record('tool_automate_rule', $update);
     redirect($selfurl);
 }
 
@@ -292,22 +304,23 @@ if ($mform->is_cancelled()) {
     redirect(new moodle_url('/admin/tool/automate/edit.php', ['id' => $ruleid]));
 }
 
-echo $OUTPUT->header();
-
-echo html_writer::link($baseurl, get_string('back', 'tool_automate'), [
-    'class' => 'tool_automate_back',
-]);
-
-// Step 1-3: Rule metadata + subject picker.
-echo $OUTPUT->heading(get_string('step_rule', 'tool_automate'), 3);
-$mform->display();
-
-if ($id) {
+// Render the Step 3 conditions section (table, inline form if any, and
+// picker) as a string so it can be sent either as part of the full edit
+// page or as the AJAX payload that the inline JS swaps in on type pick
+// or edit click.
+$rendercondsection = function () use (
+    $id,
+    $selfurl,
+    $conditions,
+    $condform,
+    $condclass,
+    $rulesubject,
+    $OUTPUT
+) {
     $condtypes = manager::get_condition_types_for_subject($rulesubject);
-    $acttypes = manager::get_action_types_for_subject($rulesubject);
-    $showlogic = count($conditions) >= 2;
+    ob_start();
+    echo html_writer::start_tag('div', ['data-inline-target' => 'conditions']);
 
-    // Step 3 continued: Conditions for the chosen subject.
     $heading = $rulesubject === 'course'
         ? get_string('conditionheading_course', 'tool_automate')
         : get_string('conditionheading_user', 'tool_automate');
@@ -335,7 +348,9 @@ if ($id) {
             $deleteurl = new moodle_url($selfurl, [
                 'delcondition' => $c->id, 'sesskey' => sesskey(),
             ]);
-            $links = html_writer::link($editurl, get_string('edit', 'tool_automate'))
+            $links = html_writer::link($editurl, get_string('edit', 'tool_automate'), [
+                    'class' => 'tool_automate-inline-edit',
+                ])
                 . ' | '
                 . html_writer::link($deleteurl, get_string('delete', 'tool_automate'));
             $polarity = $c->polarity ?? manager::POLARITY_MATCH;
@@ -358,7 +373,9 @@ if ($id) {
         $condform->display();
     } else {
         echo html_writer::start_tag('form', [
-            'action' => $selfurl->out_omit_querystring(), 'method' => 'get',
+            'action' => $selfurl->out_omit_querystring(),
+            'method' => 'get',
+            'class'  => 'tool_automate-picker',
         ]);
         echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id', 'value' => $id]);
         $opts = ['' => get_string('addcondition', 'tool_automate')];
@@ -372,15 +389,26 @@ if ($id) {
         echo html_writer::end_tag('form');
     }
 
-    if ($showlogic) {
-        echo html_writer::start_tag('details', ['class' => 'tool_automate_advanced mt-3']);
-        echo html_writer::tag('summary', get_string('logicheading', 'tool_automate'));
-        $logicform->display();
-        echo html_writer::end_tag('details');
-    }
+    echo html_writer::end_tag('div');
+    return ob_get_clean();
+};
 
-    // Step 4: Actions.
+// Render the Step 4 actions section. Same shape as the conditions
+// renderer above.
+$renderactsection = function () use (
+    $id,
+    $selfurl,
+    $actions,
+    $actform,
+    $actclass,
+    $rulesubject,
+    $OUTPUT
+) {
+    $acttypes = manager::get_action_types_for_subject($rulesubject);
+    ob_start();
+    echo html_writer::start_tag('div', ['data-inline-target' => 'actions']);
     echo $OUTPUT->heading(get_string('actionheading', 'tool_automate'), 3);
+
     if ($actions) {
         $table = new html_table();
         $table->head = [
@@ -396,7 +424,9 @@ if ($id) {
             $deleteurl = new moodle_url($selfurl, [
                 'delaction' => $a->id, 'sesskey' => sesskey(),
             ]);
-            $links = html_writer::link($editurl, get_string('edit', 'tool_automate'))
+            $links = html_writer::link($editurl, get_string('edit', 'tool_automate'), [
+                    'class' => 'tool_automate-inline-edit',
+                ])
                 . ' | '
                 . html_writer::link($deleteurl, get_string('delete', 'tool_automate'));
             $table->data[] = [
@@ -415,7 +445,9 @@ if ($id) {
         $actform->display();
     } else {
         echo html_writer::start_tag('form', [
-            'action' => $selfurl->out_omit_querystring(), 'method' => 'get',
+            'action' => $selfurl->out_omit_querystring(),
+            'method' => 'get',
+            'class'  => 'tool_automate-picker',
         ]);
         echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id', 'value' => $id]);
         $opts = ['' => get_string('addaction', 'tool_automate')];
@@ -429,9 +461,120 @@ if ($id) {
         echo html_writer::end_tag('form');
     }
 
+    echo html_writer::end_tag('div');
+    return ob_get_clean();
+};
+
+// Inline AJAX response: emit only the requested section, plus the JS
+// requirements the moodleform registered (editor inits, hideIf wiring,
+// etc.) so widgets in the inline-loaded form initialise correctly.
+if ($id && $inline) {
+    $section = ($addcondition !== '' || $editcondition) ? 'conditions'
+        : (($addaction !== '' || $editaction) ? 'actions' : '');
+    if ($section === 'conditions') {
+        echo $rendercondsection();
+        echo $PAGE->requires->get_end_code();
+        exit;
+    }
+    if ($section === 'actions') {
+        echo $renderactsection();
+        echo $PAGE->requires->get_end_code();
+        exit;
+    }
+}
+
+echo $OUTPUT->header();
+
+echo html_writer::link($baseurl, get_string('back', 'tool_automate'), [
+    'class' => 'tool_automate_back',
+]);
+
+// Step 1-3: Rule metadata + subject picker.
+echo $OUTPUT->heading(get_string('step_rule', 'tool_automate'), 3);
+$mform->display();
+
+if ($id) {
+    $showlogic = count($conditions) >= 2;
+
+    echo $rendercondsection();
+
+    if ($showlogic) {
+        echo html_writer::start_tag('details', ['class' => 'tool_automate_advanced mt-3']);
+        echo html_writer::tag('summary', get_string('logicheading', 'tool_automate'));
+        $logicform->display();
+        echo html_writer::end_tag('details');
+    }
+
+    echo $renderactsection();
+
     // Step 5: Trigger - when should this run?
     echo $OUTPUT->heading(get_string('triggerheading', 'tool_automate'), 3);
     $triggerform->display();
+
+    // Inline editor: intercept picker submits and edit links, fetch the
+    // section's HTML via inline=1, and swap it into the page without a
+    // full reload.
+    $PAGE->requires->js_init_code(<<<'JS'
+(function () {
+    var rebind;
+    var fetchAndReplace = function (url, target) {
+        url.searchParams.set('inline', '1');
+        fetch(url.toString(), {credentials: 'same-origin'})
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+                var wrapper = document.createElement('div');
+                wrapper.innerHTML = html;
+                var rep = wrapper.querySelector(
+                    '[data-inline-target="' + target.dataset.inlineTarget + '"]'
+                );
+                if (!rep) { return; }
+                // Collect every script the server sent BEFORE the section
+                // moves to the main DOM. The fragment is followed by the
+                // moodleform's $PAGE->requires->get_end_code() output -
+                // editor inits, hideIf wiring, AMD module loads - which
+                // sit as siblings of the section in wrapper, not inside
+                // it. Walking rep after replaceWith would miss them.
+                var scripts = Array.prototype.slice.call(
+                    wrapper.querySelectorAll('script')
+                );
+                target.replaceWith(rep);
+                rebind(rep);
+                scripts.forEach(function (n) {
+                    var f = document.createElement('script');
+                    if (n.src) { f.src = n.src; } else { f.textContent = n.textContent; }
+                    document.head.appendChild(f);
+                });
+            })
+            .catch(function () { window.location.href = url.toString(); });
+    };
+    var bindPicker = function (form) {
+        form.addEventListener('submit', function (e) {
+            var sel = form.querySelector('select');
+            if (!sel || !sel.value) { return; }
+            var target = form.closest('[data-inline-target]');
+            if (!target) { return; }
+            e.preventDefault();
+            var u = new URL(form.action, window.location.href);
+            new FormData(form).forEach(function (v, k) { u.searchParams.set(k, v); });
+            fetchAndReplace(u, target);
+        });
+    };
+    var bindEdit = function (a) {
+        a.addEventListener('click', function (e) {
+            var target = a.closest('[data-inline-target]');
+            if (!target) { return; }
+            e.preventDefault();
+            fetchAndReplace(new URL(a.href, window.location.href), target);
+        });
+    };
+    rebind = function (root) {
+        root.querySelectorAll('form.tool_automate-picker').forEach(bindPicker);
+        root.querySelectorAll('a.tool_automate-inline-edit').forEach(bindEdit);
+    };
+    document.querySelectorAll('[data-inline-target]').forEach(rebind);
+})();
+JS
+    );
 }
 
 echo $OUTPUT->footer();

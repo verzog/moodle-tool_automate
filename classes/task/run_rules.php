@@ -59,7 +59,11 @@ class run_rules extends \core\task\scheduled_task {
      *
      * - hourly  : always (the task itself fires hourly).
      * - daily   : >= 24h since lastrunat (or never run).
-     * - monthly : lastrunat is in a previous calendar month (or never run).
+     * - monthly : today is the 1st of the month, AND lastrunat is in a
+     *             previous calendar month (or the rule has never run).
+     *             Restricting to the 1st matches the user-facing label
+     *             "Monthly (1st of each month)" - admins enabling a
+     *             rule mid-month wait until next month's 1st.
      * - oncedate: scheduledate is on/before now AND the rule hasn't yet
      *             run since that date.
      *
@@ -76,6 +80,9 @@ class run_rules extends \core\task\scheduled_task {
                 return $last === 0 || ($now - $last) >= DAYSECS;
 
             case 'monthly':
+                if ((int) date('j', $now) !== 1) {
+                    return false;
+                }
                 if ($last === 0) {
                     return true;
                 }
