@@ -44,8 +44,8 @@ class action_form extends \moodleform {
 
         $mform->addElement('hidden', 'ruleid');
         $mform->setType('ruleid', PARAM_INT);
-        $mform->addElement('hidden', 'id');
-        $mform->setType('id', PARAM_INT);
+        $mform->addElement('hidden', 'actid');
+        $mform->setType('actid', PARAM_INT);
         $mform->addElement('hidden', 'type');
         $mform->setType('type', PARAM_ALPHANUMEXT);
         $mform->addElement('hidden', 'updateaction', 1);

@@ -54,8 +54,8 @@ class condition_form extends \moodleform {
 
         $mform->addElement('hidden', 'ruleid');
         $mform->setType('ruleid', PARAM_INT);
-        $mform->addElement('hidden', 'id');
-        $mform->setType('id', PARAM_INT);
+        $mform->addElement('hidden', 'condid');
+        $mform->setType('condid', PARAM_INT);
         $mform->addElement('hidden', 'type');
         $mform->setType('type', PARAM_ALPHANUMEXT);
         $mform->addElement('hidden', 'updatecondition', 1);
