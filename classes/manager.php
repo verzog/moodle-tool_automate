@@ -98,6 +98,7 @@ class manager {
             'course_move_to_category' => action\course_move_to_category::class,
             'course_email_teachers'   => action\course_email_teachers::class,
             'course_generate_report'  => action\course_generate_report::class,
+            'course_copy'             => action\course_copy::class,
         ];
     }
 

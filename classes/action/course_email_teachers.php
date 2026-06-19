@@ -62,7 +62,7 @@ class course_email_teachers extends action_base {
         }
         $roleid = $this->editingteacher_roleid();
         if (!$roleid) {
-            // get_role_users() treats a 0 role id as "any role", which
+            // A 0 role id is treated by get_role_users() as "any role", which
             // would email every enrolled user. Bail instead.
             return get_string('noteachers', 'tool_automate', format_string($subject->fullname));
         }
