@@ -316,7 +316,10 @@ if ($mform->is_cancelled()) {
         $record->id = $formdata->id;
         $oldsubject = $rule->subject ?? 'user';
         if ($record->subject !== $oldsubject) {
-            $record->triggertype = 'manual';
+            // Subject changed - the old trigger may not make sense, so
+            // clear it back to the unset "Choose..." state and make the
+            // admin re-pick a valid trigger for the new subject.
+            $record->triggertype = '';
             $record->eventname = null;
             $record->courseid = 0;
             $record->roleid = 0;
@@ -324,9 +327,11 @@ if ($mform->is_cancelled()) {
         $DB->update_record('tool_automate_rule', $record);
         $ruleid = $record->id;
     } else {
+        // New rules start with no trigger selected so the editor opens
+        // on "Choose..." and the admin must make a deliberate choice.
         $record->timecreated = $now;
         $record->logic = 'all';
-        $record->triggertype = 'manual';
+        $record->triggertype = '';
         $record->schedule = 'hourly';
         $ruleid = $DB->insert_record('tool_automate_rule', $record);
     }
