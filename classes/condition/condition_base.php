@@ -48,12 +48,24 @@ abstract class condition_base {
     abstract public static function get_name(): string;
 
     /**
-     * Does this rule apply to the given user?
+     * What kind of record this condition tests. The default is 'user' so
+     * existing conditions don't have to opt in. Course-shaped conditions
+     * override to return 'course'.
      *
-     * @param \stdClass $user A full user record.
+     * @return string 'user' or 'course'.
+     */
+    public static function get_subject(): string {
+        return 'user';
+    }
+
+    /**
+     * Does this rule apply to the given subject (user or course record)?
+     *
+     * @param \stdClass $subject A full user record, or a course record for
+     *                            course-subject conditions.
      * @return bool
      */
-    abstract public function matches(\stdClass $user): bool;
+    abstract public function matches(\stdClass $subject): bool;
 
     /**
      * Add this condition's config fields to a form.
@@ -109,6 +121,19 @@ abstract class condition_base {
      *               fragment references the user table alias `u`.
      */
     public static function get_user_sql_filter(array $config): array {
+        unset($config);
+        return ['', []];
+    }
+
+    /**
+     * Optional SQL pre-filter for course-subject rules. The fragment must
+     * reference the course table alias `c`. Returning ['', []] means
+     * "no pre-filter".
+     *
+     * @param array $config Decoded configdata.
+     * @return array [string $sqlfragment, array $params]
+     */
+    public static function get_course_sql_filter(array $config): array {
         unset($config);
         return ['', []];
     }

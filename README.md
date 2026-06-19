@@ -7,9 +7,17 @@ language - every rule is a single form.
 
 ## Status
 
-Version 0.1.1 (alpha). The first working slice is **"add users to a cohort when
-their email matches a pattern"**, which can be triggered on a schedule, when a
-user is created, or manually.
+Version 0.6.0 (alpha). Rules can target either **users** or **courses**.
+The editor walks you through five steps in order:
+
+1. **Name** the rule.
+2. **Description** (optional).
+3. **Subject** — *Find users who…* or *Choose courses that…* — and the
+   conditions that build the matching set. Each condition can be a
+   *match* or a *does not match*.
+4. **Actions** to apply to each matched user or course.
+5. **When should this run?** — on a schedule, when a Moodle event fires,
+   or only when triggered manually.
 
 ## Requirements
 

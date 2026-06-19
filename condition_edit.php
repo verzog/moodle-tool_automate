@@ -51,7 +51,8 @@ if ($delete && $id && confirm_sesskey()) {
     redirect($ruleurl);
 }
 
-$types = manager::get_condition_types();
+$rulesubject = $rule->subject ?? 'user';
+$types = manager::get_condition_types_for_subject($rulesubject);
 if (!isset($types[$type])) {
     redirect($ruleurl, get_string('chooseatype', 'tool_automate'), null, \core\output\notification::NOTIFY_WARNING);
 }
@@ -65,17 +66,26 @@ if ($existing) {
     $defaults['id'] = $existing->id;
     $defaults['ruleid'] = $ruleid;
     $defaults['type'] = $type;
+    $defaults['polarity'] = $existing->polarity ?? manager::POLARITY_MATCH;
     $mform->set_data($defaults);
 } else {
-    $mform->set_data(['ruleid' => $ruleid, 'type' => $type]);
+    $mform->set_data([
+        'ruleid' => $ruleid,
+        'type' => $type,
+        'polarity' => manager::POLARITY_MATCH,
+    ]);
 }
 
 if ($mform->is_cancelled()) {
     redirect($ruleurl);
 } else if ($formdata = $mform->get_data()) {
     $config = $class::extract_config($formdata);
+    $polarity = ($formdata->polarity ?? manager::POLARITY_MATCH) === manager::POLARITY_NOTMATCH
+        ? manager::POLARITY_NOTMATCH
+        : manager::POLARITY_MATCH;
     if ($existing) {
         $existing->configdata = json_encode($config);
+        $existing->polarity = $polarity;
         $DB->update_record('tool_automate_condition', $existing);
     } else {
         $sql = 'COALESCE(MAX(sortorder), -1)';
@@ -83,6 +93,7 @@ if ($mform->is_cancelled()) {
         $DB->insert_record('tool_automate_condition', (object) [
             'ruleid'     => $ruleid,
             'type'       => $type,
+            'polarity'   => $polarity,
             'configdata' => json_encode($config),
             'sortorder'  => $maxsort + 1,
         ]);

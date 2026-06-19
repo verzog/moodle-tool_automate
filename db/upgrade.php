@@ -100,5 +100,39 @@ function xmldb_tool_automate_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026061300, 'tool', 'automate');
     }
 
+    if ($oldversion < 2026061900) {
+        $ruletable = new xmldb_table('tool_automate_rule');
+        $subject = new xmldb_field(
+            'subject',
+            XMLDB_TYPE_CHAR,
+            '20',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            'user',
+            'description'
+        );
+        if (!$dbman->field_exists($ruletable, $subject)) {
+            $dbman->add_field($ruletable, $subject);
+        }
+
+        $conditiontable = new xmldb_table('tool_automate_condition');
+        $polarity = new xmldb_field(
+            'polarity',
+            XMLDB_TYPE_CHAR,
+            '20',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            'match',
+            'type'
+        );
+        if (!$dbman->field_exists($conditiontable, $polarity)) {
+            $dbman->add_field($conditiontable, $polarity);
+        }
+
+        upgrade_plugin_savepoint(true, 2026061900, 'tool', 'automate');
+    }
+
     return true;
 }

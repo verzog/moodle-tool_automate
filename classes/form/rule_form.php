@@ -22,8 +22,9 @@ global $CFG;
 require_once($CFG->libdir . '/formslib.php');
 
 /**
- * Add/edit form for a rule (metadata only). Conditions and actions are
- * managed below the form on the same page via their own edit pages.
+ * Step 1-3 of the new-rule wizard: name, description, subject. Trigger
+ * is collected separately in trigger_form so the page reads:
+ * Rule -> Subject -> Conditions -> Actions -> Trigger.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
@@ -34,8 +35,8 @@ class rule_form extends \moodleform {
      * Define the form fields.
      */
     protected function definition() {
-        global $DB;
         $mform = $this->_form;
+        $lockedsubject = !empty($this->_customdata['lockedsubject']);
 
         $mform->addElement('text', 'name', get_string('rulename', 'tool_automate'), ['size' => 50]);
         $mform->setType('name', PARAM_TEXT);
@@ -49,36 +50,31 @@ class rule_form extends \moodleform {
         );
         $mform->setType('description', PARAM_TEXT);
 
+        // Step 3: subject. Locked once the rule has conditions or actions
+        // so switching subject can't strand incompatible attached records.
+        $subjects = [
+            'user'   => get_string('subject_user', 'tool_automate'),
+            'course' => get_string('subject_course', 'tool_automate'),
+        ];
+        $subjectel = $mform->addElement(
+            'select',
+            'subject',
+            get_string('subject', 'tool_automate'),
+            $subjects
+        );
+        $mform->setDefault('subject', 'user');
+        $mform->addHelpButton('subject', 'subject', 'tool_automate');
+        if ($lockedsubject) {
+            $subjectel->freeze();
+            $mform->addElement(
+                'static',
+                'subjectlocked',
+                '',
+                get_string('subjectlocked', 'tool_automate')
+            );
+        }
+
         $mform->addElement('advcheckbox', 'enabled', get_string('enabled', 'tool_automate'));
-
-        // Trigger.
-        $triggers = [
-            'cron'   => get_string('trigger_cron', 'tool_automate'),
-            'event'  => get_string('trigger_event', 'tool_automate'),
-            'manual' => get_string('trigger_manual', 'tool_automate'),
-        ];
-        $mform->addElement('select', 'triggertype', get_string('triggertype', 'tool_automate'), $triggers);
-
-        $events = [
-            '\core\event\user_created'     => get_string('event_user_created', 'tool_automate'),
-            '\core\event\user_updated'     => get_string('event_user_updated', 'tool_automate'),
-            '\core\event\user_loggedin'    => get_string('event_user_loggedin', 'tool_automate'),
-            '\core\event\course_completed' => get_string('event_course_completed', 'tool_automate'),
-            '\core\event\role_assigned'    => get_string('event_role_assigned', 'tool_automate'),
-        ];
-        $mform->addElement('select', 'eventname', get_string('eventname', 'tool_automate'), $events);
-        $mform->hideIf('eventname', 'triggertype', 'neq', 'event');
-
-        $courses = $DB->get_records_menu('course', null, 'fullname', 'id, fullname', 0, 500);
-        unset($courses[SITEID]);
-        $mform->addElement('select', 'courseid', get_string('course', 'tool_automate'), $courses);
-        $mform->hideIf('courseid', 'triggertype', 'neq', 'event');
-        $mform->hideIf('courseid', 'eventname', 'neq', '\core\event\course_completed');
-
-        $roleoptions = role_get_names(\context_system::instance(), ROLENAME_ALIAS, true);
-        $mform->addElement('select', 'roleid', get_string('role', 'tool_automate'), $roleoptions);
-        $mform->hideIf('roleid', 'triggertype', 'neq', 'event');
-        $mform->hideIf('roleid', 'eventname', 'neq', '\core\event\role_assigned');
 
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);

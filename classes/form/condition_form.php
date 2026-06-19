@@ -41,6 +41,15 @@ class condition_form extends \moodleform {
             throw new \moodle_exception('invalidparameter');
         }
         $class = $types[$type];
+
+        $polarities = [
+            \tool_automate\manager::POLARITY_MATCH    => get_string('polarity_match', 'tool_automate'),
+            \tool_automate\manager::POLARITY_NOTMATCH => get_string('polarity_notmatch', 'tool_automate'),
+        ];
+        $mform->addElement('select', 'polarity', get_string('polarity', 'tool_automate'), $polarities);
+        $mform->setDefault('polarity', \tool_automate\manager::POLARITY_MATCH);
+        $mform->addHelpButton('polarity', 'polarity', 'tool_automate');
+
         $class::add_config_form_elements($mform);
 
         $mform->addElement('hidden', 'ruleid');

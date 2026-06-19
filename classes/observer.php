@@ -50,6 +50,28 @@ class observer {
     }
 
     /**
+     * Dispatch a course-subject event.
+     *
+     * @param string $eventname Fully qualified event class.
+     * @param int $courseid The course the event acted on.
+     */
+    protected static function dispatch_course(string $eventname, int $courseid): void {
+        global $DB;
+        if (!$courseid || $courseid === SITEID) {
+            return;
+        }
+        $rules = $DB->get_records('tool_automate_rule', [
+            'enabled'     => 1,
+            'triggertype' => 'event',
+            'eventname'   => $eventname,
+            'subject'     => 'course',
+        ]);
+        foreach ($rules as $rule) {
+            manager::run_rule((int) $rule->id, false, $courseid);
+        }
+    }
+
+    /**
      * Handle a new user being created.
      *
      * @param \core\event\user_created $event
@@ -95,5 +117,23 @@ class observer {
         $userid = (int) ($event->relateduserid ?: $event->userid);
         $roleid = (int) ($event->other['id'] ?? 0);
         self::dispatch('\\core\\event\\role_assigned', $userid, ['roleid' => $roleid]);
+    }
+
+    /**
+     * Handle a course being created (course-subject rules only).
+     *
+     * @param \core\event\course_created $event
+     */
+    public static function course_created(\core\event\course_created $event): void {
+        self::dispatch_course('\\core\\event\\course_created', (int) $event->objectid);
+    }
+
+    /**
+     * Handle a course being updated (course-subject rules only).
+     *
+     * @param \core\event\course_updated $event
+     */
+    public static function course_updated(\core\event\course_updated $event): void {
+        self::dispatch_course('\\core\\event\\course_updated', (int) $event->objectid);
     }
 }
