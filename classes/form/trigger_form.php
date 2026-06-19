@@ -46,6 +46,25 @@ class trigger_form extends \moodleform {
         ];
         $mform->addElement('select', 'triggertype', get_string('triggertype', 'tool_automate'), $triggers);
 
+        $schedules = [
+            'hourly'   => get_string('schedule_hourly', 'tool_automate'),
+            'daily'    => get_string('schedule_daily', 'tool_automate'),
+            'monthly'  => get_string('schedule_monthly', 'tool_automate'),
+            'oncedate' => get_string('schedule_oncedate', 'tool_automate'),
+        ];
+        $mform->addElement('select', 'schedule', get_string('schedule', 'tool_automate'), $schedules);
+        $mform->setDefault('schedule', 'hourly');
+        $mform->hideIf('schedule', 'triggertype', 'neq', 'cron');
+
+        $mform->addElement(
+            'date_time_selector',
+            'scheduledate',
+            get_string('scheduledate', 'tool_automate'),
+            ['optional' => false]
+        );
+        $mform->hideIf('scheduledate', 'triggertype', 'neq', 'cron');
+        $mform->hideIf('scheduledate', 'schedule', 'neq', 'oncedate');
+
         if ($subject === 'course') {
             $events = [
                 '\core\event\course_created' => get_string('event_course_created', 'tool_automate'),
@@ -82,5 +101,23 @@ class trigger_form extends \moodleform {
         $mform->setType('updatetrigger', PARAM_INT);
 
         $mform->addElement('submit', 'savetrigger', get_string('savetrigger', 'tool_automate'));
+    }
+
+    /**
+     * Validate that a "pick a date" cron rule has a future date set.
+     *
+     * @param array $data
+     * @param array $files
+     * @return array
+     */
+    public function validation($data, $files) {
+        $errors = parent::validation($data, $files);
+        if (($data['triggertype'] ?? '') === 'cron' && ($data['schedule'] ?? '') === 'oncedate') {
+            $when = (int) ($data['scheduledate'] ?? 0);
+            if ($when <= 0) {
+                $errors['scheduledate'] = get_string('required');
+            }
+        }
+        return $errors;
     }
 }

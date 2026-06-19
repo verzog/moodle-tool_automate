@@ -15,7 +15,9 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Add/edit/delete a condition attached to a rule.
+ * Legacy redirect. Conditions are now edited inline on edit.php so the
+ * admin never leaves the rule page; this thin wrapper just forwards any
+ * old URLs (e.g. bookmarks) to the equivalent inline-edit query string.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
@@ -25,10 +27,7 @@
 require(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
-use tool_automate\form\condition_form;
-use tool_automate\manager;
-
-admin_externalpage_setup('tool_automate');
+require_login();
 require_capability('tool/automate:manage', context_system::instance());
 
 $ruleid = required_param('ruleid', PARAM_INT);
@@ -36,77 +35,13 @@ $id = optional_param('id', 0, PARAM_INT);
 $type = optional_param('type', '', PARAM_ALPHANUMEXT);
 $delete = optional_param('delete', 0, PARAM_BOOL);
 
-$rule = $DB->get_record('tool_automate_rule', ['id' => $ruleid], '*', MUST_EXIST);
-$ruleurl = new moodle_url('/admin/tool/automate/edit.php', ['id' => $ruleid]);
-$PAGE->set_url(new moodle_url('/admin/tool/automate/condition_edit.php', ['ruleid' => $ruleid, 'id' => $id]));
-
-$existing = null;
-if ($id) {
-    $existing = $DB->get_record('tool_automate_condition', ['id' => $id, 'ruleid' => $ruleid], '*', MUST_EXIST);
-    $type = $existing->type;
+$params = ['id' => $ruleid];
+if ($delete && $id) {
+    $params['delcondition'] = $id;
+    $params['sesskey'] = sesskey();
+} else if ($id) {
+    $params['editcondition'] = $id;
+} else if ($type !== '') {
+    $params['addcondition'] = $type;
 }
-
-if ($delete && $id && confirm_sesskey()) {
-    $DB->delete_records('tool_automate_condition', ['id' => $id, 'ruleid' => $ruleid]);
-    redirect($ruleurl);
-}
-
-$rulesubject = $rule->subject ?? 'user';
-$types = manager::get_condition_types_for_subject($rulesubject);
-if (!isset($types[$type])) {
-    redirect($ruleurl, get_string('chooseatype', 'tool_automate'), null, \core\output\notification::NOTIFY_WARNING);
-}
-$class = $types[$type];
-
-$mform = new condition_form(null, ['type' => $type]);
-
-if ($existing) {
-    $config = (array) json_decode($existing->configdata ?? '{}', true);
-    $defaults = $class::config_to_form_defaults($config);
-    $defaults['id'] = $existing->id;
-    $defaults['ruleid'] = $ruleid;
-    $defaults['type'] = $type;
-    $defaults['polarity'] = $existing->polarity ?? manager::POLARITY_MATCH;
-    $mform->set_data($defaults);
-} else {
-    $mform->set_data([
-        'ruleid' => $ruleid,
-        'type' => $type,
-        'polarity' => manager::POLARITY_MATCH,
-    ]);
-}
-
-if ($mform->is_cancelled()) {
-    redirect($ruleurl);
-} else if ($formdata = $mform->get_data()) {
-    $config = $class::extract_config($formdata);
-    $polarity = ($formdata->polarity ?? manager::POLARITY_MATCH) === manager::POLARITY_NOTMATCH
-        ? manager::POLARITY_NOTMATCH
-        : manager::POLARITY_MATCH;
-    if ($existing) {
-        $existing->configdata = json_encode($config);
-        $existing->polarity = $polarity;
-        $DB->update_record('tool_automate_condition', $existing);
-    } else {
-        $sql = 'COALESCE(MAX(sortorder), -1)';
-        $maxsort = (int) $DB->get_field('tool_automate_condition', $sql, ['ruleid' => $ruleid]);
-        $DB->insert_record('tool_automate_condition', (object) [
-            'ruleid'     => $ruleid,
-            'type'       => $type,
-            'polarity'   => $polarity,
-            'configdata' => json_encode($config),
-            'sortorder'  => $maxsort + 1,
-        ]);
-    }
-    redirect($ruleurl);
-}
-
-echo $OUTPUT->header();
-echo html_writer::link(
-    new moodle_url('/admin/tool/automate/index.php'),
-    get_string('back', 'tool_automate'),
-    ['class' => 'tool_automate_back']
-);
-echo $OUTPUT->heading($class::get_name());
-$mform->display();
-echo $OUTPUT->footer();
+redirect(new moodle_url('/admin/tool/automate/edit.php', $params));

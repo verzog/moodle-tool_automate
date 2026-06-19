@@ -134,5 +134,53 @@ function xmldb_tool_automate_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026061900, 'tool', 'automate');
     }
 
+    if ($oldversion < 2026061901) {
+        $ruletable = new xmldb_table('tool_automate_rule');
+
+        $schedule = new xmldb_field(
+            'schedule',
+            XMLDB_TYPE_CHAR,
+            '20',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            'hourly',
+            'eventname'
+        );
+        if (!$dbman->field_exists($ruletable, $schedule)) {
+            $dbman->add_field($ruletable, $schedule);
+        }
+
+        $scheduledate = new xmldb_field(
+            'scheduledate',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'schedule'
+        );
+        if (!$dbman->field_exists($ruletable, $scheduledate)) {
+            $dbman->add_field($ruletable, $scheduledate);
+        }
+
+        $lastrunat = new xmldb_field(
+            'lastrunat',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'scheduledate'
+        );
+        if (!$dbman->field_exists($ruletable, $lastrunat)) {
+            $dbman->add_field($ruletable, $lastrunat);
+        }
+
+        upgrade_plugin_savepoint(true, 2026061901, 'tool', 'automate');
+    }
+
     return true;
 }

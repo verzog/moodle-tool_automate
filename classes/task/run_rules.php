@@ -17,7 +17,8 @@
 namespace tool_automate\task;
 
 /**
- * Scheduled task that runs all enabled "schedule" rules.
+ * Scheduled task that runs enabled cron-triggered rules whose own
+ * schedule says they're due (hourly, daily, monthly, or a one-off date).
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
@@ -34,16 +35,62 @@ class run_rules extends \core\task\scheduled_task {
     }
 
     /**
-     * Run all enabled cron-triggered rules.
+     * Iterate enabled cron rules and run each one whose per-rule
+     * schedule has come due.
      */
     public function execute(): void {
         global $DB;
+        $now = time();
         $rules = $DB->get_records('tool_automate_rule', [
             'enabled'     => 1,
             'triggertype' => 'cron',
         ]);
         foreach ($rules as $rule) {
+            if (!self::is_due($rule, $now)) {
+                continue;
+            }
             \tool_automate\manager::run_rule((int) $rule->id, false);
+            $DB->set_field('tool_automate_rule', 'lastrunat', $now, ['id' => (int) $rule->id]);
+        }
+    }
+
+    /**
+     * Should a rule with the given schedule run now?
+     *
+     * - hourly  : always (the task itself fires hourly).
+     * - daily   : >= 24h since lastrunat (or never run).
+     * - monthly : lastrunat is in a previous calendar month (or never run).
+     * - oncedate: scheduledate is on/before now AND the rule hasn't yet
+     *             run since that date.
+     *
+     * @param \stdClass $rule
+     * @param int $now
+     * @return bool
+     */
+    public static function is_due(\stdClass $rule, int $now): bool {
+        $schedule = (string) ($rule->schedule ?? 'hourly');
+        $last = (int) ($rule->lastrunat ?? 0);
+
+        switch ($schedule) {
+            case 'daily':
+                return $last === 0 || ($now - $last) >= DAYSECS;
+
+            case 'monthly':
+                if ($last === 0) {
+                    return true;
+                }
+                return date('Y-m', $last) !== date('Y-m', $now);
+
+            case 'oncedate':
+                $when = (int) ($rule->scheduledate ?? 0);
+                if ($when === 0 || $when > $now) {
+                    return false;
+                }
+                return $last === 0 || $last < $when;
+
+            case 'hourly':
+            default:
+                return true;
         }
     }
 }
