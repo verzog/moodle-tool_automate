@@ -513,10 +513,11 @@ if ($id) {
 
     // Inline editor: intercept picker submits and edit links, fetch the
     // section's HTML via inline=1, and swap it into the page without a
-    // full reload.
+    // full reload. Uses event delegation on document so that the
+    // bindings survive DOM replacement and don't depend on the
+    // pickers/links existing yet when the init code first runs.
     $PAGE->requires->js_init_code(<<<'JS'
 (function () {
-    var rebind;
     var fetchAndReplace = function (url, target) {
         url.searchParams.set('inline', '1');
         fetch(url.toString(), {credentials: 'same-origin'})
@@ -528,50 +529,43 @@ if ($id) {
                     '[data-inline-target="' + target.dataset.inlineTarget + '"]'
                 );
                 if (!rep) { return; }
-                // Collect every script the server sent BEFORE the section
-                // moves to the main DOM. The fragment is followed by the
-                // moodleform's $PAGE->requires->get_end_code() output -
-                // editor inits, hideIf wiring, AMD module loads - which
-                // sit as siblings of the section in wrapper, not inside
-                // it. Walking rep after replaceWith would miss them.
                 var scripts = Array.prototype.slice.call(
                     wrapper.querySelectorAll('script')
                 );
                 target.replaceWith(rep);
-                rebind(rep);
                 scripts.forEach(function (n) {
                     var f = document.createElement('script');
                     if (n.src) { f.src = n.src; } else { f.textContent = n.textContent; }
                     document.head.appendChild(f);
                 });
             })
-            .catch(function () { window.location.href = url.toString(); });
+            .catch(function () {
+                // Fall back to a full-page navigation, but to the
+                // human-facing URL, not the inline=1 fragment endpoint.
+                url.searchParams.delete('inline');
+                window.location.href = url.toString();
+            });
     };
-    var bindPicker = function (form) {
-        form.addEventListener('submit', function (e) {
-            var sel = form.querySelector('select');
-            if (!sel || !sel.value) { return; }
-            var target = form.closest('[data-inline-target]');
-            if (!target) { return; }
-            e.preventDefault();
-            var u = new URL(form.action, window.location.href);
-            new FormData(form).forEach(function (v, k) { u.searchParams.set(k, v); });
-            fetchAndReplace(u, target);
-        });
-    };
-    var bindEdit = function (a) {
-        a.addEventListener('click', function (e) {
-            var target = a.closest('[data-inline-target]');
-            if (!target) { return; }
-            e.preventDefault();
-            fetchAndReplace(new URL(a.href, window.location.href), target);
-        });
-    };
-    rebind = function (root) {
-        root.querySelectorAll('form.tool_automate-picker').forEach(bindPicker);
-        root.querySelectorAll('a.tool_automate-inline-edit').forEach(bindEdit);
-    };
-    document.querySelectorAll('[data-inline-target]').forEach(rebind);
+    document.addEventListener('submit', function (e) {
+        var form = e.target.closest('form.tool_automate-picker');
+        if (!form) { return; }
+        var sel = form.querySelector('select');
+        if (!sel || !sel.value) { return; }
+        var target = form.closest('[data-inline-target]');
+        if (!target) { return; }
+        e.preventDefault();
+        var u = new URL(form.action, window.location.href);
+        new FormData(form).forEach(function (v, k) { u.searchParams.set(k, v); });
+        fetchAndReplace(u, target);
+    }, true);
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest('a.tool_automate-inline-edit');
+        if (!a) { return; }
+        var target = a.closest('[data-inline-target]');
+        if (!target) { return; }
+        e.preventDefault();
+        fetchAndReplace(new URL(a.href, window.location.href), target);
+    }, true);
 })();
 JS
     );
