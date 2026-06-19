@@ -151,7 +151,9 @@ class generate_report extends action_base {
     protected function save_to_filearea(string $body, ?string $csv): ?string {
         $fs = get_file_storage();
         $context = \context_system::instance();
-        $filename = 'automate-report-' . date('Ymd-His');
+        // Timestamp plus a short random suffix so two reports generated
+        // in the same second can't collide on a filename.
+        $filename = 'automate-report-' . date('Ymd-His') . '-' . strtolower(random_string(6));
         $info = [
             'contextid' => $context->id,
             'component' => 'tool_automate',

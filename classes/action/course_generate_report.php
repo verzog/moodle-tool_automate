@@ -130,7 +130,10 @@ class course_generate_report extends action_base {
             'filearea'  => 'reports',
             'itemid'    => 0,
             'filepath'  => '/',
-            'filename'  => 'automate-course-report-' . date('Ymd-His') . '.csv',
+            // Timestamp plus a short random suffix so two reports
+            // generated in the same second can't collide on a filename.
+            'filename'  => 'automate-course-report-' . date('Ymd-His')
+                . '-' . strtolower(random_string(6)) . '.csv',
         ];
         $file = $fs->create_file_from_string($info, $csv);
         if (!$file) {
