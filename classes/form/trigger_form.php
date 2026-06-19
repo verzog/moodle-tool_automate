@@ -40,11 +40,18 @@ class trigger_form extends \moodleform {
         $subject = (string) ($this->_customdata['subject'] ?? 'user');
 
         $triggers = [
+            ''       => get_string('choosedots'),
             'cron'   => get_string('trigger_cron', 'tool_automate'),
             'event'  => get_string('trigger_event', 'tool_automate'),
             'manual' => get_string('trigger_manual', 'tool_automate'),
         ];
-        $mform->addElement('select', 'triggertype', get_string('triggertype', 'tool_automate'), $triggers);
+        $triggerel = $mform->addElement(
+            'select',
+            'triggertype',
+            get_string('triggertype', 'tool_automate'),
+            $triggers
+        );
+        $triggerel->updateAttributes(['class' => 'tool_automate-triggertype']);
 
         $schedules = [
             'hourly'   => get_string('schedule_hourly', 'tool_automate'),
@@ -54,7 +61,6 @@ class trigger_form extends \moodleform {
         ];
         $mform->addElement('select', 'schedule', get_string('schedule', 'tool_automate'), $schedules);
         $mform->setDefault('schedule', 'hourly');
-        $mform->hideIf('schedule', 'triggertype', 'neq', 'cron');
 
         $mform->addElement(
             'date_time_selector',
@@ -62,8 +68,6 @@ class trigger_form extends \moodleform {
             get_string('scheduledate', 'tool_automate'),
             ['optional' => false]
         );
-        $mform->hideIf('scheduledate', 'triggertype', 'neq', 'cron');
-        $mform->hideIf('scheduledate', 'schedule', 'neq', 'oncedate');
 
         if ($subject === 'course') {
             $events = [
@@ -80,19 +84,14 @@ class trigger_form extends \moodleform {
             ];
         }
         $mform->addElement('select', 'eventname', get_string('eventname', 'tool_automate'), $events);
-        $mform->hideIf('eventname', 'triggertype', 'neq', 'event');
 
         if ($subject === 'user') {
             $courses = $DB->get_records_menu('course', null, 'fullname', 'id, fullname', 0, 500);
             unset($courses[SITEID]);
             $mform->addElement('select', 'courseid', get_string('course', 'tool_automate'), $courses);
-            $mform->hideIf('courseid', 'triggertype', 'neq', 'event');
-            $mform->hideIf('courseid', 'eventname', 'neq', '\core\event\course_completed');
 
             $roleoptions = role_get_names(\context_system::instance(), ROLENAME_ALIAS, true);
             $mform->addElement('select', 'roleid', get_string('role', 'tool_automate'), $roleoptions);
-            $mform->hideIf('roleid', 'triggertype', 'neq', 'event');
-            $mform->hideIf('roleid', 'eventname', 'neq', '\core\event\role_assigned');
         }
 
         $mform->addElement('hidden', 'ruleid');
@@ -112,7 +111,11 @@ class trigger_form extends \moodleform {
      */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
-        if (($data['triggertype'] ?? '') === 'cron' && ($data['schedule'] ?? '') === 'oncedate') {
+        $triggertype = $data['triggertype'] ?? '';
+        if ($triggertype === '') {
+            $errors['triggertype'] = get_string('required');
+        }
+        if ($triggertype === 'cron' && ($data['schedule'] ?? '') === 'oncedate') {
             $when = (int) ($data['scheduledate'] ?? 0);
             if ($when <= 0) {
                 $errors['scheduledate'] = get_string('required');

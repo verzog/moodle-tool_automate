@@ -316,7 +316,10 @@ if ($mform->is_cancelled()) {
         $record->id = $formdata->id;
         $oldsubject = $rule->subject ?? 'user';
         if ($record->subject !== $oldsubject) {
-            $record->triggertype = 'manual';
+            // Subject changed - the old trigger may not make sense, so
+            // clear it back to the unset "Choose..." state and make the
+            // admin re-pick a valid trigger for the new subject.
+            $record->triggertype = '';
             $record->eventname = null;
             $record->courseid = 0;
             $record->roleid = 0;
@@ -324,9 +327,11 @@ if ($mform->is_cancelled()) {
         $DB->update_record('tool_automate_rule', $record);
         $ruleid = $record->id;
     } else {
+        // New rules start with no trigger selected so the editor opens
+        // on "Choose..." and the admin must make a deliberate choice.
         $record->timecreated = $now;
         $record->logic = 'all';
-        $record->triggertype = 'manual';
+        $record->triggertype = '';
         $record->schedule = 'hourly';
         $ruleid = $DB->insert_record('tool_automate_rule', $record);
     }
@@ -549,6 +554,38 @@ if ($id) {
     // pickers/links existing yet when the init code first runs.
     $PAGE->requires->js_init_code(<<<'JS'
 (function () {
+    // Show or hide each Step 5 sub-field based on the trigger type and
+    // schedule currently chosen. Done here rather than via the form's
+    // hideIf so it survives the inline AJAX swaps below (after a swap the
+    // moodleform's own dependency JS is no longer wired to the new DOM).
+    var applyTrigger = function () {
+        var c = document.querySelector('[data-inline-target="trigger"]');
+        if (!c) { return; }
+        var valueOf = function (id) {
+            var el = c.querySelector('#' + id);
+            return el ? el.value : '';
+        };
+        var tt = valueOf('id_triggertype');
+        var sched = valueOf('id_schedule');
+        var ev = valueOf('id_eventname');
+        var show = function (id, on) {
+            var el = c.querySelector('#' + id);
+            if (!el) { return; }
+            var row = el.closest('.fitem') || el.closest('[id^="fitem_"]')
+                || el.closest('[id^="fgroup_"]');
+            if (row) { row.style.display = on ? '' : 'none'; }
+        };
+        show('id_schedule', tt === 'cron');
+        show('id_scheduledate_day', tt === 'cron' && sched === 'oncedate');
+        show('id_eventname', tt === 'event');
+        show('id_courseid', tt === 'event' && ev === '\\core\\event\\course_completed');
+        show('id_roleid', tt === 'event' && ev === '\\core\\event\\role_assigned');
+    };
+    document.addEventListener('change', function (e) {
+        if (e.target.closest && e.target.closest('[data-inline-target="trigger"]')) {
+            applyTrigger();
+        }
+    });
     var fetchAndReplace = function (url, target) {
         url.searchParams.set('inline', '1');
         fetch(url.toString(), {credentials: 'same-origin'})
@@ -569,6 +606,7 @@ if ($id) {
                     if (n.src) { f.src = n.src; } else { f.textContent = n.textContent; }
                     document.head.appendChild(f);
                 });
+                applyTrigger();
             })
             .catch(function () {
                 // Fall back to a full-page navigation, but to the
@@ -639,9 +677,11 @@ if ($id) {
                     if (n.src) { f.src = n.src; } else { f.textContent = n.textContent; }
                     document.head.appendChild(f);
                 });
+                applyTrigger();
             })
             .catch(function () { form.submit(); });
     }, true);
+    applyTrigger();
 })();
 JS
     );

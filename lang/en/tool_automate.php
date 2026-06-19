@@ -293,6 +293,7 @@ $string['trigger'] = 'Trigger';
 $string['trigger_cron'] = 'On a schedule';
 $string['trigger_event'] = 'When something happens';
 $string['trigger_manual'] = 'Only when I run it manually';
+$string['trigger_none'] = 'Not set yet';
 $string['triggerheading'] = 'Step 5: When should this run?';
 $string['triggertype'] = 'When should this run?';
 $string['unsuspended'] = 'User unsuspended';

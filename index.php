@@ -94,9 +94,12 @@ if (!$rules) {
                  html_writer::link($runurl, get_string('runnow', 'tool_automate')) . ' | ' .
                  html_writer::link($deleteurl, get_string('delete', 'tool_automate'));
 
+        $triggerlabel = ($rule->triggertype ?? '') === ''
+            ? get_string('trigger_none', 'tool_automate')
+            : get_string('trigger_' . $rule->triggertype, 'tool_automate');
         $table->data[] = [
             format_string($rule->name),
-            get_string('trigger_' . $rule->triggertype, 'tool_automate'),
+            $triggerlabel,
             $rule->enabled ? get_string('yes') : get_string('no'),
             $links,
         ];
