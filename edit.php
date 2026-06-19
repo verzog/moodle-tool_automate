@@ -568,18 +568,19 @@ if ($id) {
         var tt = valueOf('id_triggertype');
         var sched = valueOf('id_schedule');
         var ev = valueOf('id_eventname');
-        var show = function (id, on) {
-            var el = c.querySelector('#' + id);
-            if (!el) { return; }
-            var row = el.closest('.fitem') || el.closest('[id^="fitem_"]')
-                || el.closest('[id^="fgroup_"]');
+        var showRow = function (name, on) {
+            // Moodleform wraps each field's row in an element whose id
+            // is "fitem_id_<name>" - target the row directly so this
+            // works for compound widgets too (date_time_selector etc.)
+            // where the field has no single matching .fitem child.
+            var row = c.querySelector('#fitem_id_' + name);
             if (row) { row.style.display = on ? '' : 'none'; }
         };
-        show('id_schedule', tt === 'cron');
-        show('id_scheduledate_day', tt === 'cron' && sched === 'oncedate');
-        show('id_eventname', tt === 'event');
-        show('id_courseid', tt === 'event' && ev === '\\core\\event\\course_completed');
-        show('id_roleid', tt === 'event' && ev === '\\core\\event\\role_assigned');
+        showRow('schedule', tt === 'cron');
+        showRow('scheduledate', tt === 'cron' && sched === 'oncedate');
+        showRow('eventname', tt === 'event');
+        showRow('courseid', tt === 'event' && ev === '\\core\\event\\course_completed');
+        showRow('roleid', tt === 'event' && ev === '\\core\\event\\role_assigned');
     };
     document.addEventListener('change', function (e) {
         if (e.target.closest && e.target.closest('[data-inline-target="trigger"]')) {
