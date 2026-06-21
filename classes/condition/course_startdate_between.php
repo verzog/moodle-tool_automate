@@ -62,8 +62,10 @@ class course_startdate_between extends condition_base {
         }
         // Date_selector submits midnight at the *start* of the selected
         // day. The UI labels this as an inclusive range, so extend the
-        // upper bound to the end of that day (== start of the next).
-        if ($to > 0 && $start >= $to + DAYSECS) {
+        // upper bound to the start of the *next* local day - computed
+        // as a calendar day so DST transitions (where the day isn't
+        // 86400 seconds) don't clip the last hour off the end.
+        if ($to > 0 && $start >= self::next_local_midnight($to)) {
             return false;
         }
         return $from > 0 || $to > 0;
@@ -165,12 +167,30 @@ class course_startdate_between extends condition_base {
             $params['csdb_from' . $suffix] = $from;
         }
         if ($to > 0) {
-            // Strictly less than the start of the day *after* the To
-            // date, so the whole selected end day is included
-            // (date_selector submits its midnight).
+            // Strictly less than the start of the local day *after* the
+            // To date, so the whole selected end day is included
+            // (date_selector submits its midnight). Calendar-day
+            // arithmetic, not + DAYSECS - DST shift days aren't 86400s.
             $clauses[] = 'c.startdate < :csdb_to' . $suffix;
-            $params['csdb_to' . $suffix] = $to + DAYSECS;
+            $params['csdb_to' . $suffix] = self::next_local_midnight($to);
         }
         return ['(' . implode(' AND ', $clauses) . ')', $params];
+    }
+
+    /**
+     * Return the local midnight of the calendar day after the one
+     * containing $midnight. Uses DateTime::modify('+1 day') in the
+     * Moodle/user timezone so DST transition days - where the
+     * calendar day is 23 or 25 hours, not 86400 seconds - still
+     * resolve to the right next-midnight cutoff.
+     *
+     * @param int $midnight Unix timestamp of the start of a local day.
+     * @return int Unix timestamp of the start of the following day.
+     */
+    protected static function next_local_midnight(int $midnight): int {
+        $dt = new \DateTime('@' . $midnight);
+        $dt->setTimezone(\core_date::get_user_timezone_object());
+        $dt->modify('+1 day');
+        return $dt->getTimestamp();
     }
 }
