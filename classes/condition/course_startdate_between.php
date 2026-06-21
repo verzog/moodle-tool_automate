@@ -145,25 +145,31 @@ class course_startdate_between extends condition_base {
      * @return array
      */
     public static function get_course_sql_filter(array $config): array {
+        // Unique placeholder suffix per invocation so two
+        // course_startdate_between conditions on the same rule (with
+        // logic=all) don't collide on shared :csdb_from / :csdb_to names
+        // when manager::get_target_courses() concatenates their fragments.
+        static $n = 0;
+        $suffix = '_' . (++$n);
         $from = (int) ($config['from'] ?? 0);
         $to = (int) ($config['to'] ?? 0);
+        // Both bounds unset = the condition never matches; emit a
+        // FALSE clause rather than something that selects every row.
+        if ($from === 0 && $to === 0) {
+            return ['1=0', []];
+        }
         $clauses = ['c.startdate > 0'];
         $params = [];
         if ($from > 0) {
-            $clauses[] = 'c.startdate >= :csdb_from';
-            $params['csdb_from'] = $from;
+            $clauses[] = 'c.startdate >= :csdb_from' . $suffix;
+            $params['csdb_from' . $suffix] = $from;
         }
         if ($to > 0) {
             // Strictly less than the start of the day *after* the To
             // date, so the whole selected end day is included
             // (date_selector submits its midnight).
-            $clauses[] = 'c.startdate < :csdb_to';
-            $params['csdb_to'] = $to + DAYSECS;
-        }
-        // Both bounds unset = the condition never matches; emit a
-        // FALSE clause rather than something that selects every row.
-        if ($from === 0 && $to === 0) {
-            return ['1=0', []];
+            $clauses[] = 'c.startdate < :csdb_to' . $suffix;
+            $params['csdb_to' . $suffix] = $to + DAYSECS;
         }
         return ['(' . implode(' AND ', $clauses) . ')', $params];
     }
