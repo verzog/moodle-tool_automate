@@ -60,7 +60,12 @@ class course_startdate_between extends condition_base {
         if ($from > 0 && $start < $from) {
             return false;
         }
-        if ($to > 0 && $start > $to) {
+        // Date_selector submits midnight at the *start* of the selected
+        // day. The UI labels this as an inclusive range, so extend the
+        // upper bound to the start of the *next* local day - computed
+        // as a calendar day so DST transitions (where the day isn't
+        // 86400 seconds) don't clip the last hour off the end.
+        if ($to > 0 && $start >= self::next_local_midnight($to)) {
             return false;
         }
         return $from > 0 || $to > 0;
@@ -142,23 +147,50 @@ class course_startdate_between extends condition_base {
      * @return array
      */
     public static function get_course_sql_filter(array $config): array {
+        // Unique placeholder suffix per invocation so two
+        // course_startdate_between conditions on the same rule (with
+        // logic=all) don't collide on shared :csdb_from / :csdb_to names
+        // when manager::get_target_courses() concatenates their fragments.
+        static $n = 0;
+        $suffix = '_' . (++$n);
         $from = (int) ($config['from'] ?? 0);
         $to = (int) ($config['to'] ?? 0);
-        $clauses = ['c.startdate > 0'];
-        $params = [];
-        if ($from > 0) {
-            $clauses[] = 'c.startdate >= :csdb_from';
-            $params['csdb_from'] = $from;
-        }
-        if ($to > 0) {
-            $clauses[] = 'c.startdate <= :csdb_to';
-            $params['csdb_to'] = $to;
-        }
         // Both bounds unset = the condition never matches; emit a
         // FALSE clause rather than something that selects every row.
         if ($from === 0 && $to === 0) {
             return ['1=0', []];
         }
+        $clauses = ['c.startdate > 0'];
+        $params = [];
+        if ($from > 0) {
+            $clauses[] = 'c.startdate >= :csdb_from' . $suffix;
+            $params['csdb_from' . $suffix] = $from;
+        }
+        if ($to > 0) {
+            // Strictly less than the start of the local day *after* the
+            // To date, so the whole selected end day is included
+            // (date_selector submits its midnight). Calendar-day
+            // arithmetic, not + DAYSECS - DST shift days aren't 86400s.
+            $clauses[] = 'c.startdate < :csdb_to' . $suffix;
+            $params['csdb_to' . $suffix] = self::next_local_midnight($to);
+        }
         return ['(' . implode(' AND ', $clauses) . ')', $params];
+    }
+
+    /**
+     * Return the local midnight of the calendar day after the one
+     * containing $midnight. Uses DateTime::modify('+1 day') in the
+     * Moodle/user timezone so DST transition days - where the
+     * calendar day is 23 or 25 hours, not 86400 seconds - still
+     * resolve to the right next-midnight cutoff.
+     *
+     * @param int $midnight Unix timestamp of the start of a local day.
+     * @return int Unix timestamp of the start of the following day.
+     */
+    protected static function next_local_midnight(int $midnight): int {
+        $dt = new \DateTime('@' . $midnight);
+        $dt->setTimezone(\core_date::get_user_timezone_object());
+        $dt->modify('+1 day');
+        return $dt->getTimestamp();
     }
 }
