@@ -107,6 +107,7 @@ class manager {
             'course_email_teachers'   => action\course_email_teachers::class,
             'course_generate_report'  => action\course_generate_report::class,
             'course_copy'             => action\course_copy::class,
+            'course_delete'           => action\course_delete::class,
         ];
     }
 
