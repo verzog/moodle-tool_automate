@@ -30,6 +30,27 @@ namespace tool_automate\task;
  */
 class delete_course extends \core\task\adhoc_task {
     /**
+     * Cap how many delete_course tasks Moodle's cron will run in
+     * parallel. Reads tool_automate / course_delete_concurrency
+     * (defaults to 2). With a large bulk-delete rule the adhoc
+     * queue can easily hit hundreds of these; without a cap, the
+     * cron worker pool gets dominated by slow delete_course() calls
+     * and other queued work (course copies, search reindex, message
+     * digests, ...) stalls until they all finish. A cap of 2 means
+     * at most two deletions run concurrently per cron invocation,
+     * leaving the rest of the worker pool free for everyone else.
+     *
+     * Site admins who want them to run faster can raise the value
+     * from Site administration > Plugins > Admin tools > Settings.
+     *
+     * @return int
+     */
+    public function get_concurrency_limit() {
+        $configured = (int) get_config('tool_automate', 'course_delete_concurrency');
+        return $configured > 0 ? $configured : 2;
+    }
+
+    /**
      * Run the deletion.
      */
     public function execute() {
