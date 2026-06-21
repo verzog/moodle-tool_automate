@@ -107,6 +107,7 @@ class manager {
             'course_email_teachers'   => action\course_email_teachers::class,
             'course_generate_report'  => action\course_generate_report::class,
             'course_copy'             => action\course_copy::class,
+            'course_delete'           => action\course_delete::class,
         ];
     }
 
@@ -117,11 +118,20 @@ class manager {
      * @return array Type code => fully qualified class name.
      */
     public static function get_action_types_for_subject(string $subject): array {
+        // Site-level kill-switch for the destructive course_delete
+        // action. When off, it never reaches the action picker - an
+        // admin who later flips the setting back off also has the
+        // safety net of course_delete::execute() refusing to queue.
+        $allowdelete = (bool) get_config('tool_automate', 'allow_course_delete');
         $out = [];
         foreach (self::get_action_types() as $code => $class) {
-            if ($class::get_subject() === $subject) {
-                $out[$code] = $class;
+            if ($class::get_subject() !== $subject) {
+                continue;
             }
+            if ($code === 'course_delete' && !$allowdelete) {
+                continue;
+            }
+            $out[$code] = $class;
         }
         return $out;
     }
