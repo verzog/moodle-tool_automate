@@ -60,9 +60,6 @@ class course_delete extends action_base {
      * @return string
      */
     public function execute(\stdClass $subject, bool $dryrun): string {
-        global $CFG;
-        require_once($CFG->dirroot . '/course/lib.php');
-
         $name = format_string($subject->fullname ?? ('#' . $subject->id));
 
         // The site front page (SITEID, typically 1) is not a deletable
@@ -86,8 +83,18 @@ class course_delete extends action_base {
             return get_string('coursewoulddelete', 'tool_automate', $name);
         }
 
-        delete_course((int) $subject->id, false);
-        return get_string('coursedeleted', 'tool_automate', $name);
+        // Queue an adhoc task instead of calling delete_course() inline.
+        // delete_course() is slow (files, grades, completion, enrolment
+        // cleanup) so a rule that matched 200 stale sandboxes would hold
+        // the Run now request or the cron worker open for the whole
+        // chain. Pushing each one onto the adhoc queue lets us return
+        // immediately and lets the next cron run process the deletions
+        // in the background.
+        $task = new \tool_automate\task\delete_course();
+        $task->set_custom_data(['courseid' => (int) $subject->id]);
+        \core\task\manager::queue_adhoc_task($task);
+
+        return get_string('coursedeletequeued', 'tool_automate', $name);
     }
 
     /**
