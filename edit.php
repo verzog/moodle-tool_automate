@@ -604,9 +604,26 @@ if ($id) {
         showRow('courseid', tt === 'event' && ev === '\\core\\event\\course_completed');
         showRow('roleid', tt === 'event' && ev === '\\core\\event\\role_assigned');
     };
+    // The Match picker inside the conditions section has the same
+    // problem: its hideIf for the custom-expression textarea is bound
+    // to the original DOM by Moodle's footer requires, so after an
+    // AJAX swap the show/hide stops working. Re-implement it inline
+    // here and run on every change / swap.
+    var applyLogic = function () {
+        var c = document.querySelector('[data-inline-target="conditions"]');
+        if (!c) { return; }
+        var sel = c.querySelector('#id_logic');
+        var row = c.querySelector('#fitem_id_expression');
+        if (!sel || !row) { return; }
+        row.style.display = sel.value === 'expression' ? '' : 'none';
+    };
     document.addEventListener('change', function (e) {
-        if (e.target.closest && e.target.closest('[data-inline-target="trigger"]')) {
+        if (!e.target.closest) { return; }
+        if (e.target.closest('[data-inline-target="trigger"]')) {
             applyTrigger();
+        }
+        if (e.target.closest('[data-inline-target="conditions"]')) {
+            applyLogic();
         }
     });
     var fetchAndReplace = function (url, target) {
@@ -630,6 +647,7 @@ if ($id) {
                     document.head.appendChild(f);
                 });
                 applyTrigger();
+                applyLogic();
             })
             .catch(function () {
                 // Fall back to a full-page navigation, but to the
@@ -714,10 +732,12 @@ if ($id) {
                     document.head.appendChild(f);
                 });
                 applyTrigger();
+                applyLogic();
             })
             .catch(function () { form.submit(); });
     }, true);
     applyTrigger();
+    applyLogic();
 })();
 JS
     );
