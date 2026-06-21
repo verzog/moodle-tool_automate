@@ -63,6 +63,8 @@ class manager {
             'course_name_contains' => condition\course_name_contains::class,
             'course_name_matches'  => condition\course_name_matches::class,
             'course_no_activity_days' => condition\course_no_activity_days::class,
+            'course_startdate_between' => condition\course_startdate_between::class,
+            'course_completion_rate' => condition\course_completion_rate::class,
         ];
     }
 
