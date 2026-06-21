@@ -55,6 +55,32 @@ if ($delete && confirm_sesskey()) {
 
 echo $OUTPUT->header();
 
+// One-shot toast driven by URL params so it survives both the
+// natural-redirect path and the inline-AJAX path on edit.php (where
+// the fetch interceptor follows the off-page redirect, consuming
+// any session notification before the browser actually navigates).
+// The tiny JS below strips the params via history.replaceState
+// after first paint so reloading the overview doesn't re-fire the
+// toast.
+$automatemsg = optional_param('automatemsg', '', PARAM_ALPHANUMEXT);
+if ($automatemsg === 'triggersaved') {
+    $rulename = optional_param('automatename', '', PARAM_TEXT);
+    \core\notification::success(
+        get_string('triggersaved', 'tool_automate', format_string($rulename))
+    );
+    $PAGE->requires->js_init_code(<<<'JS'
+(function () {
+    if (!window.history || !window.history.replaceState) { return; }
+    var u = new URL(window.location.href);
+    if (!u.searchParams.has('automatemsg')) { return; }
+    u.searchParams.delete('automatemsg');
+    u.searchParams.delete('automatename');
+    window.history.replaceState({}, '', u.toString());
+})();
+JS
+    );
+}
+
 echo $OUTPUT->single_button(
     new moodle_url('/admin/tool/automate/edit.php'),
     get_string('newrule', 'tool_automate'),

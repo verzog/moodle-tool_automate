@@ -298,9 +298,20 @@ if ($triggerform && ($triggerdata = $triggerform->get_data()) && !empty($trigger
     }
     $DB->update_record('tool_automate_rule', $update);
     // Saving the trigger is the last editing step - return the admin to
-    // the rules overview so they can see the rule alongside its peers
-    // (and reach the Run now / Preview shortcuts there).
-    redirect($baseurl);
+    // the rules overview, with a success toast confirming the save
+    // landed. Encode the notification in URL params rather than the
+    // one-shot session notification: the inline-JS fetch interceptor
+    // below follows the off-page redirect, which would render and
+    // clear a session notification *before* JS navigates the browser
+    // to the same URL, so the toast would never reach the user. With
+    // URL params, both the JS-off natural redirect and the JS-on
+    // window.location.href navigation render the same notification
+    // from the params on arrival.
+    $tourl = new moodle_url($baseurl, [
+        'automatemsg'  => 'triggersaved',
+        'automatename' => (string) ($rule->name ?? ''),
+    ]);
+    redirect($tourl);
 }
 
 if ($mform->is_cancelled()) {

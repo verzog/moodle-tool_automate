@@ -45,5 +45,15 @@ if ($hassiteconfig) {
         get_string('setting_allow_course_delete_desc', 'tool_automate'),
         0
     ));
+    // Concurrency cap for the course-delete adhoc task. Keeps a
+    // large bulk-delete rule from monopolising the cron worker pool
+    // and starving other adhoc tasks.
+    $settings->add(new admin_setting_configtext(
+        'tool_automate/course_delete_concurrency',
+        get_string('setting_course_delete_concurrency', 'tool_automate'),
+        get_string('setting_course_delete_concurrency_desc', 'tool_automate'),
+        2,
+        PARAM_INT
+    ));
     $ADMIN->add('tools', $settings);
 }
