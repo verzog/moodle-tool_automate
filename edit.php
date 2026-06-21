@@ -348,9 +348,11 @@ if ($mform->is_cancelled()) {
 $rendercondsection = function () use (
     $id,
     $selfurl,
+    $rule,
     $conditions,
     $condform,
     $condclass,
+    $logicform,
     $rulesubject,
     $OUTPUT
 ) {
@@ -363,11 +365,26 @@ $rendercondsection = function () use (
         : get_string('conditionheading_user', 'tool_automate');
     echo $OUTPUT->heading($heading, 3);
 
+    // Combinator picker: visible whenever there are 2+ conditions so
+    // admins can flip between AND / OR / custom-expression in place,
+    // without having to expand an "Advanced" disclosure to find it.
+    $logic = $rule->logic ?? 'all';
+    if ($logicform && count($conditions) >= 2) {
+        echo html_writer::start_div('tool_automate_logic mb-2');
+        $logicform->display();
+        echo html_writer::end_div();
+    }
+
     if ($conditions) {
         $polaritylabels = [
             manager::POLARITY_MATCH    => get_string('polarity_match', 'tool_automate'),
             manager::POLARITY_NOTMATCH => get_string('polarity_notmatch', 'tool_automate'),
         ];
+        $connector = $logic === 'any'
+            ? get_string('connector_or', 'tool_automate')
+            : ($logic === 'expression'
+                ? get_string('connector_expression', 'tool_automate')
+                : get_string('connector_and', 'tool_automate'));
         $table = new html_table();
         $table->head = [
             get_string('label', 'tool_automate'),
@@ -378,6 +395,7 @@ $rendercondsection = function () use (
         ];
         $allcondtypes = manager::get_condition_types();
         $i = 1;
+        $total = count($conditions);
         foreach ($conditions as $c) {
             $class = $allcondtypes[$c->type] ?? null;
             $config = (array) json_decode($c->configdata ?? '{}', true);
@@ -398,6 +416,16 @@ $rendercondsection = function () use (
                 $class ? $class::describe($config) : '',
                 $links,
             ];
+            // Add an AND / OR row between every pair of conditions so
+            // the chosen combinator is visible inline next to the data
+            // it applies to.
+            if ($i < $total) {
+                $cell = new html_table_cell(html_writer::tag('strong', $connector));
+                $cell->colspan = count($table->head);
+                $cell->attributes['class'] = 'tool_automate_connector text-center';
+                $row = new html_table_row([$cell]);
+                $table->data[] = $row;
+            }
             $i++;
         }
         echo html_writer::table($table);
@@ -531,16 +559,7 @@ echo $OUTPUT->heading(get_string('step_rule', 'tool_automate'), 3);
 $mform->display();
 
 if ($id) {
-    $showlogic = count($conditions) >= 2;
-
     echo $rendercondsection();
-
-    if ($showlogic) {
-        echo html_writer::start_tag('details', ['class' => 'tool_automate_advanced mt-3']);
-        echo html_writer::tag('summary', get_string('logicheading', 'tool_automate'));
-        $logicform->display();
-        echo html_writer::end_tag('details');
-    }
 
     echo $renderactsection();
 
