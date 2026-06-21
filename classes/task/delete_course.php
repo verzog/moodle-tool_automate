@@ -58,7 +58,7 @@ class delete_course extends \core\task\adhoc_task {
 
         delete_course($courseid, false);
 
-        // delete_course() doesn't touch category course-count or
+        // Delete_course() doesn't touch category course-count or
         // sortorder metadata; without this rebuild, course management
         // and navigation counters stay stale until some other flow
         // happens to fix it. Moodle's normal UI deletion calls this
