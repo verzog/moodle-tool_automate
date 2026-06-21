@@ -60,7 +60,10 @@ class course_startdate_between extends condition_base {
         if ($from > 0 && $start < $from) {
             return false;
         }
-        if ($to > 0 && $start > $to) {
+        // date_selector submits midnight at the *start* of the selected
+        // day. The UI labels this as an inclusive range, so extend the
+        // upper bound to the end of that day (== start of the next).
+        if ($to > 0 && $start >= $to + DAYSECS) {
             return false;
         }
         return $from > 0 || $to > 0;
@@ -151,8 +154,11 @@ class course_startdate_between extends condition_base {
             $params['csdb_from'] = $from;
         }
         if ($to > 0) {
-            $clauses[] = 'c.startdate <= :csdb_to';
-            $params['csdb_to'] = $to;
+            // Strictly less than the start of the day *after* the To
+            // date, so the whole selected end day is included
+            // (date_selector submits its midnight).
+            $clauses[] = 'c.startdate < :csdb_to';
+            $params['csdb_to'] = $to + DAYSECS;
         }
         // Both bounds unset = the condition never matches; emit a
         // FALSE clause rather than something that selects every row.
