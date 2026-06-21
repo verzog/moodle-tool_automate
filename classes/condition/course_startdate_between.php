@@ -72,7 +72,7 @@ class course_startdate_between extends condition_base {
      * @param \MoodleQuickForm $mform
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
-        // optional=true on each date_selector lets the admin clear the
+        // Optional=true on each date_selector lets the admin clear the
         // bound to leave that side of the range open.
         $mform->addElement(
             'date_selector',
