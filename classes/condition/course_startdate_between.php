@@ -60,7 +60,7 @@ class course_startdate_between extends condition_base {
         if ($from > 0 && $start < $from) {
             return false;
         }
-        // date_selector submits midnight at the *start* of the selected
+        // Date_selector submits midnight at the *start* of the selected
         // day. The UI labels this as an inclusive range, so extend the
         // upper bound to the end of that day (== start of the next).
         if ($to > 0 && $start >= $to + DAYSECS) {
