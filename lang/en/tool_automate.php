@@ -355,6 +355,7 @@ $string['trigger_event'] = 'When something happens';
 $string['trigger_manual'] = 'Only when I run it manually';
 $string['trigger_none'] = 'Not set yet';
 $string['triggerheading'] = 'Step 5: When should this run?';
+$string['triggersaved'] = 'Trigger saved for rule "{$a}"';
 $string['triggertype'] = 'When should this run?';
 $string['unsuspended'] = 'User unsuspended';
 $string['user'] = 'User';

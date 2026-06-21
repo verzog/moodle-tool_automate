@@ -299,8 +299,16 @@ if ($triggerform && ($triggerdata = $triggerform->get_data()) && !empty($trigger
     $DB->update_record('tool_automate_rule', $update);
     // Saving the trigger is the last editing step - return the admin to
     // the rules overview so they can see the rule alongside its peers
-    // (and reach the Run now / Preview shortcuts there).
-    redirect($baseurl);
+    // (and reach the Run now / Preview shortcuts there), with a success
+    // toast confirming the save landed. Moodle stashes the message in
+    // the session via redirect()'s extra args and the index page picks
+    // it up automatically when it next renders.
+    redirect(
+        $baseurl,
+        get_string('triggersaved', 'tool_automate', format_string($rule->name ?? '')),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 }
 
 if ($mform->is_cancelled()) {
