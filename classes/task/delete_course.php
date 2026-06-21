@@ -48,6 +48,21 @@ class delete_course extends \core\task\adhoc_task {
             mtrace('tool_automate: course ' . $courseid . ' already gone, skipping');
             return;
         }
+
+        // Mirror the web deletion page: a large course (lots of files,
+        // grades, completion records) can easily outrun the default
+        // PHP time limit. Raising before delete_course() avoids the
+        // worst-case of being killed mid-cleanup with the course
+        // partially destroyed.
+        \core_php_time_limit::raise(0);
+
         delete_course($courseid, false);
+
+        // delete_course() doesn't touch category course-count or
+        // sortorder metadata; without this rebuild, course management
+        // and navigation counters stay stale until some other flow
+        // happens to fix it. Moodle's normal UI deletion calls this
+        // right after delete_course(), so we mirror it.
+        fix_course_sortorder();
     }
 }

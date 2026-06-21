@@ -31,7 +31,7 @@ $string['act_assign_role_desc'] = 'Assign role "{$a}" at system level';
 $string['act_course_copy'] = 'Copy the course (asynchronously)';
 $string['act_course_copy_desc'] = 'Queue a copy named after "{$a}"';
 $string['act_course_delete'] = 'Delete the course (permanent, runs in background)';
-$string['act_course_delete_desc'] = 'Queue every matched course for background deletion';
+$string['act_course_delete_desc'] = 'Queue every matched course for background deletion at {$a}';
 $string['act_course_delete_desc_unconfirmed'] = 'Delete (disabled until the confirmation phrase is typed)';
 $string['act_course_email_teachers'] = 'Email the course\'s teachers';
 $string['act_course_email_teachers_desc'] = 'Email teachers with subject "{$a}"';
@@ -154,12 +154,29 @@ $string['coursecopysamecategory'] = 'Same category as the source course';
 $string['coursecopyshortnametemplate'] = 'New shortname template';
 $string['coursecopyshortnametemplate_help'] = 'Used for the copy\'s shortname (must be unique). Placeholders: {fullname}, {shortname}, {idnumber}, {date} (Ymd-His).';
 $string['coursecopytargetcategory'] = 'Target category';
+$string['coursedeleteadminemailbody'] = 'tool_automate has queued {$a->count} course(s) for permanent deletion, scheduled to run at {$a->when}.
+
+If any of the courses listed below should not be deleted, hide or cancel the adhoc tasks (Site administration > Server > Tasks > Adhoc tasks) before the scheduled time.
+
+Courses queued for deletion:
+{$a->list}';
+$string['coursedeleteadminemailsent'] = 'Notified {$a->sent} of {$a->total} site administrators by email';
+$string['coursedeleteadminemailsubject'] = 'Course deletion queued ({$a} course(s))';
 $string['coursedeleteconfirmlabel'] = 'Type {$a->phrase} to enable';
 $string['coursedeleteconfirmlabel_help'] = 'This action permanently deletes every course the rule matches. To prevent accidental enablement, the rule will not delete anything until this field contains the exact confirmation phrase.';
+$string['coursedeletedelay'] = 'Run deletion at';
+$string['coursedeletedelay_help'] = 'Each matched course is queued as an adhoc task. Pick the local time of day when those tasks should run. Default is 02:00 - the rule may run at any time, but the actual deletion holds until the next overnight cron tick, giving admins a window to spot and cancel the wrong courses.';
+$string['coursedeletedelay_immediate'] = 'Immediately (next cron tick)';
+$string['coursedeletedisabled'] = 'Skipped "{$a}" - the site setting "Allow the Delete course action" is off';
+$string['coursedeletehidefirst'] = 'Hide each matched course immediately on queue (recommended)';
+$string['coursedeletehidefirst_help'] = 'Set course.visible = 0 the moment the rule queues a deletion, before the scheduled cron tick fires. Anyone enrolled or browsing the site notices the matched courses disappear, which acts as an early warning if the wrong courses were matched.';
+$string['coursedeletenotifyadmins'] = 'Email all site administrators when courses are queued (recommended)';
+$string['coursedeletenotifyadmins_help'] = 'Send a single roll-up email to every site administrator once the rule finishes, listing every queued course and the scheduled deletion time. Gives every admin a chance to review and cancel before the scheduled run.';
 $string['coursedeletequeued'] = 'Queued background deletion of course "{$a}"';
+$string['coursedeletequeuedat'] = 'Queued background deletion of "{$a->course}" - scheduled for {$a->when}';
 $string['coursedeleteskippedsite'] = 'Refused to delete the site course "{$a}"';
 $string['coursedeleteunconfirmed'] = 'Skipped "{$a}" - confirmation phrase not typed in the action config';
-$string['coursedeletewarning'] = 'WARNING: this action permanently deletes every course matched by the rule. Each match is queued as an adhoc task and the actual deletion happens on the next cron run, so the rule itself returns quickly. Deletion cannot be undone. Use Preview first to confirm exactly which courses would be removed.';
+$string['coursedeletewarning'] = 'WARNING: this action permanently deletes every course matched by the rule. Each match is queued as an adhoc task and the actual deletion happens on the next scheduled run (default 02:00), so the rule itself returns quickly. Deletion cannot be undone. Use Preview first to confirm exactly which courses would be removed.';
 $string['courseemailbody'] = 'Body';
 $string['courseemailbody_help'] = 'Use {course}, {shortname}, {idnumber} as placeholders.';
 $string['courseemailedteachers'] = 'Emailed {$a->count} teachers in "{$a->course}"';
@@ -319,6 +336,9 @@ $string['schedule_hourly'] = 'Hourly';
 $string['schedule_monthly'] = 'Monthly (1st of each month)';
 $string['schedule_oncedate'] = 'On a specific date';
 $string['scheduledate'] = 'Run on';
+$string['setting_allow_course_delete'] = 'Allow the Delete course action';
+$string['setting_allow_course_delete_desc'] = 'When off (the default), the destructive "Delete the course" action is hidden from the action picker and refuses to queue deletions on existing rules. Leave this off unless a site admin has deliberately decided to use bulk course deletion. Turning it back off later is a safe kill-switch - an existing rule still runs but its delete action is a no-op until the setting is on again.';
+$string['settings'] = 'Settings';
 $string['step_rule'] = 'Steps 1-3: Name, description and subject';
 $string['subject'] = 'Subject';
 $string['subject_course'] = 'Choose courses that…';

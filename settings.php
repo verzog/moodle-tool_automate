@@ -31,4 +31,19 @@ if ($hassiteconfig) {
         new moodle_url('/admin/tool/automate/index.php'),
         'tool/automate:manage'
     ));
+
+    // Site-level toggles. The destructive course_delete action is
+    // off by default - a site admin has to opt in here before it
+    // shows up in the action picker or will run on an existing rule.
+    $settings = new admin_settingpage(
+        'tool_automate_settings',
+        get_string('settings', 'tool_automate')
+    );
+    $settings->add(new admin_setting_configcheckbox(
+        'tool_automate/allow_course_delete',
+        get_string('setting_allow_course_delete', 'tool_automate'),
+        get_string('setting_allow_course_delete_desc', 'tool_automate'),
+        0
+    ));
+    $ADMIN->add('tools', $settings);
 }
