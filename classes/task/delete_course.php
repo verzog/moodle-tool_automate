@@ -43,9 +43,15 @@ class delete_course extends \core\task\adhoc_task {
      * Site admins who want them to run faster can raise the value
      * from Site administration > Plugins > Admin tools > Settings.
      *
+     * This overrides get_default_concurrency_limit() rather than
+     * get_concurrency_limit(): the latter is final in core (it reads
+     * the global $CFG->task_concurrency_limit[classname] override
+     * first, then falls back to this default), so overriding it
+     * fatals on load. A per-class $CFG entry still wins over this.
+     *
      * @return int
      */
-    public function get_concurrency_limit() {
+    protected function get_default_concurrency_limit(): int {
         $configured = (int) get_config('tool_automate', 'course_delete_concurrency');
         return $configured > 0 ? $configured : 2;
     }
