@@ -30,16 +30,38 @@ use core_privacy\local\request\writer;
  * Two pieces of user-correlated data live in this plugin, both at the
  * system context:
  *  - tool_automate_rule.usermodified  - which admin authored / last
- *                                       edited each rule;
- *  - tool_automate_log.userid         - the user a particular rule run
- *                                       evaluated or acted on (or null
- *                                       for finalise / aggregate rows).
+ *                                       edited each rule, plus the
+ *                                       admin-supplied free-text
+ *                                       description on that rule;
+ *  - tool_automate_log.userid         - the user (or for course-subject
+ *                                       rules, the course id) a
+ *                                       particular rule run evaluated
+ *                                       on; NULL for finalise /
+ *                                       aggregate / error rows.
  *
- * Course-subject rules log course ids in the same userid column when no
- * user is involved, so the privacy code treats userid strictly as
- * "person id" - rows whose context can be proven to be a course (the
- * rule's subject is 'course') are skipped from per-user exports and
- * per-user deletions; they describe a course, not a person.
+ * Important: the log table's userid column is used by both user-
+ * subject and course-subject rules - the latter writes course ids
+ * there too. Without an immutable per-row "kind" marker we cannot
+ * distinguish a userid=5 row that's about user 5 from a userid=5 row
+ * that's about course 5. We deliberately do NOT key the privacy
+ * queries off rule.subject because edit.php allows the subject to be
+ * changed after the fact (once conditions / actions are cleared),
+ * which would silently make pre-change log rows ineligible for
+ * export and deletion. Instead we treat every non-null log userid as
+ * a user reference. The only false-positive is the userid/courseid
+ * id-space collision noted above; that delivers stale course-subject
+ * log rows to a user export, which is conservative (it doesn't leak
+ * another person's data, just records that "rule X ran on something
+ * with id 5") and matches the manager's own ambiguous use of the
+ * column.
+ *
+ * Report files saved by generate_report actions live under
+ * tool_automate/reports in the system context, but they're shared
+ * system aggregates with no per-user attribution path - we cannot tell
+ * which report contains which user's data. So we don't declare them
+ * in the metadata link (which would imply a per-user export path that
+ * doesn't exist) and we don't try to export them per user; the
+ * context-wide purge still deletes the whole area.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
@@ -60,6 +82,7 @@ class provider implements
             'tool_automate_rule',
             [
                 'name'         => 'privacy:metadata:rule:name',
+                'description'  => 'privacy:metadata:rule:description',
                 'usermodified' => 'privacy:metadata:rule:usermodified',
                 'timemodified' => 'privacy:metadata:rule:timemodified',
             ],
@@ -76,11 +99,6 @@ class provider implements
             ],
             'privacy:metadata:log'
         );
-        // CSV / text reports produced by the generate_report actions are
-        // stored under the system context's tool_automate/reports file
-        // area. They may contain user names and ids - declare the area so
-        // the metadata page lists it.
-        $collection->add_subsystem_link('core_files', [], 'privacy:metadata:filearea:reports');
         return $collection;
     }
 
@@ -95,11 +113,7 @@ class provider implements
         global $DB;
         $contextlist = new contextlist();
         $hasdata = $DB->record_exists('tool_automate_rule', ['usermodified' => $userid])
-            || $DB->record_exists_select(
-                'tool_automate_log',
-                'userid = :uid AND ruleid IN (SELECT id FROM {tool_automate_rule} WHERE subject = :subj)',
-                ['uid' => $userid, 'subj' => 'user']
-            );
+            || $DB->record_exists('tool_automate_log', ['userid' => $userid]);
         if ($hasdata) {
             $contextlist->add_system_context();
         }
@@ -118,11 +132,8 @@ class provider implements
         $userlist->add_from_sql('userid', 'SELECT usermodified AS userid FROM {tool_automate_rule}', []);
         $userlist->add_from_sql(
             'userid',
-            "SELECT l.userid
-               FROM {tool_automate_log} l
-               JOIN {tool_automate_rule} r ON r.id = l.ruleid
-              WHERE r.subject = :subj AND l.userid IS NOT NULL",
-            ['subj' => 'user']
+            'SELECT userid FROM {tool_automate_log} WHERE userid IS NOT NULL',
+            []
         );
     }
 
@@ -146,6 +157,11 @@ class provider implements
             if ($rules) {
                 $rulesexport = array_map(fn($r) => (object) [
                     'name'         => format_string($r->name),
+                    'description'  => format_text(
+                        (string) ($r->description ?? ''),
+                        FORMAT_PLAIN,
+                        ['context' => $context]
+                    ),
                     'timemodified' => transform::datetime($r->timemodified),
                 ], $rules);
                 writer::with_context($context)->export_data(
@@ -158,9 +174,9 @@ class provider implements
                 "SELECT l.id, l.ruleid, l.outcome, l.message, l.timecreated, r.name AS rulename
                    FROM {tool_automate_log} l
                    JOIN {tool_automate_rule} r ON r.id = l.ruleid
-                  WHERE l.userid = :uid AND r.subject = :subj
+                  WHERE l.userid = :uid
                ORDER BY l.timecreated DESC",
-                ['uid' => $user->id, 'subj' => 'user']
+                ['uid' => $user->id]
             );
             if ($logs) {
                 $logsexport = array_map(fn($l) => (object) [
@@ -182,10 +198,14 @@ class provider implements
      * the only context that ever holds data is the system context.
      *
      * Rules are config (not personal data) and aren't deleted - we just
-     * anonymise the usermodified attribution. Log rows whose userid
-     * column was a user reference (subject = 'user') are deleted
-     * outright; the row exists *because of* the user, not just
-     * incidentally referencing them.
+     * anonymise the usermodified attribution. Log rows are deleted in
+     * their entirety: the user-keyed ones are obviously personal, and
+     * the aggregate / finalise / error rows (userid IS NULL) can still
+     * carry personal data in their message column (the report-finalise
+     * message includes recipient email and report URL, for example),
+     * so a context-wide purge has to take them too. Saved report files
+     * are likewise deleted - they're system aggregates with no
+     * per-user attribution but can include user data inline.
      *
      * @param \context $context
      */
@@ -195,12 +215,8 @@ class provider implements
             return;
         }
         $DB->set_field('tool_automate_rule', 'usermodified', 0, []);
-        $DB->execute(
-            "DELETE FROM {tool_automate_log}
-              WHERE userid IS NOT NULL
-                AND ruleid IN (SELECT id FROM {tool_automate_rule} WHERE subject = :subj)",
-            ['subj' => 'user']
-        );
+        $DB->execute('DELETE FROM {tool_automate_log}');
+        get_file_storage()->delete_area_files($context->id, 'tool_automate', 'reports');
     }
 
     /**
@@ -217,10 +233,8 @@ class provider implements
             }
             $DB->set_field('tool_automate_rule', 'usermodified', 0, ['usermodified' => $user->id]);
             $DB->execute(
-                "DELETE FROM {tool_automate_log}
-                  WHERE userid = :uid
-                    AND ruleid IN (SELECT id FROM {tool_automate_rule} WHERE subject = :subj)",
-                ['uid' => $user->id, 'subj' => 'user']
+                'DELETE FROM {tool_automate_log} WHERE userid = :uid',
+                ['uid' => $user->id]
             );
         }
     }
@@ -246,11 +260,8 @@ class provider implements
             "UPDATE {tool_automate_rule} SET usermodified = 0 WHERE usermodified $insql",
             $params
         );
-        $params['subj'] = 'user';
         $DB->execute(
-            "DELETE FROM {tool_automate_log}
-              WHERE userid $insql
-                AND ruleid IN (SELECT id FROM {tool_automate_rule} WHERE subject = :subj)",
+            "DELETE FROM {tool_automate_log} WHERE userid $insql",
             $params
         );
     }
