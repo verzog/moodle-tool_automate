@@ -642,14 +642,18 @@ if ($id) {
         fetch(url.toString(), {credentials: 'same-origin'})
             .then(function (r) { return r.text(); })
             .then(function (html) {
-                var wrapper = document.createElement('div');
-                wrapper.innerHTML = html;
-                var rep = wrapper.querySelector(
+                // Parse the fragment with DOMParser rather than
+                // assigning to innerHTML - safer per the security
+                // guidance even though the source is our own backend
+                // (the parser interprets HTML semantically and
+                // doesn't execute inline scripts on assignment).
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var rep = doc.querySelector(
                     '[data-inline-target="' + target.dataset.inlineTarget + '"]'
                 );
                 if (!rep) { return; }
                 var scripts = Array.prototype.slice.call(
-                    wrapper.querySelectorAll('script')
+                    doc.querySelectorAll('script')
                 );
                 target.replaceWith(rep);
                 scripts.forEach(function (n) {
