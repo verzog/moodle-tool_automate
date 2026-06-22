@@ -7,7 +7,8 @@ language - every rule is a single form.
 
 ## Status
 
-Version 0.6.0 (alpha). Rules can target either **users** or **courses**.
+Alpha maturity (see `version.php` for the exact build number). Rules can
+target either **users** or **courses**.
 The editor walks you through five steps in order:
 
 1. **Name** the rule.
@@ -56,9 +57,10 @@ Manage rules at *Site administration > Plugins > Admin tools > Automate*.
 ## Safety
 
 All actions are **bounded and named** - there is no raw-SQL action. Every rule
-has a **Preview (dry run)** option that shows exactly which users would be
-affected, and what would happen, without making any change. Every run is logged
-to `tool_automate_log`.
+has a **Preview (dry run)** option that shows exactly which users or courses
+would be affected, and what would happen, without making any change. Every run
+is logged to `tool_automate_log`, and each scheduled / background task narrates
+what it did to *Site administration > Server > Tasks > Task logs*.
 
 ## Extending
 
