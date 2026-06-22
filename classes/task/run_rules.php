@@ -45,13 +45,22 @@ class run_rules extends \core\task\scheduled_task {
             'enabled'     => 1,
             'triggertype' => 'cron',
         ]);
+        $due = 0;
         foreach ($rules as $rule) {
             if (!self::is_due($rule, $now)) {
                 continue;
             }
-            \tool_automate\manager::run_rule((int) $rule->id, false);
+            $due++;
+            // Narrate progress so this scheduled task's row in the task
+            // log shows which rules ran rather than an opaque blank. The
+            // rule name is logged before run_rule() so that if a rule
+            // throws, the task log still names the rule it died on.
+            mtrace("tool_automate: running cron rule '" . $rule->name . "' (id " . $rule->id . ')');
+            $results = \tool_automate\manager::run_rule((int) $rule->id, false);
             $DB->set_field('tool_automate_rule', 'lastrunat', $now, ['id' => (int) $rule->id]);
+            mtrace('  ' . count($results) . ' log entry/entries written');
         }
+        mtrace('tool_automate: ' . $due . ' of ' . count($rules) . ' enabled cron rule(s) were due this run');
     }
 
     /**

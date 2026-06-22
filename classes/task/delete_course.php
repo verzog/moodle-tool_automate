@@ -71,7 +71,8 @@ class delete_course extends \core\task\adhoc_task {
         // The matched course might have already been removed by an
         // earlier task or by an admin between queue and execute - that
         // is not an error worth raising.
-        if (!$DB->record_exists('course', ['id' => $courseid])) {
+        $course = $DB->get_record('course', ['id' => $courseid], 'id, shortname');
+        if (!$course) {
             mtrace('tool_automate: course ' . $courseid . ' already gone, skipping');
             return;
         }
@@ -83,6 +84,10 @@ class delete_course extends \core\task\adhoc_task {
         // partially destroyed.
         \core_php_time_limit::raise(0);
 
+        // Bracket the deletion in the task log so an admin can confirm
+        // from Server > Tasks > Task logs exactly which courses this
+        // adhoc task removed, and when.
+        mtrace("tool_automate: deleting course '" . $course->shortname . "' (id " . $courseid . ')');
         delete_course($courseid, false);
 
         // Delete_course() doesn't touch category course-count or
@@ -91,5 +96,6 @@ class delete_course extends \core\task\adhoc_task {
         // happens to fix it. Moodle's normal UI deletion calls this
         // right after delete_course(), so we mirror it.
         fix_course_sortorder();
+        mtrace("tool_automate: deleted course '" . $course->shortname . "' (id " . $courseid . ')');
     }
 }
