@@ -4,6 +4,15 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.12] - 2026-06-22
+
+### Changed
+- The rule editor's inline JavaScript (conditional Step-5 fields, the
+  Match/expression toggle, and the AJAX fragment swaps) is now a proper AMD
+  module (`amd/src/editor.js`), loaded via `js_call_amd` instead of an inline
+  `js_init_code` blob. Behaviour is unchanged; this removes the last large
+  block of inline JS ahead of a plugins-directory submission.
+
 ## [0.9.11] - 2026-06-22
 
 ### Changed
