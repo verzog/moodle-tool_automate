@@ -299,14 +299,12 @@ if ($triggerform && ($triggerdata = $triggerform->get_data()) && !empty($trigger
     $DB->update_record('tool_automate_rule', $update);
     // Saving the trigger is the last editing step - return the admin to
     // the rules overview, with a success toast confirming the save
-    // landed. Encode the notification in URL params rather than the
-    // one-shot session notification: the inline-JS fetch interceptor
-    // below follows the off-page redirect, which would render and
-    // clear a session notification *before* JS navigates the browser
-    // to the same URL, so the toast would never reach the user. With
-    // URL params, both the JS-off natural redirect and the JS-on
-    // window.location.href navigation render the same notification
-    // from the params on arrival.
+    // landed. The trigger form submits as a normal full-page POST (the
+    // inline fetch interceptor in this page's JS deliberately skips it,
+    // since it can't reliably follow an off-page redirect), so the
+    // browser follows this redirect natively. Encode the toast in URL
+    // params rather than a one-shot session notification so it renders
+    // reliably from the params on arrival at the overview.
     $tourl = new moodle_url($baseurl, [
         'automatemsg'  => 'triggersaved',
         'automatename' => (string) ($rule->name ?? ''),
@@ -703,6 +701,16 @@ if ($id) {
         if (form.classList.contains('tool_automate-picker')) { return; }
         var target = form.closest('[data-inline-target]');
         if (!target) { return; }
+        // The trigger form's Save is the last editing step and redirects
+        // off this page back to the rules overview. Let it submit as a
+        // normal full-page POST so the browser follows PHP's redirect
+        // natively. Intercepting it with fetch cannot reliably follow an
+        // off-page redirect: when Moodle renders an HTML redirect page
+        // instead of a bare 302 (developer debugging on, or anything
+        // already in the output buffer) the fetch response's url stays on
+        // the editor, the off-page branch below is skipped, and the admin
+        // is stranded on the editor even though the save succeeded.
+        if (form.querySelector('[name="updatetrigger"]')) { return; }
         e.preventDefault();
         var url = new URL(form.action, window.location.href);
         // Pass the submitter so the clicked button's name/value is
