@@ -4,6 +4,15 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.11] - 2026-06-22
+
+### Changed
+- Maturity raised from alpha to **beta** - the core feature set is in place,
+  the recent fatal-on-load and trigger-redirect bugs are fixed, the
+  destructive course-delete path has unit tests, and a manual security review
+  of the entry points and SQL building came back clean. Stable is held back
+  pending the inline-JS to AMD-module refactor and wider testing.
+
 ## [0.9.10] - 2026-06-22
 
 ### Added
