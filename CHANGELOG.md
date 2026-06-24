@@ -4,6 +4,19 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.13] - 2026-06-24
+
+### Added
+- Behat coverage for the "Save trigger returns to the rules overview" flow,
+  both as a plain server-side redirect and as a `@javascript` scenario that
+  exercises the AMD editor's submit interceptor in a real browser. This locks
+  in the trigger-save redirect that has regressed before.
+
+### Changed
+- Version bumped so an upgrade re-stamps `$CFG->jsrev`, forcing browsers and
+  Moodle's JS cache to drop any stale copy of the editor AMD module from before
+  the trigger-save fix.
+
 ## [0.9.12] - 2026-06-22
 
 ### Changed

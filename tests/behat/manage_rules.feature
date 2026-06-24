@@ -20,3 +20,27 @@ Feature: Manage automation rules
     And I navigate to "Plugins > Admin tools > Automate" in site administration
     Then I should see "Smoke test rule"
     And I should not see "No rules yet"
+
+  Scenario: Saving a trigger returns the admin to the rules overview
+    When I navigate to "Plugins > Admin tools > Automate" in site administration
+    And I press "New rule"
+    And I set the field "Rule name" to "Trigger redirect rule"
+    And I press "Save rule"
+    And I set the field "When should this run?" to "Only when I run it manually"
+    And I press "Save trigger"
+    Then I should see "Trigger saved for rule"
+    And I should see "Trigger redirect rule"
+    And I should not see "Step 5: When should this run?"
+
+  @javascript
+  Scenario: Saving a schedule trigger returns the admin to the rules overview with JS on
+    When I navigate to "Plugins > Admin tools > Automate" in site administration
+    And I press "New rule"
+    And I set the field "Rule name" to "Trigger redirect JS rule"
+    And I press "Save rule"
+    And I set the field "When should this run?" to "On a schedule"
+    And I set the field "How often" to "Daily"
+    And I press "Save trigger"
+    Then I should see "Trigger saved for rule"
+    And I should see "Trigger redirect JS rule"
+    And I should not see "Step 5: When should this run?"
