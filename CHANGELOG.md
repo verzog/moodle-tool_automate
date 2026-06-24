@@ -6,16 +6,21 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
 ## [0.9.13] - 2026-06-24
 
+### Fixed
+- **Saving a trigger now returns to the rules overview.** The trigger and logic
+  forms were built with a `null` action, so Moodle defaulted their POST target
+  to `strip_querystring(qualified_me())` — which drops the `?id=`. The submit
+  landed on `edit.php` with `$id = 0`, leaving `$triggerform`/`$logicform` null,
+  so the save-and-redirect block silently never ran and the editor just
+  re-rendered. Both forms are now anchored to a URL that carries the rule id.
+  This is a server-side bug independent of JavaScript, which is why earlier
+  fixes that only touched the inline editor JS never resolved it.
+
 ### Added
 - Behat coverage for the "Save trigger returns to the rules overview" flow,
   both as a plain server-side redirect and as a `@javascript` scenario that
-  exercises the AMD editor's submit interceptor in a real browser. This locks
-  in the trigger-save redirect that has regressed before.
-
-### Changed
-- Version bumped so an upgrade re-stamps `$CFG->jsrev`, forcing browsers and
-  Moodle's JS cache to drop any stale copy of the editor AMD module from before
-  the trigger-save fix.
+  exercises the AMD editor's submit interceptor in a real browser, so this
+  regression fails CI instead of reaching users.
 
 ## [0.9.12] - 2026-06-22
 

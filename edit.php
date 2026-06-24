@@ -73,8 +73,15 @@ if ($id && $delaction && confirm_sesskey()) {
 
 $lockedsubject = $id && (count($conditions) > 0 || count($actions) > 0);
 $mform = new rule_form(null, ['lockedsubject' => $lockedsubject]);
-$logicform = $id ? new logic_form() : null;
-$triggerform = $id ? new trigger_form(null, ['subject' => $rulesubject]) : null;
+// Anchor the logic and trigger forms to $selfurl so their POST carries the
+// rule id. With a null action, moodleform defaults to
+// strip_querystring(qualified_me()), dropping the "?id=" - the submit would
+// then land on edit.php with $id = 0, $triggerform / $logicform would be
+// null, and the save + redirect-to-overview block would silently never run,
+// re-rendering the editor instead. (The rule form survives a null action via
+// its hidden id field; the condition / action forms set their own action URL.)
+$logicform = $id ? new logic_form($selfurl) : null;
+$triggerform = $id ? new trigger_form($selfurl, ['subject' => $rulesubject]) : null;
 
 // Inline condition form: existing edit, or fresh add for the chosen type.
 $condclass = null;
