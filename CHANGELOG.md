@@ -4,6 +4,18 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.17] - 2026-06-27
+
+### Fixed
+- **Bulk restore now cleans up its extracted backup on any failure.** The .mbz
+  was extracted to a temp directory *before* the try/finally that cleans it up,
+  so a failure during extraction itself - most commonly a disk-full "error
+  writing to disk" - left the partial extraction behind. Because the adhoc
+  queue retries a failed task, every retry orphaned another part-extracted
+  backup and made the disk-space problem progressively worse. Extraction and
+  shell-course creation now run inside the cleanup block, so a failed attempt
+  always reclaims its temp directory (and rolls back the empty shell course).
+
 ## [0.9.16] - 2026-06-27
 
 ### Changed

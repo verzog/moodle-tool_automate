@@ -88,30 +88,36 @@ class restore_course extends \core\task\adhoc_task {
         // outrun the default PHP time limit; raise it before we start.
         \core_php_time_limit::raise(0);
 
-        // Extract the .mbz into a uniquely-named backup temp directory. The
-        // restore_controller is given that directory's name (relative to the
-        // backup temp area), mirroring core's admin/cli/restore_backup.php.
+        // Everything that touches disk or the database lives inside this
+        // try/finally. A failure at any point - a disk-full error while
+        // extracting the .mbz, a corrupt archive, a failing restore plan -
+        // then cleans up its temp directory and rolls back the shell course
+        // instead of leaving partial extractions and empty husks behind. This
+        // matters most under retry: the adhoc queue re-runs a failed task, so
+        // without cleaning up here each attempt would orphan another part-
+        // extracted backup and make a disk-space problem progressively worse.
         $backupdir = 'tool_automate_restore_' . uniqid();
-        $path = make_backup_temp_directory($backupdir);
-        $packer = get_file_packer('application/vnd.moodle.backup');
-        $packer->extract_to_pathname($filepath, $path);
-
-        mtrace("tool_automate: restoring '" . basename($filepath) . "' into a new course in category " . $categoryid);
-
-        // Shell course with a unique temporary name. The restore overwrites the
-        // name/settings from the backup (target is TARGET_NEW_COURSE), but the
-        // placeholder must be unique up front: with concurrency > 1, two tasks
-        // creating a shell at the same time would otherwise clash on Moodle's
-        // unique course shortname before either restore could rename it.
-        $tempname = 'restore_' . uniqid();
-        $courseid = \restore_dbops::create_new_course($tempname, $tempname, $categoryid);
-
-        // From here on the shell course exists, so any failure - including a
-        // restore_controller constructor that throws on a corrupt/non-Moodle
-        // archive - must roll the shell course back and clean the temp dir
-        // rather than leave an empty husk behind.
+        $path = null;
+        $courseid = 0;
         $restored = false;
         try {
+            // Extract the .mbz into a uniquely-named backup temp directory. The
+            // restore_controller is given that directory's name (relative to
+            // the backup temp area), mirroring core's admin/cli/restore_backup.
+            $path = make_backup_temp_directory($backupdir);
+            $packer = get_file_packer('application/vnd.moodle.backup');
+            $packer->extract_to_pathname($filepath, $path);
+
+            mtrace("tool_automate: restoring '" . basename($filepath) . "' into a new course in category " . $categoryid);
+
+            // Shell course with a unique temporary name. The restore overwrites
+            // the name/settings from the backup (target is TARGET_NEW_COURSE),
+            // but the placeholder must be unique up front: with concurrency > 1,
+            // two tasks creating a shell at the same time would otherwise clash
+            // on Moodle's unique course shortname before either could rename it.
+            $tempname = 'restore_' . uniqid();
+            $courseid = \restore_dbops::create_new_course($tempname, $tempname, $categoryid);
+
             $rc = new \restore_controller(
                 $backupdir,
                 $courseid,
@@ -143,10 +149,14 @@ class restore_course extends \core\task\adhoc_task {
             $rc->destroy();
             $restored = true;
         } finally {
-            // The controller copies what it needs out of the temp dir; clean it
-            // up whether the restore succeeded or threw.
-            fulldelete($path);
-            if (!$restored) {
+            // Always reclaim the extracted temp directory (it can be many times
+            // the .mbz size), even when extraction itself was what failed.
+            if ($path !== null) {
+                fulldelete($path);
+            }
+            // Roll back the empty shell course if it was created but the
+            // restore did not complete.
+            if (!$restored && $courseid > 0) {
                 delete_course($courseid, false);
                 fix_course_sortorder();
             }
