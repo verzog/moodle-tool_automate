@@ -16,8 +16,6 @@
 
 namespace tool_automate\admin;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Text setting for the bulk-restore source directory that shows whether the
  * configured path is a directory Moodle can read.
