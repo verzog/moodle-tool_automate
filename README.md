@@ -54,6 +54,27 @@ to complete the installation from the command line.
 
 Manage rules at *Site administration > Plugins > Admin tools > Automate*.
 
+## Bulk restore from repository
+
+Separate from the rules engine, the plugin can bulk-restore Moodle course
+backups (`.mbz`) from a server directory into new courses. Point the
+*Bulk restore source directory* setting at a folder of backups, then use
+*Plugins > Admin tools > Automate > Bulk restore from repository* to select
+files and a target category. Each selected backup is restored, in the
+background, into a **brand-new course** - existing courses are never
+overwritten. Preview the selection before queueing, and watch progress in
+*Server > Tasks > Task logs*.
+
+The same job can be driven from the command line:
+
+    $ php admin/tool/automate/cli/restore_repository.php --category=2 --execute
+
+Run with `--help` for all options, or `--list` to inspect the directory. The
+whole feature sits behind an off-by-default *Allow bulk restore from
+repository* kill-switch, and the background restores are throttled by a
+*Restore concurrency* setting so a directory of large backups can't starve the
+cron worker pool.
+
 ## Safety
 
 All actions are **bounded and named** - there is no raw-SQL action. Every rule

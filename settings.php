@@ -55,5 +55,33 @@ if ($hassiteconfig) {
         2,
         PARAM_INT
     ));
+
+    // Bulk restore from a repository directory. Off by default - it
+    // creates courses in bulk, so a site admin opts in here before the
+    // restore page or CLI will queue anything.
+    $settings->add(new admin_setting_configcheckbox(
+        'tool_automate/allow_bulk_restore',
+        get_string('setting_allow_bulk_restore', 'tool_automate'),
+        get_string('setting_allow_bulk_restore_desc', 'tool_automate'),
+        0
+    ));
+    // Server directory the restore page / CLI reads .mbz backups from.
+    $settings->add(new admin_setting_configtext(
+        'tool_automate/restore_source_dir',
+        get_string('setting_restore_source_dir', 'tool_automate'),
+        get_string('setting_restore_source_dir_desc', 'tool_automate'),
+        '',
+        PARAM_RAW_TRIMMED
+    ));
+    // Concurrency cap for the restore adhoc task, mirroring the
+    // course-delete cap - a directory of large backups can queue many
+    // heavy restores.
+    $settings->add(new admin_setting_configtext(
+        'tool_automate/restore_concurrency',
+        get_string('setting_restore_concurrency', 'tool_automate'),
+        get_string('setting_restore_concurrency_desc', 'tool_automate'),
+        2,
+        PARAM_INT
+    ));
     $ADMIN->add('tools', $settings);
 }

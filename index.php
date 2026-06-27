@@ -96,6 +96,11 @@ echo $OUTPUT->single_button(
     get_string('savedreports', 'tool_automate'),
     'get'
 );
+echo $OUTPUT->single_button(
+    new moodle_url('/admin/tool/automate/restore.php'),
+    get_string('restoretitle', 'tool_automate'),
+    'get'
+);
 
 $rules = $DB->get_records('tool_automate_rule', null, 'name');
 if (!$rules) {

@@ -4,6 +4,23 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.14] - 2026-06-27
+
+### Added
+- **Bulk restore from repository.** A new admin page (*Plugins > Admin tools >
+  Automate > Bulk restore from repository*) and CLI
+  (`cli/restore_repository.php`) list the Moodle course backup (`.mbz`) files in
+  a nominated server directory and restore the selected ones into brand-new
+  courses in a chosen category. Existing courses are never touched (restore
+  target is always a new course). The restores run in the background via a new
+  `restore_course` adhoc task, throttled by a `restore_concurrency` site
+  setting so a directory of large backups can't monopolise the cron worker
+  pool. The page previews the selection before queueing anything, and the whole
+  feature sits behind an off-by-default `allow_bulk_restore` kill-switch.
+  Path-safety is centralised in `tool_automate\restore_repository`, which only
+  resolves bare `.mbz` basenames that live directly inside the configured
+  directory.
+
 ## [0.9.13] - 2026-06-24
 
 ### Fixed
