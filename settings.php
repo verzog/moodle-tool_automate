@@ -25,9 +25,17 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
-    $ADMIN->add('tools', new admin_externalpage(
+    // Group the management page and the settings page together under a single
+    // Automate category in the admin tree, rather than leaving them as two
+    // unrelated siblings under Admin tools.
+    $ADMIN->add('tools', new admin_category(
+        'tool_automate_category',
+        get_string('pluginname', 'tool_automate')
+    ));
+
+    $ADMIN->add('tool_automate_category', new admin_externalpage(
         'tool_automate',
-        get_string('pluginname', 'tool_automate'),
+        get_string('rules', 'tool_automate'),
         new moodle_url('/admin/tool/automate/index.php'),
         'tool/automate:manage'
     ));
@@ -65,8 +73,10 @@ if ($hassiteconfig) {
         get_string('setting_allow_bulk_restore_desc', 'tool_automate'),
         0
     ));
-    // Server directory the restore page / CLI reads .mbz backups from.
-    $settings->add(new admin_setting_configtext(
+    // Server directory the restore page / CLI reads .mbz backups from. The
+    // custom setting class appends a live "readable / not readable" status so
+    // an admin can tell at a glance whether Moodle can see the directory.
+    $settings->add(new \tool_automate\admin\setting_restore_source_dir(
         'tool_automate/restore_source_dir',
         get_string('setting_restore_source_dir', 'tool_automate'),
         get_string('setting_restore_source_dir_desc', 'tool_automate'),
@@ -83,5 +93,5 @@ if ($hassiteconfig) {
         2,
         PARAM_INT
     ));
-    $ADMIN->add('tools', $settings);
+    $ADMIN->add('tool_automate_category', $settings);
 }

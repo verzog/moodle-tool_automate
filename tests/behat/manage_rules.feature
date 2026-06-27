@@ -8,21 +8,21 @@ Feature: Manage automation rules
     Given I log in as "admin"
 
   Scenario: The rules overview starts empty
-    When I navigate to "Plugins > Admin tools > Automate" in site administration
+    When I navigate to "Plugins > Admin tools > Automate > Automation rules" in site administration
     Then I should see "No rules yet"
     And I should see "New rule"
 
   Scenario: An administrator creates a rule and sees it listed
-    When I navigate to "Plugins > Admin tools > Automate" in site administration
+    When I navigate to "Plugins > Admin tools > Automate > Automation rules" in site administration
     And I press "New rule"
     And I set the field "Rule name" to "Smoke test rule"
     And I press "Save rule"
-    And I navigate to "Plugins > Admin tools > Automate" in site administration
+    And I navigate to "Plugins > Admin tools > Automate > Automation rules" in site administration
     Then I should see "Smoke test rule"
     And I should not see "No rules yet"
 
   Scenario: Saving a trigger returns the admin to the rules overview
-    When I navigate to "Plugins > Admin tools > Automate" in site administration
+    When I navigate to "Plugins > Admin tools > Automate > Automation rules" in site administration
     And I press "New rule"
     And I set the field "Rule name" to "Trigger redirect rule"
     And I press "Save rule"
@@ -34,7 +34,7 @@ Feature: Manage automation rules
 
   @javascript
   Scenario: Saving a schedule trigger returns the admin to the rules overview with JS on
-    When I navigate to "Plugins > Admin tools > Automate" in site administration
+    When I navigate to "Plugins > Admin tools > Automate > Automation rules" in site administration
     And I press "New rule"
     And I set the field "Rule name" to "Trigger redirect JS rule"
     And I press "Save rule"

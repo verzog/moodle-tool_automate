@@ -319,6 +319,8 @@ $string['reporttriggerlink'] = 'See report: {$a}';
 $string['reporturl'] = 'Existing report URL';
 $string['reportwould'] = 'Would build report of {$a->count} users; recipient="{$a->recipient}"';
 $string['restorebaddir'] = 'The configured source directory does not exist or is not readable: {$a}';
+$string['restoredirreadable'] = 'Directory exists and is readable by Moodle';
+$string['restoredirunreadable'] = 'Directory not found, or not readable by the web server user';
 $string['restoredisabled'] = 'Bulk restore from repository is switched off. A site administrator needs to enable it in the plugin settings before this page can queue any restores.';
 $string['restorefailed'] = 'Restore of backup "{$a}" failed its precheck and was rolled back.';
 $string['restorefiles'] = 'Backup files';

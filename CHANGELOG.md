@@ -4,6 +4,18 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.15] - 2026-06-27
+
+### Changed
+- The management page and the Settings page are now grouped under a single
+  **Automate** category in the admin tree (*Plugins > Admin tools > Automate >
+  Automation rules / Settings*) instead of sitting as two unrelated siblings.
+
+### Added
+- The **Bulk restore source directory** setting now shows a live readability
+  status - a green tick when the configured path is a directory Moodle can
+  read, or a red cross when it is missing or unreadable by the web server user.
+
 ## [0.9.14] - 2026-06-27
 
 ### Added
