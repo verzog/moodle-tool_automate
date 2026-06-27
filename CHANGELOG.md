@@ -4,6 +4,14 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.16] - 2026-06-27
+
+### Changed
+- **Bulk restore from repository** is now its own item in the admin menu
+  (*Plugins > Admin tools > Automate > Bulk restore from repository*), next to
+  Automation rules and Settings, so it is discoverable without first opening the
+  rules overview. The button on the overview page remains as a shortcut.
+
 ## [0.9.15] - 2026-06-27
 
 ### Changed

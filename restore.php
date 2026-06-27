@@ -25,7 +25,7 @@
 require(__DIR__ . '/../../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
-admin_externalpage_setup('tool_automate');
+admin_externalpage_setup('tool_automate_restore');
 $context = context_system::instance();
 require_capability('tool/automate:manage', $context);
 
