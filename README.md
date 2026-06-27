@@ -90,6 +90,68 @@ what it did to *Site administration > Server > Tasks > Task logs*.
 * Add an action: create a class in `classes/action/` extending `action_base`,
   then register it in `manager::get_action_types()`.
 
+## Publishing to the Moodle Plugins directory
+
+This plugin is not yet listed in the [Moodle Plugins directory](https://moodle.org/plugins/).
+The path from the current beta to a published, installable-from-Moodle plugin:
+
+### 1. Get the code release-ready
+
+* **CI is green.** The GitHub Actions workflow already runs the full
+  `moodle-plugin-ci` suite (PHP lint, `phpcs` with the Moodle standard, PHPDoc
+  checker, Mustache lint, Grunt, PHPUnit, and Behat) across the supported PHP
+  and Moodle versions. Every check must pass — the directory's automated
+  reviewer runs the same tooling.
+* **Run the checks locally** before submitting. The same `moodle-plugin-ci`
+  commands the workflow runs mirror the *Plugin validation* that the directory
+  applies automatically on upload, so a clean local run means no surprises at
+  submission. Fix every error and warning.
+* **No bundled third-party libraries** (there are none today). If any are added
+  later, declare them in `thirdpartylibs.xml`.
+* **Privacy API** provider is implemented (`classes/privacy/provider.php`) — the
+  directory expects this for any plugin that stores personal data.
+* **Add a top-level `LICENSE` (GPL v3) file.** The source headers are already
+  GPL v3; a repository licence file is expected good practice.
+
+### 2. Decide maturity and version
+
+* The directory accepts beta plugins, but for a first *stable* listing, raise
+  `$plugin->maturity` in `version.php` from `MATURITY_BETA` to
+  `MATURITY_STABLE` once you are confident, and set a matching `$plugin->release`
+  (e.g. `1.0.0`). Keep the `YYYYMMDDXX` `$plugin->version` monotonically
+  increasing.
+* Confirm `$plugin->requires` and `$plugin->supported` reflect the Moodle
+  versions you actually test against (currently Moodle 5.0–5.2).
+
+### 3. Tag and package a release
+
+* Tag the release in Git so it is reproducible, e.g.
+  `git tag v0.9.14 && git push origin v0.9.14`.
+* Build the ZIP so that **its top-level folder is named `automate`** (the
+  plugin's install folder under `admin/tool/`), *not* `moodle-tool_automate`.
+  For example, from the parent of a checkout named `automate`:
+  `zip -r automate.zip automate -x '*.git*'`.
+
+### 4. Submit to the directory
+
+* Sign in at <https://moodle.org> and go to
+  <https://moodle.org/plugins/> → **Register a plugin**.
+* Provide the frankenstyle name `tool_automate` (check the name is not already
+  taken), the public source-control URL
+  (<https://github.com/verzog/moodle-tool_automate>), the bug-tracker URL, the
+  supported Moodle versions, a description, and at least one screenshot.
+* Upload the release ZIP from step 3.
+
+### 5. Approval and maintenance
+
+* A Plugins-directory reviewer runs the automated checks again and does a manual
+  review. Respond to their feedback and push fixes; re-submit the updated ZIP if
+  asked.
+* Once approved, the plugin is listed and installable from within Moodle.
+* For each subsequent release, add a new version through the directory (one
+  package per release, with the Moodle versions it supports), keep this
+  `CHANGELOG.md` up to date, and keep CI green.
+
 ## Credits and acknowledgements
 
 The trigger/condition/action design and several action concepts are inspired by
