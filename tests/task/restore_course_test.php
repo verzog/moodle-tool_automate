@@ -73,6 +73,7 @@ final class restore_course_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->setAdminUser();
+        set_config('allow_bulk_restore', 1, 'tool_automate');
 
         $generator = $this->getDataGenerator();
         $source = $generator->create_course(['fullname' => 'Repo Source', 'shortname' => 'reposrc']);
@@ -100,6 +101,35 @@ final class restore_course_test extends \advanced_testcase {
         $this->assertNotFalse($restored);
         $this->assertEquals($targetcat->id, $restored->category);
         $this->assertEquals('Repo Source', $restored->fullname);
+    }
+
+    /**
+     * With the site kill-switch off, a queued task is a no-op even when its
+     * backup file is present - it never reaches extraction or course creation.
+     */
+    public function test_execute_respects_kill_switch(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        set_config('allow_bulk_restore', 0, 'tool_automate');
+        $targetcat = $this->getDataGenerator()->create_category();
+        $path = make_request_directory() . '/dummy.mbz';
+        file_put_contents($path, 'not a real backup');
+
+        $before = $DB->count_records('course');
+
+        $task = new restore_course();
+        $task->set_custom_data([
+            'filepath'   => $path,
+            'categoryid' => (int) $targetcat->id,
+            'userid'     => (int) get_admin()->id,
+        ]);
+
+        ob_start();
+        $task->execute();
+        ob_end_clean();
+
+        $this->assertEquals($before, $DB->count_records('course'));
     }
 
     /**

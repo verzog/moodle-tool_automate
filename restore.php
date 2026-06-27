@@ -38,6 +38,63 @@ $PAGE->set_heading(get_string('restoretitle', 'tool_automate'));
 
 $enabled = \tool_automate\restore_repository::is_enabled();
 $sourcedir = \tool_automate\restore_repository::get_source_dir();
+$dirok = $enabled && $sourcedir !== '' && is_dir($sourcedir) && is_readable($sourcedir);
+
+// Build and process the form before any output so a successful queue can
+// redirect-after-POST (a refresh must not re-queue every selected restore).
+$form = null;
+$preview = null;
+if ($dirok) {
+    $files = \tool_automate\restore_repository::list_backups($sourcedir);
+    $categories = $DB->get_records_menu('course_categories', null, 'name', 'id, name');
+    $form = new \tool_automate\form\restore_form($baseurl, [
+        'files'      => $files,
+        'categories' => $categories,
+        'sourcedir'  => $sourcedir,
+    ]);
+
+    if ($form->is_cancelled()) {
+        redirect($indexurl);
+    }
+
+    if (($data = $form->get_data()) && !empty($data->files)) {
+        $dryrun = empty($data->restore);
+        $categoryid = (int) $data->categoryid;
+        $categoryname = $categories[$categoryid] ?? ('#' . $categoryid);
+
+        $queued = [];
+        $skipped = [];
+        foreach ((array) $data->files as $basename) {
+            $resolved = \tool_automate\restore_repository::resolve($basename, $sourcedir);
+            if ($resolved === null) {
+                $skipped[] = $basename;
+                continue;
+            }
+            if (!$dryrun) {
+                \tool_automate\restore_repository::queue($resolved, $categoryid, $USER->id);
+            }
+            $queued[] = $basename;
+        }
+
+        if (!$dryrun) {
+            // Redirect-after-POST: a browser refresh of the rendered result
+            // would otherwise resubmit and queue every restore again.
+            $a = (object) ['count' => count($queued), 'category' => format_string($categoryname)];
+            $message = get_string('restorequeued', 'tool_automate', $a);
+            if ($skipped) {
+                $message .= ' ' . get_string('restoreskipped', 'tool_automate', implode(', ', $skipped));
+            }
+            redirect($baseurl, $message, null, \core\output\notification::NOTIFY_SUCCESS);
+        }
+
+        // Dry-run preview: stash the outcome to render after the header.
+        $preview = (object) [
+            'queued'   => $queued,
+            'skipped'  => $skipped,
+            'category' => $categoryname,
+        ];
+    }
+}
 
 echo $OUTPUT->header();
 echo html_writer::link($indexurl, get_string('back', 'tool_automate'), ['class' => 'tool_automate_back']);
@@ -63,50 +120,18 @@ if (!is_dir($sourcedir) || !is_readable($sourcedir)) {
     exit;
 }
 
-$files = \tool_automate\restore_repository::list_backups($sourcedir);
-$categories = $DB->get_records_menu('course_categories', null, 'name', 'id, name');
-
-$form = new \tool_automate\form\restore_form($baseurl, [
-    'files'      => $files,
-    'categories' => $categories,
-    'sourcedir'  => $sourcedir,
-]);
-
-if ($form->is_cancelled()) {
-    redirect($indexurl);
-}
-
-if (($data = $form->get_data()) && !empty($data->files)) {
-    $dryrun = empty($data->restore);
-    $categoryid = (int) $data->categoryid;
-    $categoryname = $categories[$categoryid] ?? ('#' . $categoryid);
-
-    $queued = [];
-    $skipped = [];
-    foreach ((array) $data->files as $basename) {
-        $resolved = \tool_automate\restore_repository::resolve($basename, $sourcedir);
-        if ($resolved === null) {
-            $skipped[] = $basename;
-            continue;
-        }
-        if (!$dryrun) {
-            \tool_automate\restore_repository::queue($resolved, $categoryid, $USER->id);
-        }
-        $queued[] = $basename;
+if ($preview !== null) {
+    if ($preview->queued) {
+        $a = (object) ['count' => count($preview->queued), 'category' => format_string($preview->category)];
+        echo $OUTPUT->notification(get_string('restorewouldqueue', 'tool_automate', $a), 'info');
+        echo html_writer::div(
+            html_writer::alist(array_map('s', $preview->queued)),
+            'tool_automate_restore_list mb-3'
+        );
     }
-
-    if ($queued) {
-        $a = (object) ['count' => count($queued), 'category' => format_string($categoryname)];
-        $message = $dryrun
-            ? get_string('restorewouldqueue', 'tool_automate', $a)
-            : get_string('restorequeued', 'tool_automate', $a);
-        $list = html_writer::alist(array_map('s', $queued));
-        echo $OUTPUT->notification($message, $dryrun ? 'info' : 'success');
-        echo html_writer::div($list, 'tool_automate_restore_list mb-3');
-    }
-    if ($skipped) {
+    if ($preview->skipped) {
         echo $OUTPUT->notification(
-            get_string('restoreskipped', 'tool_automate', html_writer::alist(array_map('s', $skipped))),
+            get_string('restoreskipped', 'tool_automate', html_writer::alist(array_map('s', $preview->skipped))),
             'warning'
         );
     }

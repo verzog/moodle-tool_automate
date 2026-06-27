@@ -75,6 +75,14 @@ class restore_course extends \core\task\adhoc_task {
             mtrace('tool_automate: target category ' . $categoryid . ' is gone, skipping restore of ' . $filepath);
             return;
         }
+        // Re-check the site kill-switch at run time: an admin who queues
+        // restores and then turns "Allow bulk restore" back off (e.g. after
+        // spotting the wrong selection) expects the queued work to stop, not
+        // drain out anyway. Mirrors the course_delete action's behaviour.
+        if (!\tool_automate\restore_repository::is_enabled()) {
+            mtrace('tool_automate: bulk restore is switched off, skipping restore of ' . $filepath);
+            return;
+        }
 
         // A course restore (lots of files, activities, grades) can easily
         // outrun the default PHP time limit; raise it before we start.
@@ -90,29 +98,32 @@ class restore_course extends \core\task\adhoc_task {
 
         mtrace("tool_automate: restoring '" . basename($filepath) . "' into a new course in category " . $categoryid);
 
-        // Empty shell course; the restore overwrites name/settings from the
-        // backup because the target is TARGET_NEW_COURSE.
-        $courseid = \restore_dbops::create_new_course('', '', $categoryid);
+        // Shell course with a unique temporary name. The restore overwrites the
+        // name/settings from the backup (target is TARGET_NEW_COURSE), but the
+        // placeholder must be unique up front: with concurrency > 1, two tasks
+        // creating a shell at the same time would otherwise clash on Moodle's
+        // unique course shortname before either restore could rename it.
+        $tempname = 'restore_' . uniqid();
+        $courseid = \restore_dbops::create_new_course($tempname, $tempname, $categoryid);
 
-        $rc = new \restore_controller(
-            $backupdir,
-            $courseid,
-            \backup::INTERACTIVE_NO,
-            \backup::MODE_GENERAL,
-            $userid,
-            \backup::TARGET_NEW_COURSE
-        );
-
+        // From here on the shell course exists, so any failure - including a
+        // restore_controller constructor that throws on a corrupt/non-Moodle
+        // archive - must roll the shell course back and clean the temp dir
+        // rather than leave an empty husk behind.
+        $restored = false;
         try {
+            $rc = new \restore_controller(
+                $backupdir,
+                $courseid,
+                \backup::INTERACTIVE_NO,
+                \backup::MODE_GENERAL,
+                $userid,
+                \backup::TARGET_NEW_COURSE
+            );
             if (!$rc->execute_precheck()) {
                 $results = $rc->get_precheck_results();
                 if (!empty($results['errors'])) {
-                    // Roll back the shell course so a failed precheck does not
-                    // leave an empty husk behind, then surface the failure.
                     $rc->destroy();
-                    delete_course($courseid, false);
-                    fix_course_sortorder();
-                    fulldelete($path);
                     throw new \moodle_exception(
                         'restorefailed',
                         'tool_automate',
@@ -130,10 +141,15 @@ class restore_course extends \core\task\adhoc_task {
             }
             $rc->execute_plan();
             $rc->destroy();
+            $restored = true;
         } finally {
             // The controller copies what it needs out of the temp dir; clean it
             // up whether the restore succeeded or threw.
             fulldelete($path);
+            if (!$restored) {
+                delete_course($courseid, false);
+                fix_course_sortorder();
+            }
         }
 
         fix_course_sortorder();
