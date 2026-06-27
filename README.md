@@ -52,7 +52,8 @@ Alternatively, you can run
 
 to complete the installation from the command line.
 
-Manage rules at *Site administration > Plugins > Admin tools > Automate*.
+Manage rules at *Site administration > Plugins > Admin tools > Automate >
+Automation rules*, and configure the plugin under *Automate > Settings*.
 
 ## Bulk restore from repository
 
