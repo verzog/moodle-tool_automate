@@ -114,8 +114,9 @@ The path from the current beta to a published, installable-from-Moodle plugin:
   later, declare them in `thirdpartylibs.xml`.
 * **Privacy API** provider is implemented (`classes/privacy/provider.php`) — the
   directory expects this for any plugin that stores personal data.
-* **Add a top-level `LICENSE` (GPL v3) file.** The source headers are already
-  GPL v3; a repository licence file is expected good practice.
+* **Licence file present.** The repository ships the full GPL v3 text as a
+  top-level [`LICENSE`](LICENSE) file, matching the GPL v3 headers in every
+  source file.
 
 ### 2. Decide maturity and version
 
@@ -129,8 +130,9 @@ The path from the current beta to a published, installable-from-Moodle plugin:
 
 ### 3. Tag and package a release
 
-* Tag the release in Git so it is reproducible, e.g.
-  `git tag v0.9.14 && git push origin v0.9.14`.
+* Tag the release in Git so it is reproducible, matching the `$plugin->release`
+  in `version.php`, e.g. `git tag -a v0.9.17 -m 'tool_automate 0.9.17-beta' &&
+  git push origin v0.9.17`.
 * Build the ZIP so that **its top-level folder is named `automate`** (the
   plugin's install folder under `admin/tool/`), *not* `moodle-tool_automate`.
   For example, from the parent of a checkout named `automate`:
