@@ -35,6 +35,7 @@ $settingsurl = new moodle_url('/admin/settings.php', ['section' => 'tool_automat
 $PAGE->set_url($baseurl);
 $PAGE->set_title(get_string('restoretitle', 'tool_automate'));
 $PAGE->set_heading(get_string('restoretitle', 'tool_automate'));
+$PAGE->add_body_class('tool_automate-page');
 
 $enabled = \tool_automate\restore_repository::is_enabled();
 $sourcedir = \tool_automate\restore_repository::get_source_dir();

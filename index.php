@@ -36,6 +36,7 @@ $baseurl = new moodle_url('/admin/tool/automate/index.php');
 $PAGE->set_url($baseurl);
 $PAGE->set_title(get_string('rules', 'tool_automate'));
 $PAGE->set_heading(get_string('rules', 'tool_automate'));
+$PAGE->add_body_class('tool_automate-page');
 
 if ($delete && confirm_sesskey()) {
     $rule = $DB->get_record('tool_automate_rule', ['id' => $delete], '*', MUST_EXIST);

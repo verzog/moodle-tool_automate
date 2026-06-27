@@ -4,6 +4,22 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.18] - 2026-06-27
+
+### Added
+- **The bulk-restore file picker is now searchable.** The backup list is a
+  core `autocomplete` element, so an admin can type to filter a directory of
+  dozens or hundreds of `.mbz` files instead of scrolling a long listbox.
+  Selected files show as removable tags and submit exactly as before.
+
+### Changed
+- **Light visual polish on the plugin's admin pages.** A scoped `styles.css`
+  (applied via a `tool_automate-page` body class) gives the listing tables a
+  framed, rounded look with a tinted header and row hover that scrolls on small
+  screens, softer rounded borders and a focus ring on dropdowns and inputs, and
+  tidier readability-badge and queued-file chips on the restore page. Purely
+  cosmetic and scoped so nothing leaks into the rest of Moodle.
+
 ## [0.9.17] - 2026-06-27
 
 ### Fixed

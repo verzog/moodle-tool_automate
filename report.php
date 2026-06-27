@@ -37,6 +37,7 @@ $baseurl = new moodle_url('/admin/tool/automate/report.php');
 $PAGE->set_url($baseurl, $file !== '' ? ['file' => $file] : []);
 $PAGE->set_title(get_string('savedreports', 'tool_automate'));
 $PAGE->set_heading(get_string('savedreports', 'tool_automate'));
+$PAGE->add_body_class('tool_automate-page');
 
 $fs = get_file_storage();
 
