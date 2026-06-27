@@ -1,0 +1,105 @@
+/* Light visual polish for tool_automate's admin pages. Everything is scoped to
+   body.tool_automate-page (added per page via $PAGE->add_body_class) so none of
+   it leaks into the rest of Moodle. */
+
+.tool_automate-page .tool_automate_back {
+    display: inline-block;
+    margin-bottom: 0.75rem;
+}
+
+/* Listing tables: framed, rounded, with a tinted header and row hover. */
+.tool_automate-page .generaltable {
+    width: 100%;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+}
+
+.tool_automate-page .generaltable th,
+.tool_automate-page .generaltable td {
+    padding: 0.6rem 0.75rem;
+    vertical-align: middle;
+}
+
+.tool_automate-page .generaltable thead th {
+    background: #f1f3f5;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.tool_automate-page .generaltable tbody td {
+    border-top: 1px solid #eef0f2;
+}
+
+.tool_automate-page .generaltable tbody tr:hover {
+    background: #f6f8fa;
+}
+
+/* Let wide tables scroll instead of overflowing on small screens. */
+@media (max-width: 768px) {
+    .tool_automate-page .generaltable {
+        display: block;
+        overflow-x: auto;
+    }
+}
+
+/* Form controls: softer borders, rounded corners and a clear focus ring on the
+   dropdowns and the searchable backup-file picker. */
+.tool_automate-page select,
+.tool_automate-page input[type="text"],
+.tool_automate-page input[type="search"],
+.tool_automate-page input[type="number"],
+.tool_automate-page textarea {
+    border: 1px solid #ced4da;
+    border-radius: 0.4rem;
+    padding: 0.4rem 0.55rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.tool_automate-page select:focus,
+.tool_automate-page input:focus,
+.tool_automate-page textarea:focus {
+    border-color: #0f6cbf;
+    box-shadow: 0 0 0 0.2rem #cfe2ff;
+    outline: 0;
+}
+
+/* Source-directory readability badge. */
+.tool_automate-page .tool_automate_dirstatus {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.4rem;
+    font-weight: 600;
+}
+
+.tool_automate-page .tool_automate_dirstatus.text-success {
+    background: #e8f5ee;
+}
+
+.tool_automate-page .tool_automate_dirstatus.text-danger {
+    background: #fdecea;
+}
+
+/* Queued / skipped file lists on the restore page render as chips. */
+.tool_automate-page .tool_automate_restore_list ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tool_automate-page .tool_automate_restore_list li {
+    border: 1px solid #dee2e6;
+    border-radius: 0.4rem;
+    background: #f8f9fa;
+    padding: 0.25rem 0.6rem;
+    font-family: monospace;
+    font-size: 0.9em;
+}

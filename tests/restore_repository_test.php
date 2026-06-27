@@ -128,6 +128,26 @@ final class restore_repository_test extends \advanced_testcase {
     }
 
     /**
+     * The picker token survives a filename with characters that the
+     * autocomplete element's tag cleaning would otherwise mangle (comma,
+     * whitespace), and maps back to the exact basename.
+     */
+    public function test_token_round_trips_awkward_filenames(): void {
+        $this->resetAfterTest();
+        $name = 'Course, Spring  2026.mbz';
+        $dir = $this->make_dir_with([$name, 'plain.mbz']);
+
+        $token = restore_repository::token($name);
+        // A hex hash passes through PARAM_TAGLIST cleaning unchanged.
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{40}$/', $token);
+        $this->assertSame($name, restore_repository::basename_for_token($token, $dir));
+        // And the recovered basename still resolves to the real file.
+        $this->assertSame(realpath($dir . '/' . $name), restore_repository::resolve($name, $dir));
+        // An unknown token resolves to nothing.
+        $this->assertNull(restore_repository::basename_for_token(sha1('nope.mbz'), $dir));
+    }
+
+    /**
      * queue() enqueues a restore_course adhoc task carrying the file, target
      * category and acting user.
      */

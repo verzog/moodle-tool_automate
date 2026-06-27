@@ -37,6 +37,7 @@ $baseurl = new moodle_url('/admin/tool/automate/index.php');
 $PAGE->set_url(new moodle_url('/admin/tool/automate/run.php', ['id' => $id]));
 $PAGE->set_title(get_string('results', 'tool_automate'));
 $PAGE->set_heading(get_string('resultsfor', 'tool_automate', format_string($rule->name)));
+$PAGE->add_body_class('tool_automate-page');
 
 $results = \tool_automate\manager::run_rule($id, (bool) $dryrun);
 $iscourse = ($rule->subject ?? 'user') === 'course';

@@ -35,6 +35,7 @@ $baseurl = new moodle_url('/admin/tool/automate/log.php', ['ruleid' => $ruleid])
 $PAGE->set_url($baseurl);
 $PAGE->set_title(get_string('runhistory', 'tool_automate'));
 $PAGE->set_heading(get_string('runhistory', 'tool_automate'));
+$PAGE->add_body_class('tool_automate-page');
 
 echo $OUTPUT->header();
 

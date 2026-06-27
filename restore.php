@@ -35,6 +35,7 @@ $settingsurl = new moodle_url('/admin/settings.php', ['section' => 'tool_automat
 $PAGE->set_url($baseurl);
 $PAGE->set_title(get_string('restoretitle', 'tool_automate'));
 $PAGE->set_heading(get_string('restoretitle', 'tool_automate'));
+$PAGE->add_body_class('tool_automate-page');
 
 $enabled = \tool_automate\restore_repository::is_enabled();
 $sourcedir = \tool_automate\restore_repository::get_source_dir();
@@ -62,12 +63,17 @@ if ($dirok) {
         $categoryid = (int) $data->categoryid;
         $categoryname = $categories[$categoryid] ?? ('#' . $categoryid);
 
+        // The picker submits a cleaning-proof hash per file; map each back to
+        // its real basename before resolving it to a path on disk.
         $queued = [];
         $skipped = [];
-        foreach ((array) $data->files as $basename) {
-            $resolved = \tool_automate\restore_repository::resolve($basename, $sourcedir);
+        foreach ((array) $data->files as $token) {
+            $basename = \tool_automate\restore_repository::basename_for_token($token, $sourcedir);
+            $resolved = $basename === null
+                ? null
+                : \tool_automate\restore_repository::resolve($basename, $sourcedir);
             if ($resolved === null) {
-                $skipped[] = $basename;
+                $skipped[] = $basename ?? $token;
                 continue;
             }
             if (!$dryrun) {

@@ -56,18 +56,31 @@ class restore_form extends \moodleform {
             return;
         }
 
+        // Option values are a cleaning-proof hash of each basename, not the
+        // basename itself: core form-autocomplete cleans the submitted value as
+        // a tag list (splitting on commas, collapsing whitespace), which would
+        // corrupt filenames containing those characters. The label still shows
+        // the real filename; restore.php maps the hash back with
+        // restore_repository::basename_for_token().
         $options = [];
         foreach ($files as $file) {
-            $options[$file] = $file;
+            $options[\tool_automate\restore_repository::token($file)] = $file;
         }
-        $select = $mform->addElement(
-            'select',
+        // A searchable, tag-style multi-select (core form-autocomplete): the
+        // admin types to filter the backup list, which scales to directories
+        // holding dozens or hundreds of .mbz files far better than a plain
+        // scrolling listbox. Selected files show as removable tags.
+        $mform->addElement(
+            'autocomplete',
             'files',
             get_string('restorefiles', 'tool_automate'),
-            $options
+            $options,
+            [
+                'multiple'    => true,
+                'placeholder' => get_string('restorefilessearch', 'tool_automate'),
+                'noselectionstring' => get_string('restorefilesnone', 'tool_automate'),
+            ]
         );
-        $select->setMultiple(true);
-        $select->setSize(min(15, max(5, count($options))));
         $mform->addRule('files', get_string('required'), 'required', null, 'client');
         $mform->addHelpButton('files', 'restorefiles', 'tool_automate');
 

@@ -49,6 +49,7 @@ $inline = optional_param('inline', 0, PARAM_INT);
 $baseurl = new moodle_url('/admin/tool/automate/index.php');
 $selfurl = new moodle_url('/admin/tool/automate/edit.php', ['id' => $id]);
 $PAGE->set_url($selfurl);
+$PAGE->add_body_class('tool_automate-page');
 
 $rule = null;
 $conditions = [];
