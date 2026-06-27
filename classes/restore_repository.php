@@ -67,7 +67,9 @@ class restore_repository {
      * @return bool
      */
     public static function is_backup_filename(string $name): bool {
-        if ($name === '' || $name !== basename($name)) {
+        // Reject the empty string, anything with path components, and a bare
+        // ".mbz" with no stem before the extension.
+        if ($name === '' || $name !== basename($name) || strlen($name) <= strlen(self::EXTENSION)) {
             return false;
         }
         return strtolower(substr($name, -strlen(self::EXTENSION))) === self::EXTENSION;
