@@ -99,9 +99,12 @@ The path from the current beta to a published, installable-from-Moodle plugin:
 
 * **CI is green.** The GitHub Actions workflow already runs the full
   `moodle-plugin-ci` suite (PHP lint, `phpcs` with the Moodle standard, PHPDoc
-  checker, Mustache lint, Grunt, PHPUnit, and Behat) across the supported PHP
-  and Moodle versions. Every check must pass — the directory's automated
-  reviewer runs the same tooling.
+  checker, Mustache lint, Grunt, PHPUnit, and Behat) across every Moodle branch
+  in `$plugin->supported` (Moodle 5.0–5.2) on the PHP versions each branch
+  supports (8.2–8.4), against both PostgreSQL and MariaDB. Keep the workflow
+  matrix in step with `$plugin->supported` so you never submit a package for a
+  Moodle version the reviewer-equivalent checks never ran against. Every check
+  must pass — the directory's automated reviewer runs the same tooling.
 * **Run the checks locally** before submitting. The same `moodle-plugin-ci`
   commands the workflow runs mirror the *Plugin validation* that the directory
   applies automatically on upload, so a clean local run means no surprises at
