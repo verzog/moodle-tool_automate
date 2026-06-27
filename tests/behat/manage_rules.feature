@@ -44,3 +44,7 @@ Feature: Manage automation rules
     Then I should see "Trigger saved for rule"
     And I should see "Trigger redirect JS rule"
     And I should not see "Step 5: When should this run?"
+
+  Scenario: Bulk restore from repository is reachable from the admin menu
+    When I navigate to "Plugins > Admin tools > Automate > Bulk restore from repository" in site administration
+    Then I should see "Bulk restore from repository"

@@ -40,6 +40,16 @@ if ($hassiteconfig) {
         'tool/automate:manage'
     ));
 
+    // Bulk restore from repository, as its own menu node next to the rules
+    // overview (it is also linked as a button from that overview). Reached
+    // only with the same manage capability.
+    $ADMIN->add('tool_automate_category', new admin_externalpage(
+        'tool_automate_restore',
+        get_string('restoretitle', 'tool_automate'),
+        new moodle_url('/admin/tool/automate/restore.php'),
+        'tool/automate:manage'
+    ));
+
     // Site-level toggles. The destructive course_delete action is
     // off by default - a site admin has to opt in here before it
     // shows up in the action picker or will run on an existing rule.
