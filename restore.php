@@ -63,12 +63,17 @@ if ($dirok) {
         $categoryid = (int) $data->categoryid;
         $categoryname = $categories[$categoryid] ?? ('#' . $categoryid);
 
+        // The picker submits a cleaning-proof hash per file; map each back to
+        // its real basename before resolving it to a path on disk.
         $queued = [];
         $skipped = [];
-        foreach ((array) $data->files as $basename) {
-            $resolved = \tool_automate\restore_repository::resolve($basename, $sourcedir);
+        foreach ((array) $data->files as $token) {
+            $basename = \tool_automate\restore_repository::basename_for_token($token, $sourcedir);
+            $resolved = $basename === null
+                ? null
+                : \tool_automate\restore_repository::resolve($basename, $sourcedir);
             if ($resolved === null) {
-                $skipped[] = $basename;
+                $skipped[] = $basename ?? $token;
                 continue;
             }
             if (!$dryrun) {

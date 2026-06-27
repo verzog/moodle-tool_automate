@@ -132,6 +132,39 @@ class restore_repository {
     }
 
     /**
+     * Stable, cleaning-proof picker id for a backup basename.
+     *
+     * The bulk-restore picker (a core autocomplete element) cleans submitted
+     * values as a tag list, which splits on commas, collapses whitespace runs
+     * and strips a few characters. Using the raw basename as the option value
+     * would therefore silently corrupt any filename containing those, so the
+     * picker uses this hash as the option value instead and maps it back with
+     * basename_for_token(). A hex hash is invariant under that cleaning.
+     *
+     * @param string $basename
+     * @return string
+     */
+    public static function token(string $basename): string {
+        return sha1($basename);
+    }
+
+    /**
+     * Map a picker token back to the backup basename it was generated from.
+     *
+     * @param string $token A value produced by token().
+     * @param string|null $dir Directory to look in; defaults to config.
+     * @return string|null The matching basename, or null if none in the dir.
+     */
+    public static function basename_for_token(string $token, ?string $dir = null): ?string {
+        foreach (self::list_backups($dir) as $basename) {
+            if (self::token($basename) === $token) {
+                return $basename;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Queue one backup file for background restore into a new course.
      *
      * @param string $filepath Absolute path to a .mbz file (already resolved).
