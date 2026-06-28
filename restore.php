@@ -41,64 +41,79 @@ $enabled = \tool_automate\restore_repository::is_enabled();
 $sourcedir = \tool_automate\restore_repository::get_source_dir();
 $dirok = $enabled && $sourcedir !== '' && is_dir($sourcedir) && is_readable($sourcedir);
 
-// Build and process the form before any output so a successful queue can
+// Process the selection before any output so a successful queue can
 // redirect-after-POST (a refresh must not re-queue every selected restore).
-$form = null;
+$files = [];
+$categories = [];
 $preview = null;
+$formerror = null;
+
 if ($dirok) {
     $files = \tool_automate\restore_repository::list_backups($sourcedir);
     $categories = $DB->get_records_menu('course_categories', null, 'name', 'id, name');
-    $form = new \tool_automate\form\restore_form($baseurl, [
-        'files'      => $files,
-        'categories' => $categories,
-        'sourcedir'  => $sourcedir,
-    ]);
 
-    if ($form->is_cancelled()) {
-        redirect($indexurl);
-    }
+    // The selection is a hand-rolled checkbox table (so it can show size and
+    // date columns), not a moodleform, so detect its submit buttons directly.
+    $cancel = optional_param('cancel', '', PARAM_RAW);
+    $dopreview = optional_param('preview', '', PARAM_RAW) !== '';
+    $doqueue = optional_param('queue', '', PARAM_RAW) !== '';
 
-    if (($data = $form->get_data()) && !empty($data->files)) {
-        $dryrun = empty($data->restore);
-        $categoryid = (int) $data->categoryid;
-        $categoryname = $categories[$categoryid] ?? ('#' . $categoryid);
+    if ($cancel !== '' || $dopreview || $doqueue) {
+        require_sesskey();
+        if ($cancel !== '') {
+            redirect($indexurl);
+        }
 
-        // The picker submits a cleaning-proof hash per file; map each back to
-        // its real basename before resolving it to a path on disk.
-        $queued = [];
-        $skipped = [];
-        foreach ((array) $data->files as $token) {
-            $basename = \tool_automate\restore_repository::basename_for_token($token, $sourcedir);
-            $resolved = $basename === null
-                ? null
-                : \tool_automate\restore_repository::resolve($basename, $sourcedir);
-            if ($resolved === null) {
-                $skipped[] = $basename ?? $token;
-                continue;
+        $dryrun = !$doqueue;
+        // Each checkbox value is a cleaning-proof hash of a basename; map each
+        // back before resolving it to a path on disk.
+        $tokens = optional_param_array('files', [], PARAM_ALPHANUM);
+        $categoryid = optional_param('categoryid', 0, PARAM_INT);
+
+        if (empty($tokens)) {
+            $formerror = get_string('restoreselectone', 'tool_automate');
+        } else if (!isset($categories[$categoryid])) {
+            $formerror = get_string('restoreselectcategory', 'tool_automate');
+        } else {
+            $categoryname = $categories[$categoryid];
+            $queued = [];
+            $skipped = [];
+            foreach ($tokens as $token) {
+                $basename = \tool_automate\restore_repository::basename_for_token($token, $sourcedir);
+                $resolved = $basename === null
+                    ? null
+                    : \tool_automate\restore_repository::resolve($basename, $sourcedir);
+                if ($resolved === null) {
+                    $skipped[] = $basename ?? $token;
+                    continue;
+                }
+                if (!$dryrun) {
+                    \tool_automate\restore_repository::queue($resolved, $categoryid, $USER->id);
+                }
+                $queued[] = $basename;
             }
+
             if (!$dryrun) {
-                \tool_automate\restore_repository::queue($resolved, $categoryid, $USER->id);
+                // Redirect-after-POST: a browser refresh of the rendered result
+                // would otherwise resubmit and queue every restore again.
+                $a = (object) [
+                    'count'    => count($queued),
+                    'category' => format_string($categoryname),
+                ];
+                $message = get_string('restorequeued', 'tool_automate', $a);
+                if ($skipped) {
+                    $message .= ' ' . get_string('restoreskipped', 'tool_automate', implode(', ', $skipped));
+                }
+                redirect($baseurl, $message, null, \core\output\notification::NOTIFY_SUCCESS);
             }
-            $queued[] = $basename;
-        }
 
-        if (!$dryrun) {
-            // Redirect-after-POST: a browser refresh of the rendered result
-            // would otherwise resubmit and queue every restore again.
-            $a = (object) ['count' => count($queued), 'category' => format_string($categoryname)];
-            $message = get_string('restorequeued', 'tool_automate', $a);
-            if ($skipped) {
-                $message .= ' ' . get_string('restoreskipped', 'tool_automate', implode(', ', $skipped));
-            }
-            redirect($baseurl, $message, null, \core\output\notification::NOTIFY_SUCCESS);
+            // Dry-run preview: stash the outcome to render after the header.
+            $preview = (object) [
+                'queued'   => $queued,
+                'skipped'  => $skipped,
+                'category' => $categoryname,
+            ];
         }
-
-        // Dry-run preview: stash the outcome to render after the header.
-        $preview = (object) [
-            'queued'   => $queued,
-            'skipped'  => $skipped,
-            'category' => $categoryname,
-        ];
     }
 }
 
@@ -126,6 +141,10 @@ if (!is_dir($sourcedir) || !is_readable($sourcedir)) {
     exit;
 }
 
+if ($formerror !== null) {
+    echo $OUTPUT->notification($formerror, 'warning');
+}
+
 if ($preview !== null) {
     if ($preview->queued) {
         $a = (object) ['count' => count($preview->queued), 'category' => format_string($preview->category)];
@@ -143,5 +162,136 @@ if ($preview !== null) {
     }
 }
 
-$form->display();
+echo html_writer::div(
+    get_string('restoresourcedir', 'tool_automate') . ': ' . html_writer::tag('code', s($sourcedir)),
+    'mb-3'
+);
+
+if (empty($files)) {
+    echo $OUTPUT->notification(get_string('restorenofiles', 'tool_automate'), 'info');
+    echo $OUTPUT->footer();
+    exit;
+}
+
+// Build the checkbox table: one row per backup, the checkbox column being the
+// selection control, plus size and modified-date detail a plain picker can't
+// show.
+$btable = new html_table();
+$btable->attributes['id'] = 'tool_automate_backups_table';
+$btable->attributes['class'] = 'generaltable tool_automate_backups_table';
+$btable->head = [
+    get_string('restorecolselect', 'tool_automate'),
+    get_string('restorecolname', 'tool_automate'),
+    get_string('restorecolsize', 'tool_automate'),
+    get_string('restorecolmodified', 'tool_automate'),
+];
+foreach ($files as $basename) {
+    $resolved = \tool_automate\restore_repository::resolve($basename, $sourcedir);
+    $readable = $resolved !== null && is_readable($resolved);
+    $token = \tool_automate\restore_repository::token($basename);
+
+    $checkcell = new html_table_cell(
+        html_writer::checkbox('files[]', $token, false, '', ['class' => 'tool_automate_backupcb'])
+    );
+    $checkcell->attributes['class'] = 'tool_automate_backupcheck';
+
+    $namecell = new html_table_cell(s($basename));
+    $namecell->attributes['class'] = 'tool_automate_backupname';
+
+    $sizecell = new html_table_cell($readable ? display_size(filesize($resolved)) : '-');
+    $sizecell->attributes['class'] = 'tool_automate_backupsize';
+
+    $row = new html_table_row([
+        $checkcell,
+        $namecell,
+        $sizecell,
+        $readable ? userdate(filemtime($resolved)) : '-',
+    ]);
+    $row->attributes['data-name'] = $basename;
+    $btable->data[] = $row;
+}
+
+// Client-side filter for the table. Registered as inline AMD (kept in PHP, so
+// it needs no amd/build step) and only toggles row visibility - no markup is
+// generated from user data.
+$PAGE->requires->js_amd_inline(<<<'JS'
+require([], function() {
+    var input = document.getElementById('tool_automate_backupsearch');
+    var table = document.getElementById('tool_automate_backups_table');
+    if (!input || !table) {
+        return;
+    }
+    var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr[data-name]'));
+    var nomatch = document.getElementById('tool_automate_backups_nomatch');
+    input.addEventListener('input', function() {
+        var needle = input.value.toLowerCase();
+        var shown = 0;
+        rows.forEach(function(row) {
+            var name = (row.getAttribute('data-name') || '').toLowerCase();
+            var match = name.indexOf(needle) !== -1;
+            row.style.display = match ? '' : 'none';
+            if (match) {
+                shown++;
+            }
+        });
+        if (nomatch) {
+            nomatch.style.display = shown === 0 ? '' : 'none';
+        }
+    });
+});
+JS);
+
+echo html_writer::start_tag('form', [
+    'method' => 'post',
+    'action' => $baseurl->out(false),
+    'class'  => 'tool_automate_restore_form',
+]);
+echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+
+echo html_writer::label(
+    get_string('restorefiles', 'tool_automate'),
+    'tool_automate_backupsearch',
+    true,
+    ['class' => 'd-block fw-bold']
+);
+echo html_writer::empty_tag('input', [
+    'type'         => 'text',
+    'id'           => 'tool_automate_backupsearch',
+    'class'        => 'tool_automate_backupsearch mb-2',
+    'placeholder'  => get_string('restorefilessearch', 'tool_automate'),
+    'autocomplete' => 'off',
+]);
+
+echo html_writer::table($btable);
+echo html_writer::div(
+    get_string('restorenomatch', 'tool_automate'),
+    'tool_automate_restore_nomatch',
+    ['id' => 'tool_automate_backups_nomatch', 'style' => 'display:none;']
+);
+
+echo html_writer::start_div('tool_automate_field');
+echo html_writer::label(
+    get_string('restoretargetcategory', 'tool_automate'),
+    'menucategoryid',
+    true,
+    ['class' => 'd-block fw-bold']
+);
+echo html_writer::select($categories, 'categoryid', '', false, ['id' => 'menucategoryid']);
+echo html_writer::end_div();
+
+echo html_writer::start_div('tool_automate_restore_actions');
+echo html_writer::tag(
+    'button',
+    get_string('restorepreview', 'tool_automate'),
+    ['type' => 'submit', 'name' => 'preview', 'value' => '1', 'class' => 'btn btn-secondary']
+);
+echo html_writer::tag(
+    'button',
+    get_string('restorequeue', 'tool_automate'),
+    ['type' => 'submit', 'name' => 'queue', 'value' => '1', 'class' => 'btn btn-primary']
+);
+echo html_writer::link($indexurl, get_string('cancel'), ['class' => 'btn btn-link']);
+echo html_writer::end_div();
+
+echo html_writer::end_tag('form');
 echo $OUTPUT->footer();
