@@ -183,8 +183,16 @@ if (empty($files)) {
 $btable = new html_table();
 $btable->attributes['id'] = 'tool_automate_backups_table';
 $btable->attributes['class'] = 'generaltable tool_automate_backups_table';
+// The "select" column header is a tick-all checkbox (labelled for screen
+// readers); it carries no name so it is never submitted - it only drives the
+// row checkboxes client-side.
+$selectall = html_writer::empty_tag('input', [
+    'type'       => 'checkbox',
+    'id'         => 'tool_automate_backups_selectall',
+    'aria-label' => get_string('restoreselectall', 'tool_automate'),
+]);
 $btable->head = [
-    get_string('restorecolselect', 'tool_automate'),
+    $selectall,
     get_string('restorecolname', 'tool_automate'),
     get_string('restorecolsize', 'tool_automate'),
     get_string('restorecolmodified', 'tool_automate'),
@@ -194,8 +202,13 @@ foreach ($files as $basename) {
     $readable = $resolved !== null && is_readable($resolved);
     $token = \tool_automate\restore_repository::token($basename);
 
+    // Each checkbox is labelled with its filename so screen readers announce
+    // what is being selected (the visible filename is in the next column).
     $checkcell = new html_table_cell(
-        html_writer::checkbox('files[]', $token, false, '', ['class' => 'tool_automate_backupcb'])
+        html_writer::checkbox('files[]', $token, false, '', [
+            'class'      => 'tool_automate_backupcb',
+            'aria-label' => get_string('restoreselectfile', 'tool_automate', $basename),
+        ])
     );
     $checkcell->attributes['class'] = 'tool_automate_backupcheck';
 
@@ -227,6 +240,7 @@ require([], function() {
     }
     var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr[data-name]'));
     var nomatch = document.getElementById('tool_automate_backups_nomatch');
+    var selectall = document.getElementById('tool_automate_backups_selectall');
     input.addEventListener('input', function() {
         var needle = input.value.toLowerCase();
         var shown = 0;
@@ -241,7 +255,24 @@ require([], function() {
         if (nomatch) {
             nomatch.style.display = shown === 0 ? '' : 'none';
         }
+        if (selectall) {
+            selectall.checked = false;
+        }
     });
+    if (selectall) {
+        // Tick/untick only the rows currently visible after any search filter.
+        selectall.addEventListener('change', function() {
+            rows.forEach(function(row) {
+                if (row.style.display === 'none') {
+                    return;
+                }
+                var box = row.querySelector('input[type="checkbox"]');
+                if (box) {
+                    box.checked = selectall.checked;
+                }
+            });
+        });
+    }
 });
 JS);
 
