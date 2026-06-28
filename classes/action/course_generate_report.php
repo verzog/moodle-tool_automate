@@ -152,7 +152,7 @@ class course_generate_report extends action_base {
             if ($wantgrade) {
                 $row[] = self::course_average_grade($course, $enrolled);
             }
-            fputcsv($fh, $row);
+            fputcsv($fh, self::csv_safe_row($row));
         }
         rewind($fh);
         $csv = stream_get_contents($fh);

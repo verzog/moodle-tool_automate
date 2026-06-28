@@ -114,13 +114,19 @@ class course_no_activity_days extends condition_base {
      * @return array
      */
     public static function get_course_sql_filter(array $config): array {
+        static $n = 0;
         $days = (int) ($config['days'] ?? 0);
         if ($days <= 0) {
             return ['', []];
         }
         $cutoff = time() - ($days * DAYSECS);
-        $sql = '((c.timemodified > 0 AND c.timemodified < :cna_cutoff1)
-                 OR (c.timemodified = 0 AND c.timecreated > 0 AND c.timecreated < :cna_cutoff2))';
-        return [$sql, ['cna_cutoff1' => $cutoff, 'cna_cutoff2' => $cutoff]];
+        // Unique placeholders per call so two no-activity conditions on one
+        // rule don't collide on shared :cna_cutoff names.
+        $i = ++$n;
+        $p1 = 'cna_cutoff1_' . $i;
+        $p2 = 'cna_cutoff2_' . $i;
+        $sql = "((c.timemodified > 0 AND c.timemodified < :$p1)
+                 OR (c.timemodified = 0 AND c.timecreated > 0 AND c.timecreated < :$p2))";
+        return [$sql, [$p1 => $cutoff, $p2 => $cutoff]];
     }
 }

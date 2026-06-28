@@ -51,12 +51,7 @@ class user_name_matches extends condition_base {
         if ($name === '') {
             return false;
         }
-        if (strpos($pattern, '*') === false) {
-            $pattern = '*' . $pattern . '*';
-        }
-        // Unicode-aware case-insensitive match via the /u modifier.
-        $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/iu';
-        return (bool) preg_match($regex, $name);
+        return self::wildcard_match($pattern, $name);
     }
 
     /**

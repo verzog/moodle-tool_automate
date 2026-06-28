@@ -44,13 +44,9 @@ class email_matches extends condition_base {
         if ($pattern === '' || empty($user->email)) {
             return false;
         }
-        // If no wildcard, treat as a substring match so "@example.com"
-        // matches "alice@example.com".
-        if (strpos($pattern, '*') === false) {
-            $pattern = '*' . $pattern . '*';
-        }
-        $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/i';
-        return (bool) preg_match($regex, $user->email);
+        // A pattern with no wildcard is treated as a substring match (so
+        // "@example.com" matches "alice@example.com") by wildcard_match().
+        return self::wildcard_match($pattern, (string) $user->email);
     }
 
     /**

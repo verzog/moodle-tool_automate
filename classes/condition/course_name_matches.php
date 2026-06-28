@@ -59,13 +59,7 @@ class course_name_matches extends condition_base {
         if ($name === '') {
             return false;
         }
-        if (strpos($pattern, '*') === false) {
-            $pattern = '*' . $pattern . '*';
-        }
-        // Unicode-aware case-insensitive match (the /u modifier) so an
-        // accented character matches its uppercase form.
-        $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/iu';
-        return (bool) preg_match($regex, $name);
+        return self::wildcard_match($pattern, $name);
     }
 
     /**

@@ -138,4 +138,27 @@ abstract class action_base {
         unset($config);
         return static::get_name();
     }
+
+    /**
+     * Neutralise CSV formula injection in a row of values.
+     *
+     * A spreadsheet treats a cell beginning with =, +, -, @, tab or a
+     * carriage return as a formula, so an attacker-influenced value such as
+     * a profile field or course name could execute when the generated file
+     * is opened in Excel or LibreOffice. Prefixing such cells with a single
+     * quote forces them to be read as text. Numeric and other safe cells are
+     * left untouched.
+     *
+     * @param array $row Row values destined for fputcsv().
+     * @return array The same row with risky leading characters neutralised.
+     */
+    protected static function csv_safe_row(array $row): array {
+        foreach ($row as $i => $value) {
+            $value = (string) $value;
+            if ($value !== '' && strpbrk($value[0], "=+-@\t\r") !== false) {
+                $row[$i] = "'" . $value;
+            }
+        }
+        return $row;
+    }
 }
