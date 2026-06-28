@@ -90,23 +90,27 @@
     background: #fff;
 }
 
-/* Source-directory readability badge. */
-.tool_automate-page .tool_automate_dirstatus {
+/* Source-directory readability badge. Sits inline after the "Default: Empty"
+   line, so it is emphasised against that muted text with a tinted pill. */
+.tool_automate_dirstatus {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    margin-top: 0.4rem;
-    padding: 0.15rem 0.5rem;
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.55rem;
+    border: 1px solid transparent;
     border-radius: 0.4rem;
-    font-weight: 600;
+    font-weight: 700;
 }
 
-.tool_automate-page .tool_automate_dirstatus.text-success {
+.tool_automate_dirstatus.text-success {
     background: #e8f5ee;
+    border-color: #b7e0c6;
 }
 
-.tool_automate-page .tool_automate_dirstatus.text-danger {
+.tool_automate_dirstatus.text-danger {
     background: #fdecea;
+    border-color: #f5c6cb;
 }
 
 /* Queued / skipped file lists on the restore page render as chips. */
@@ -129,7 +133,15 @@
 }
 
 /* Bulk restore: the backups table is the file selector (checkbox per row). */
+.tool_automate-page .tool_automate_searchrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .tool_automate-page .tool_automate_backupsearch {
+    flex: 1 1 auto;
     width: 100%;
     max-width: 420px;
 }
@@ -170,6 +182,26 @@
 .tool_automate-page .tool_automate_restore_nomatch {
     margin-top: 0.5rem;
     color: #6c757d;
+}
+
+/* Files selected under a previous search that the current result set no longer
+   shows: rendered as real, visible checkboxes so nothing is queued unseen. */
+.tool_automate-page .tool_automate_selected_other {
+    margin: 0.75rem 0;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: #f8f9fa;
+}
+
+.tool_automate-page .tool_automate_selected_list {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+
+.tool_automate-page .tool_automate_selected_list li {
+    font-family: monospace;
+    word-break: break-all;
 }
 
 .tool_automate-page .tool_automate_field {
