@@ -186,7 +186,7 @@ $maxrows = 200;
 $query = trim(optional_param('q', '', PARAM_RAW));
 if ($query !== '') {
     $needle = core_text::strtolower($query);
-    $matches = array_values(array_filter($files, function($name) use ($needle) {
+    $matches = array_values(array_filter($files, function ($name) use ($needle) {
         return core_text::strpos(core_text::strtolower($name), $needle) !== false;
     }));
 } else {
@@ -195,13 +195,28 @@ if ($query !== '') {
 $totalmatches = count($matches);
 $shownfiles = array_slice($matches, 0, $maxrows);
 
+// The chosen target category has to survive a search reload too, so keep the
+// submitted id and feed it back as the select's current value.
+$selectedcategory = optional_param('categoryid', 0, PARAM_INT);
+
 // A selection has to survive a server-side search: the admin may tick files
 // under one query, search again, and tick more before queueing. Selected
-// tokens ride along in the search request as sel[]; here we pre-tick any that
-// land among the rendered rows and carry the rest as hidden inputs so they are
-// still submitted even though they are no longer on screen.
-$selectedtokens = optional_param_array('sel', [], PARAM_ALPHANUM);
-$selectedset = array_flip($selectedtokens);
+// tokens arrive either as sel[] (carried by the search form) or as files[] (a
+// preview re-render). Resolve each back to a real backup in the source dir and
+// drop anything that does not map to a file on disk - so a crafted ?sel[] URL
+// cannot smuggle in an off-screen restore; whatever survives is rendered
+// visibly below, never queued from a hidden input the admin never saw.
+$selectedtokens = array_values(array_unique(array_merge(
+    optional_param_array('sel', [], PARAM_ALPHANUM),
+    optional_param_array('files', [], PARAM_ALPHANUM)
+)));
+$selectedbasenames = [];
+foreach ($selectedtokens as $token) {
+    $basename = \tool_automate\restore_repository::basename_for_token($token, $sourcedir);
+    if ($basename !== null) {
+        $selectedbasenames[$token] = $basename;
+    }
+}
 $showntokens = [];
 
 // Build the checkbox table: one row per backup, the checkbox column being the
@@ -223,7 +238,7 @@ foreach ($shownfiles as $basename) {
     $showntokens[$token] = true;
 
     $checkcell = new html_table_cell(
-        html_writer::checkbox('files[]', $token, isset($selectedset[$token]), '', ['class' => 'tool_automate_backupcb'])
+        html_writer::checkbox('files[]', $token, isset($selectedbasenames[$token]), '', ['class' => 'tool_automate_backupcb'])
     );
     $checkcell->attributes['class'] = 'tool_automate_backupcheck';
 
@@ -284,7 +299,7 @@ require([], function() {
             var seen = {};
             Array.prototype.slice.call(selectform.querySelectorAll('input[name="files[]"]'))
                 .forEach(function(cb) {
-                    if ((cb.type === 'hidden' || cb.checked) && !seen[cb.value]) {
+                    if (cb.checked && !seen[cb.value]) {
                         seen[cb.value] = true;
                         var hidden = document.createElement('input');
                         hidden.type = 'hidden';
@@ -294,6 +309,16 @@ require([], function() {
                         searchform.appendChild(hidden);
                     }
                 });
+            // Carry the chosen target category across the search reload.
+            var category = document.getElementById('menucategoryid');
+            if (category) {
+                var carry = document.createElement('input');
+                carry.type = 'hidden';
+                carry.name = 'categoryid';
+                carry.value = category.value;
+                carry.setAttribute('data-sel', '1');
+                searchform.appendChild(carry);
+            }
         });
     }
 });
@@ -342,12 +367,33 @@ echo html_writer::start_tag('form', [
 ]);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
 
-// Carry selected files that the current search has pushed off-screen so they
-// still submit with the queue.
-foreach ($selectedtokens as $token) {
+// Carry the active query so Preview re-renders the same filtered view instead
+// of snapping back to the unfiltered first page and losing the selection.
+if ($query !== '') {
+    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'q', 'value' => $query]);
+}
+
+// Selected backups that the current search has pushed off-screen are shown here
+// as real, removable checkboxes - never hidden inputs - so the admin always
+// sees exactly what a Queue will restore, and a selection survives both a fresh
+// search and a Preview round-trip.
+$offscreen = [];
+foreach ($selectedbasenames as $token => $basename) {
     if (!isset($showntokens[$token])) {
-        echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'files[]', 'value' => $token]);
+        $offscreen[$token] = $basename;
     }
+}
+if ($offscreen) {
+    echo html_writer::start_div('tool_automate_selected_other');
+    echo html_writer::tag('div', get_string('restoreselectedother', 'tool_automate'), ['class' => 'fw-bold mb-1']);
+    echo html_writer::start_tag('ul', ['class' => 'tool_automate_selected_list']);
+    foreach ($offscreen as $token => $basename) {
+        echo html_writer::tag('li', html_writer::checkbox('files[]', $token, true, ' ' . s($basename), [
+            'class' => 'tool_automate_backupcb',
+        ]));
+    }
+    echo html_writer::end_tag('ul');
+    echo html_writer::end_div();
 }
 
 if ($totalmatches > $maxrows) {
@@ -380,7 +426,10 @@ echo html_writer::label(
     true,
     ['class' => 'd-block fw-bold']
 );
-echo html_writer::select($categories, 'categoryid', '', false, [
+// A "Choose…" placeholder (value 0) makes "no category picked" explicit so a
+// search reload cannot silently leave the first category selected; the carried
+// $selectedcategory keeps the admin's choice across a search.
+echo html_writer::select($categories, 'categoryid', $selectedcategory, ['0' => get_string('choosedots')], [
     'id'    => 'menucategoryid',
     'class' => 'tool_automate_categoryselect',
 ]);

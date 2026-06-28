@@ -341,6 +341,7 @@ $string['restorepreview'] = 'Preview selection';
 $string['restorequeue'] = 'Queue restore';
 $string['restorequeued'] = 'Queued {$a->count} background restore(s) into category "{$a->category}". Run cron to process them.';
 $string['restoreselectcategory'] = 'Choose a target category for the restored courses.';
+$string['restoreselectedother'] = 'Selected backups not shown in the current list';
 $string['restoreselectone'] = 'Select at least one backup file to restore.';
 $string['restoreskipped'] = 'These files were skipped because they could not be resolved inside the source directory: {$a}';
 $string['restoresourcedir'] = 'Source directory';

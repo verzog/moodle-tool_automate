@@ -18,6 +18,24 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
   carried along and still queue after searching again. A **Clear** link resets
   the query.
 
+### Changed
+- **Selections carried across a search are now shown, not hidden.** Files that a
+  new search pushes off-screen render as real, removable checkboxes in a
+  *"Selected backups not shown in the current list"* panel, so a Queue can never
+  restore a backup the admin could not see — and a crafted `?sel[]` URL can no
+  longer smuggle an off-screen selection through a hidden input.
+- **Preview keeps the active query and selection.** Previewing now re-renders the
+  same filtered view instead of snapping back to the unfiltered first page, so
+  the next Queue does not lose the selected backups.
+- **The target category survives a search and is explicit.** The chosen category
+  is carried across a search reload, and the dropdown gains a *"Choose…"*
+  placeholder so a restore can no longer be queued into the first category by
+  accident.
+- **Source-directory readability badge moved inline.** On the settings page the
+  green ✓ *"…readable by Moodle"* (or red ✗) status now sits inline right after
+  the field's *Default: Empty* line, emphasised as a tinted pill, rather than
+  below the help text.
+
 ## [0.9.20] - 2026-06-28
 
 ### Changed

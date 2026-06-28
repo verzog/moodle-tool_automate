@@ -43,8 +43,22 @@ class setting_restore_source_dir extends \admin_setting_configtext {
         if ($status === '') {
             return parent::output_html($data, $query);
         }
-        // Temporarily append the status to the description so it renders in the
-        // setting's normal description cell without re-implementing the markup.
+        $html = parent::output_html($data, $query);
+
+        // Place the status badge inline, right after the "Default: Empty" line,
+        // so the readability state sits with the field itself rather than down
+        // in the help text. The default info renders in a form-defaultinfo
+        // block; inject the badge just before that block closes.
+        $anchor = strpos($html, 'form-defaultinfo');
+        if ($anchor !== false) {
+            $close = strpos($html, '</div>', $anchor);
+            if ($close !== false) {
+                return substr($html, 0, $close) . ' ' . $status . substr($html, $close);
+            }
+        }
+
+        // Fallback if the default-info block is not present: append the status
+        // to the description so it is still shown.
         $original = $this->description;
         $this->description = $original . $status;
         $html = parent::output_html($data, $query);
