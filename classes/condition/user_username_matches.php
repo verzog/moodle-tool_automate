@@ -50,11 +50,7 @@ class user_username_matches extends condition_base {
         if ($username === '') {
             return false;
         }
-        if (strpos($pattern, '*') === false) {
-            $pattern = '*' . $pattern . '*';
-        }
-        $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/iu';
-        return (bool) preg_match($regex, $username);
+        return self::wildcard_match($pattern, $username);
     }
 
     /**

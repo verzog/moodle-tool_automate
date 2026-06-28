@@ -106,7 +106,11 @@ class course_visibility extends condition_base {
      * @return array
      */
     public static function get_course_sql_filter(array $config): array {
+        static $n = 0;
         $want = (int) ($config['visible'] ?? 1);
-        return ['c.visible = :cvis_want', ['cvis_want' => $want]];
+        // Unique placeholder per call so two visibility conditions on one
+        // rule don't collide on a shared :cvis_want.
+        $param = 'cvis_want_' . (++$n);
+        return ['c.visible = :' . $param, [$param => $want]];
     }
 }

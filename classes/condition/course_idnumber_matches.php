@@ -57,11 +57,7 @@ class course_idnumber_matches extends condition_base {
         if ($idnumber === '') {
             return false;
         }
-        if (strpos($pattern, '*') === false) {
-            $pattern = '*' . $pattern . '*';
-        }
-        $regex = '/^' . str_replace('\*', '.*', preg_quote($pattern, '/')) . '$/i';
-        return (bool) preg_match($regex, $idnumber);
+        return self::wildcard_match($pattern, $idnumber);
     }
 
     /**

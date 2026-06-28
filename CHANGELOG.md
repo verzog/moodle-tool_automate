@@ -4,6 +4,29 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.22] - 2026-06-28
+
+### Security
+- **CSV formula injection neutralised in generated reports.** Cells in the
+  downloaded/emailed user and course report CSVs that begin with `=`, `+`, `-`,
+  `@`, a tab or a carriage return are now prefixed with a single quote, so an
+  attacker-influenced value (such as a profile field or course name) can no
+  longer execute as a formula when the file is opened in a spreadsheet. The
+  on-screen report view was already safe.
+
+### Fixed
+- **Wildcard `*` match conditions can no longer be made to backtrack
+  catastrophically.** The `email/username/name/course name/course idnumber`
+  *matches* conditions now use a non-backtracking two-pointer glob matcher
+  instead of a compiled regex, so a pathological pattern (for example
+  `*a*a*a*…`) cannot stall a cron worker on a large site. Match behaviour is
+  unchanged (case-insensitive; no `*` means a substring match).
+- **Same-type conditions no longer collide on shared SQL placeholders.** The
+  account-age, course-visibility, inactivity and course-no-activity conditions
+  used fixed named bind parameters, so two conditions of the same type in one
+  rule could produce a wrong filter or a DML error. Each pre-filter now uses a
+  per-call unique placeholder.
+
 ## [0.9.21] - 2026-06-28
 
 ### Added

@@ -107,13 +107,19 @@ class inactive_for_days extends condition_base {
      * @return array
      */
     public static function get_user_sql_filter(array $config): array {
+        static $n = 0;
         $days = (int) ($config['days'] ?? 0);
         if ($days <= 0) {
             return ['', []];
         }
         $cutoff = time() - ($days * DAYSECS);
-        $sql = '((u.lastaccess > 0 AND u.lastaccess < :ifd_cutoff1)
-                 OR (u.lastaccess = 0 AND u.timecreated > 0 AND u.timecreated < :ifd_cutoff2))';
-        return [$sql, ['ifd_cutoff1' => $cutoff, 'ifd_cutoff2' => $cutoff]];
+        // Unique placeholders per call so two inactivity conditions on one
+        // rule don't collide on shared :ifd_cutoff names.
+        $i = ++$n;
+        $p1 = 'ifd_cutoff1_' . $i;
+        $p2 = 'ifd_cutoff2_' . $i;
+        $sql = "((u.lastaccess > 0 AND u.lastaccess < :$p1)
+                 OR (u.lastaccess = 0 AND u.timecreated > 0 AND u.timecreated < :$p2))";
+        return [$sql, [$p1 => $cutoff, $p2 => $cutoff]];
     }
 }

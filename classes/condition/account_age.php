@@ -112,14 +112,18 @@ class account_age extends condition_base {
      * @return array
      */
     public static function get_user_sql_filter(array $config): array {
+        static $n = 0;
         $days = (int) ($config['days'] ?? 0);
         if ($days <= 0) {
             return ['', []];
         }
         $cutoff = time() - ($days * DAYSECS);
+        // Unique placeholder per call so two account-age conditions on one
+        // rule don't collide on a shared :aa_cutoff.
+        $param = 'aa_cutoff_' . (++$n);
         if (($config['op'] ?? 'gte') === 'lte') {
-            return ['u.timecreated >= :aa_cutoff', ['aa_cutoff' => $cutoff]];
+            return ['u.timecreated >= :' . $param, [$param => $cutoff]];
         }
-        return ['u.timecreated > 0 AND u.timecreated <= :aa_cutoff', ['aa_cutoff' => $cutoff]];
+        return ['u.timecreated > 0 AND u.timecreated <= :' . $param, [$param => $cutoff]];
     }
 }

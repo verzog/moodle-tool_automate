@@ -178,12 +178,13 @@ class generate_report extends action_base {
                 $user->idnumber ?? '',
             ];
             if (!$enrich) {
-                fputcsv($fh, $base);
+                fputcsv($fh, self::csv_safe_row($base));
                 continue;
             }
             $courses = self::courses_for_user($user, $courseid);
             if (!$courses) {
-                fputcsv($fh, array_merge($base, array_fill(0, count($header) - count($base), '')));
+                $padded = array_merge($base, array_fill(0, count($header) - count($base), ''));
+                fputcsv($fh, self::csv_safe_row($padded));
                 continue;
             }
             foreach ($courses as $course) {
@@ -206,7 +207,7 @@ class generate_report extends action_base {
                 if ($wantgrade) {
                     $row[] = self::user_course_grade($user, $course);
                 }
-                fputcsv($fh, $row);
+                fputcsv($fh, self::csv_safe_row($row));
             }
         }
         rewind($fh);

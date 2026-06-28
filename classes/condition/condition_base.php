@@ -137,4 +137,56 @@ abstract class condition_base {
         unset($config);
         return ['', []];
     }
+
+    /**
+     * Case-insensitive wildcard match where `*` means "any run of
+     * characters". Shared by the *_matches conditions.
+     *
+     * Implemented as an iterative two-pointer scan rather than a compiled
+     * regex so that a pathological pattern (for example `*a*a*a*...`) cannot
+     * trigger catastrophic backtracking on a large cron scan - the scan is
+     * bounded at O(pattern x value) and never blows up exponentially. A
+     * pattern with no `*` is treated as a substring match.
+     *
+     * @param string $pattern The user-supplied glob (already trimmed).
+     * @param string $haystack The value to test.
+     * @return bool
+     */
+    protected static function wildcard_match(string $pattern, string $haystack): bool {
+        if ($pattern === '') {
+            return false;
+        }
+        // No wildcard means a substring match.
+        if (strpos($pattern, '*') === false) {
+            $pattern = '*' . $pattern . '*';
+        }
+        // Fold case (Unicode-aware) so the byte-level comparison below is
+        // case-insensitive, then match with a classic glob two-pointer scan.
+        $pat = \core_text::strtolower($pattern);
+        $str = \core_text::strtolower($haystack);
+        $plen = strlen($pat);
+        $slen = strlen($str);
+        $p = 0;
+        $s = 0;
+        $star = -1;
+        $mark = 0;
+        while ($s < $slen) {
+            if ($p < $plen && $pat[$p] === '*') {
+                $star = $p++;
+                $mark = $s;
+            } else if ($p < $plen && $pat[$p] === $str[$s]) {
+                $p++;
+                $s++;
+            } else if ($star >= 0) {
+                $p = $star + 1;
+                $s = ++$mark;
+            } else {
+                return false;
+            }
+        }
+        while ($p < $plen && $pat[$p] === '*') {
+            $p++;
+        }
+        return $p === $plen;
+    }
 }
