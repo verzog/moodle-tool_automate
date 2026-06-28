@@ -66,6 +66,30 @@
     outline: 0;
 }
 
+/* Source directory: a framed panel echoing the listing tables (same border,
+   radius and tinted strip) so the resolved path reads as a labelled value. */
+.tool_automate-page .tool_automate_sourcedir {
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.tool_automate-page .tool_automate_sourcedir_label {
+    background: #f1f3f5;
+    border-bottom: 1px solid #dee2e6;
+    padding: 0.45rem 0.75rem;
+    font-weight: 600;
+}
+
+.tool_automate-page .tool_automate_sourcedir_path {
+    display: block;
+    padding: 0.55rem 0.75rem;
+    font-family: monospace;
+    word-break: break-all;
+    color: #0f6cbf;
+    background: #fff;
+}
+
 /* Source-directory readability badge. */
 .tool_automate-page .tool_automate_dirstatus {
     display: inline-flex;
@@ -125,6 +149,24 @@
     white-space: nowrap;
 }
 
+/* Keep a large repository scannable: scroll the backups in a fixed-height pane
+   with the header pinned, instead of letting the table run the full page. */
+.tool_automate-page .tool_automate_backups_scroll {
+    max-height: 22rem;
+    overflow-y: auto;
+    border-radius: 0.5rem;
+}
+
+.tool_automate-page .tool_automate_backups_scroll .generaltable {
+    margin-bottom: 0;
+}
+
+.tool_automate-page .tool_automate_backups_scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
 .tool_automate-page .tool_automate_restore_nomatch {
     margin-top: 0.5rem;
     color: #6c757d;
@@ -133,6 +175,19 @@
 .tool_automate-page .tool_automate_field {
     margin-top: 1rem;
     max-width: 420px;
+}
+
+/* Target category: a wider, full-width dropdown that lines up with the table
+   above rather than the cramped default picker width. */
+.tool_automate-page .tool_automate_categoryfield {
+    max-width: 560px;
+}
+
+.tool_automate-page select.tool_automate_categoryselect {
+    width: 100%;
+    height: auto;
+    min-height: 2.5rem;
+    padding-right: 2rem;
 }
 
 .tool_automate-page .tool_automate_restore_actions {
