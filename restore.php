@@ -162,9 +162,13 @@ if ($preview !== null) {
     }
 }
 
+// Source directory shown as a framed panel matching the listing tables: a
+// tinted label strip above the resolved path so it reads as a labelled value,
+// not a sentence.
 echo html_writer::div(
-    get_string('restoresourcedir', 'tool_automate') . ': ' . html_writer::tag('code', s($sourcedir)),
-    'mb-3'
+    html_writer::div(get_string('restoresourcedir', 'tool_automate'), 'tool_automate_sourcedir_label')
+        . html_writer::tag('code', s($sourcedir), ['class' => 'tool_automate_sourcedir_path']),
+    'tool_automate_sourcedir mb-3'
 );
 
 if (empty($files)) {
@@ -262,21 +266,29 @@ echo html_writer::empty_tag('input', [
     'autocomplete' => 'off',
 ]);
 
+// Scroll the backups in a fixed-height pane with a sticky header so a large
+// repository (hundreds of .mbz files) stays a compact, scannable list rather
+// than a page-long table; the live search above filters rows in place.
+echo html_writer::start_div('tool_automate_backups_scroll');
 echo html_writer::table($btable);
+echo html_writer::end_div();
 echo html_writer::div(
     get_string('restorenomatch', 'tool_automate'),
     'tool_automate_restore_nomatch',
     ['id' => 'tool_automate_backups_nomatch', 'style' => 'display:none;']
 );
 
-echo html_writer::start_div('tool_automate_field');
+echo html_writer::start_div('tool_automate_field tool_automate_categoryfield');
 echo html_writer::label(
     get_string('restoretargetcategory', 'tool_automate'),
     'menucategoryid',
     true,
     ['class' => 'd-block fw-bold']
 );
-echo html_writer::select($categories, 'categoryid', '', false, ['id' => 'menucategoryid']);
+echo html_writer::select($categories, 'categoryid', '', false, [
+    'id'    => 'menucategoryid',
+    'class' => 'tool_automate_categoryselect',
+]);
 echo html_writer::end_div();
 
 echo html_writer::start_div('tool_automate_restore_actions');

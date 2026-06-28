@@ -4,6 +4,18 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.20] - 2026-06-28
+
+### Changed
+- **Polish on the bulk-restore page.** The *Source directory* now reads as a
+  framed, rounded panel with a tinted label strip and the resolved path on its
+  own line, matching the look of the listing tables instead of a plain inline
+  sentence. The *Target category* dropdown is wider and full-width within its
+  field, so it lines up with the table above rather than sitting in the cramped
+  default picker width. The backup list scrolls inside a fixed-height pane with
+  its header pinned, so a directory of many `.mbz` files stays a compact,
+  scannable list. Purely cosmetic and scoped to the plugin's admin pages.
+
 ## [0.9.18] - 2026-06-27
 
 ### Added
