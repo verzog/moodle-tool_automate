@@ -103,3 +103,42 @@
     font-family: monospace;
     font-size: 0.9em;
 }
+
+/* Bulk restore: the backups table is the file selector (checkbox per row). */
+.tool_automate-page .tool_automate_backupsearch {
+    width: 100%;
+    max-width: 420px;
+}
+
+.tool_automate-page .tool_automate_backups_table .tool_automate_backupcheck {
+    width: 2.5rem;
+    text-align: center;
+}
+
+.tool_automate-page .tool_automate_backups_table td.tool_automate_backupname {
+    font-family: monospace;
+    word-break: break-all;
+}
+
+.tool_automate-page .tool_automate_backups_table td.tool_automate_backupsize {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.tool_automate-page .tool_automate_restore_nomatch {
+    margin-top: 0.5rem;
+    color: #6c757d;
+}
+
+.tool_automate-page .tool_automate_field {
+    margin-top: 1rem;
+    max-width: 420px;
+}
+
+.tool_automate-page .tool_automate_restore_actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 1.1rem;
+}
