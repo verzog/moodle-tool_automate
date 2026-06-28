@@ -177,6 +177,33 @@ if (empty($files)) {
     exit;
 }
 
+// Server-side search and row cap. The directory can hold thousands of .mbz
+// files; rendering them all would bloat the page and the client-side filter
+// could only ever reach the rows already in the DOM. So filter the full list
+// by the submitted query and render at most $maxrows of the matches, letting
+// the admin narrow with the search instead of scrolling.
+$maxrows = 200;
+$query = trim(optional_param('q', '', PARAM_RAW));
+if ($query !== '') {
+    $needle = core_text::strtolower($query);
+    $matches = array_values(array_filter($files, function($name) use ($needle) {
+        return core_text::strpos(core_text::strtolower($name), $needle) !== false;
+    }));
+} else {
+    $matches = $files;
+}
+$totalmatches = count($matches);
+$shownfiles = array_slice($matches, 0, $maxrows);
+
+// A selection has to survive a server-side search: the admin may tick files
+// under one query, search again, and tick more before queueing. Selected
+// tokens ride along in the search request as sel[]; here we pre-tick any that
+// land among the rendered rows and carry the rest as hidden inputs so they are
+// still submitted even though they are no longer on screen.
+$selectedtokens = optional_param_array('sel', [], PARAM_ALPHANUM);
+$selectedset = array_flip($selectedtokens);
+$showntokens = [];
+
 // Build the checkbox table: one row per backup, the checkbox column being the
 // selection control, plus size and modified-date detail a plain picker can't
 // show.
@@ -189,13 +216,14 @@ $btable->head = [
     get_string('restorecolsize', 'tool_automate'),
     get_string('restorecolmodified', 'tool_automate'),
 ];
-foreach ($files as $basename) {
+foreach ($shownfiles as $basename) {
     $resolved = \tool_automate\restore_repository::resolve($basename, $sourcedir);
     $readable = $resolved !== null && is_readable($resolved);
     $token = \tool_automate\restore_repository::token($basename);
+    $showntokens[$token] = true;
 
     $checkcell = new html_table_cell(
-        html_writer::checkbox('files[]', $token, false, '', ['class' => 'tool_automate_backupcb'])
+        html_writer::checkbox('files[]', $token, isset($selectedset[$token]), '', ['class' => 'tool_automate_backupcb'])
     );
     $checkcell->attributes['class'] = 'tool_automate_backupcheck';
 
@@ -215,68 +243,135 @@ foreach ($files as $basename) {
     $btable->data[] = $row;
 }
 
-// Client-side filter for the table. Registered as inline AMD (kept in PHP, so
-// it needs no amd/build step) and only toggles row visibility - no markup is
-// generated from user data.
+// Search behaviour. Typing filters the rendered rows instantly (great for the
+// common case where every match is already on screen); pressing Enter or the
+// Search button submits a server-side search across the whole directory, which
+// is what reaches matches beyond the rendered cap. Before that submit we copy
+// the current selection (ticked checkboxes plus already-carried hidden inputs)
+// into the search form as sel[] so nothing is lost on the round-trip. Inline
+// AMD only reads values and toggles visibility - no markup from user data.
 $PAGE->requires->js_amd_inline(<<<'JS'
 require([], function() {
     var input = document.getElementById('tool_automate_backupsearch');
     var table = document.getElementById('tool_automate_backups_table');
-    if (!input || !table) {
-        return;
-    }
-    var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr[data-name]'));
-    var nomatch = document.getElementById('tool_automate_backups_nomatch');
-    input.addEventListener('input', function() {
-        var needle = input.value.toLowerCase();
-        var shown = 0;
-        rows.forEach(function(row) {
-            var name = (row.getAttribute('data-name') || '').toLowerCase();
-            var match = name.indexOf(needle) !== -1;
-            row.style.display = match ? '' : 'none';
-            if (match) {
-                shown++;
-            }
-        });
-        if (nomatch) {
-            nomatch.style.display = shown === 0 ? '' : 'none';
+    var searchform = document.getElementById('tool_automate_searchform');
+    var selectform = document.getElementById('tool_automate_selectform');
+    if (table) {
+        var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr[data-name]'));
+        var nomatch = document.getElementById('tool_automate_backups_nomatch');
+        if (input) {
+            input.addEventListener('input', function() {
+                var needle = input.value.toLowerCase();
+                var shown = 0;
+                rows.forEach(function(row) {
+                    var name = (row.getAttribute('data-name') || '').toLowerCase();
+                    var match = name.indexOf(needle) !== -1;
+                    row.style.display = match ? '' : 'none';
+                    if (match) {
+                        shown++;
+                    }
+                });
+                if (nomatch) {
+                    nomatch.style.display = shown === 0 ? '' : 'none';
+                }
+            });
         }
-    });
+    }
+    if (searchform && selectform) {
+        searchform.addEventListener('submit', function() {
+            Array.prototype.slice.call(searchform.querySelectorAll('input[data-sel]'))
+                .forEach(function(node) { node.parentNode.removeChild(node); });
+            var seen = {};
+            Array.prototype.slice.call(selectform.querySelectorAll('input[name="files[]"]'))
+                .forEach(function(cb) {
+                    if ((cb.type === 'hidden' || cb.checked) && !seen[cb.value]) {
+                        seen[cb.value] = true;
+                        var hidden = document.createElement('input');
+                        hidden.type = 'hidden';
+                        hidden.name = 'sel[]';
+                        hidden.value = cb.value;
+                        hidden.setAttribute('data-sel', '1');
+                        searchform.appendChild(hidden);
+                    }
+                });
+        });
+    }
 });
 JS);
 
+// Search form (GET): submitting reloads the page with the query so the filter
+// runs server-side over every file, not just the rendered rows.
 echo html_writer::start_tag('form', [
-    'method' => 'post',
+    'method' => 'get',
     'action' => $baseurl->out(false),
-    'class'  => 'tool_automate_restore_form',
+    'id'     => 'tool_automate_searchform',
+    'class'  => 'tool_automate_searchform',
 ]);
-echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-
 echo html_writer::label(
     get_string('restorefiles', 'tool_automate'),
     'tool_automate_backupsearch',
     true,
     ['class' => 'd-block fw-bold']
 );
+echo html_writer::start_div('tool_automate_searchrow mb-2');
 echo html_writer::empty_tag('input', [
     'type'         => 'text',
+    'name'         => 'q',
+    'value'        => $query,
     'id'           => 'tool_automate_backupsearch',
-    'class'        => 'tool_automate_backupsearch mb-2',
+    'class'        => 'tool_automate_backupsearch',
     'placeholder'  => get_string('restorefilessearch', 'tool_automate'),
     'autocomplete' => 'off',
 ]);
-
-// Scroll the backups in a fixed-height pane with a sticky header so a large
-// repository (hundreds of .mbz files) stays a compact, scannable list rather
-// than a page-long table; the live search above filters rows in place.
-echo html_writer::start_div('tool_automate_backups_scroll');
-echo html_writer::table($btable);
-echo html_writer::end_div();
-echo html_writer::div(
-    get_string('restorenomatch', 'tool_automate'),
-    'tool_automate_restore_nomatch',
-    ['id' => 'tool_automate_backups_nomatch', 'style' => 'display:none;']
+echo html_writer::tag(
+    'button',
+    get_string('restorefilessearchbtn', 'tool_automate'),
+    ['type' => 'submit', 'class' => 'btn btn-secondary']
 );
+if ($query !== '') {
+    echo html_writer::link($baseurl, get_string('restorefilesclear', 'tool_automate'), ['class' => 'btn btn-link']);
+}
+echo html_writer::end_div();
+echo html_writer::end_tag('form');
+
+echo html_writer::start_tag('form', [
+    'method' => 'post',
+    'action' => $baseurl->out(false),
+    'id'     => 'tool_automate_selectform',
+    'class'  => 'tool_automate_restore_form',
+]);
+echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+
+// Carry selected files that the current search has pushed off-screen so they
+// still submit with the queue.
+foreach ($selectedtokens as $token) {
+    if (!isset($showntokens[$token])) {
+        echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'files[]', 'value' => $token]);
+    }
+}
+
+if ($totalmatches > $maxrows) {
+    $a = (object) ['shown' => count($shownfiles), 'total' => $totalmatches];
+    echo $OUTPUT->notification(get_string('restorefilescapped', 'tool_automate', $a), 'info');
+}
+
+if (empty($shownfiles)) {
+    // Server-side search returned nothing; the directory itself is not empty
+    // (that case exits earlier), so prompt a different query rather than a table.
+    echo $OUTPUT->notification(get_string('restorenomatch', 'tool_automate'), 'info');
+} else {
+    // Scroll the backups in a fixed-height pane with a sticky header so a large
+    // result set stays a compact, scannable list; the live search filters the
+    // rendered rows in place.
+    echo html_writer::start_div('tool_automate_backups_scroll');
+    echo html_writer::table($btable);
+    echo html_writer::end_div();
+    echo html_writer::div(
+        get_string('restorenomatch', 'tool_automate'),
+        'tool_automate_restore_nomatch',
+        ['id' => 'tool_automate_backups_nomatch', 'style' => 'display:none;']
+    );
+}
 
 echo html_writer::start_div('tool_automate_field tool_automate_categoryfield');
 echo html_writer::label(

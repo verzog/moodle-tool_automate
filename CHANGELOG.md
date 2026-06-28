@@ -4,6 +4,20 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [0.9.21] - 2026-06-28
+
+### Added
+- **Bulk restore now searches and caps the backup list server-side.** The file
+  picker previously rendered *every* `.mbz` in the source directory into one
+  table, so a directory of thousands bloated the page and the instant filter
+  could only reach rows already on screen. Typing still filters the rendered
+  rows instantly, but pressing Enter (or the new **Search** button) now runs the
+  query server-side across the whole directory and renders at most the first 200
+  matches, with a *"Showing the first 200 of N…"* notice when the result is
+  capped. A selection survives a search: files ticked under one query are
+  carried along and still queue after searching again. A **Clear** link resets
+  the query.
+
 ## [0.9.20] - 2026-06-28
 
 ### Changed

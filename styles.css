@@ -129,7 +129,15 @@
 }
 
 /* Bulk restore: the backups table is the file selector (checkbox per row). */
+.tool_automate-page .tool_automate_searchrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .tool_automate-page .tool_automate_backupsearch {
+    flex: 1 1 auto;
     width: 100%;
     max-width: 420px;
 }
