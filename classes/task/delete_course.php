@@ -68,6 +68,17 @@ class delete_course extends \core\task\adhoc_task {
         if ($courseid <= 0 || $courseid === (int) SITEID) {
             return;
         }
+
+        // Re-check the kill-switch at run time, not just when the action
+        // queued this task. An admin who turns off "Allow course delete"
+        // after queueing the wrong courses expects that to stop the
+        // pending deletions - so a queued task must abandon itself if the
+        // setting is no longer on. (The restore task does the same.)
+        if (!get_config('tool_automate', 'allow_course_delete')) {
+            mtrace('tool_automate: course delete is disabled in settings, skipping course ' . $courseid);
+            return;
+        }
+
         // The matched course might have already been removed by an
         // earlier task or by an admin between queue and execute - that
         // is not an error worth raising.

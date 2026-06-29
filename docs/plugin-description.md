@@ -20,8 +20,9 @@ or arbitrary-code action anywhere in the plugin — every rule is a single guide
 form.
 
 Conditions are combined with **all** (AND), **any** (OR), or a **custom boolean
-expression** such as `(1 AND 2) OR NOT 3`, and each condition can be a *match*
-or a *does not match*.
+expression** using the condition labels shown in the form, such as
+`(c1 AND c2) OR NOT c3`, and each condition can be a *match* or a
+*does not match*.
 
 **A rule targets users or courses.**
 
@@ -34,7 +35,9 @@ enrol in a course, suspend / unsuspend, set a profile field, send an email,
 generate a CSV report.
 
 *Course conditions:* completion rate, ID number matches, in a category, name
-contains/matches, no activity for N days, start date between, visibility.
+contains/matches, no activity for N days (based on the course record's
+last-modified time, not learner/teacher activity), start date between,
+visibility.
 
 *Course actions:* copy, delete (guarded), move to a category, set visibility,
 email teachers, generate a CSV report.

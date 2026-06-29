@@ -21,7 +21,8 @@ steps:
 3. **Subject and conditions** — *Find users who…* or *Choose courses that…*.
    Each condition can be a *match* or a *does not match*, and the conditions are
    combined with **all** (AND), **any** (OR), or a **custom boolean expression**
-   (e.g. `(1 AND 2) OR NOT 3`).
+   (using the condition labels shown in the form, e.g.
+   `(c1 AND c2) OR NOT c3`).
 4. **Actions** to apply to each matched user or course.
 5. **When it runs** — on a schedule, when a Moodle event fires, or only when
    triggered manually.
@@ -34,7 +35,9 @@ in a course, inactive for N days, name contains / matches, username contains /
 matches.
 
 **Course conditions:** completion rate, ID number matches, in a category, name
-contains / matches, no activity for N days, start date between, visibility.
+contains / matches, no activity for N days (based on the course record's
+last-modified time, not learner or teacher activity), start date between,
+visibility.
 
 ### Actions
 
@@ -115,9 +118,10 @@ worker pool.
 ## Privacy
 
 The plugin implements the Moodle Privacy API (`classes/privacy/provider.php`).
-It stores the administrator who authored each rule, and a per-run log
-(rule, affected user/course, outcome, message, time); generated report files are
-removed when the relevant context is purged.
+It stores the administrator who last edited each rule (`usermodified`), and a
+per-run log (rule, outcome, message, time, plus the affected user id for
+user-subject runs; course-subject runs are not attributed to an individual).
+Generated report files are removed when the relevant context is purged.
 
 ## Extending
 
