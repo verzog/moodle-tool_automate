@@ -4,6 +4,24 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.0.1] - 2026-06-29
+
+### Fixed
+- **The course-delete kill-switch now applies to already-queued deletions.**
+  The background `delete_course` task re-reads the *Allow course delete* setting
+  before deleting, so turning the setting off after queueing the wrong courses
+  cancels the pending deletions (matching the restore task's behaviour, and the
+  documented kill-switch guarantee).
+
+### Documentation
+- Corrected the custom-expression examples to use the `c1`/`c2` condition
+  labels the form actually accepts (numeric labels were rejected by the parser).
+- Clarified that the course "no activity for N days" condition is based on the
+  course record's last-modified time, not learner or teacher activity.
+- Corrected the privacy summary: `usermodified` records the most recent editor
+  (not the original author), and course-subject runs are logged without an
+  individual user id.
+
 ## [1.0.0] - 2026-06-29
 
 ### Changed
