@@ -5,40 +5,85 @@ Keep this in step with the feature set as the plugin evolves.
 
 ## Short description (one line)
 
-Rules-based automation for Moodle — trigger + conditions + bounded actions
-against users or courses, with dry-run preview and run logging — plus bulk
-course restore from a backup directory with a searchable file picker.
+Rules-based, no-code automation for Moodle — a trigger plus conditions and
+bounded actions against users or courses, with dry-run preview and audit
+logging — plus bulk course restore from a backup directory with a searchable
+file picker.
 
 ## Full description
 
-Automate is a no-code rules engine for routine site administration. Each rule is
-a **trigger** (manual, scheduled, or a Moodle event) plus optional
-**conditions** (who/what it applies to, with match / does-not-match and all /
-any / custom-expression logic) and one or more **bounded, named actions** —
-there is no raw-SQL action.
+Automate is a no-code rules engine for routine Moodle site administration. Each
+rule is a **trigger** (manual, scheduled, or a Moodle event) plus optional
+**conditions** (who or what it applies to) and one or more **bounded, named
+actions** (what to do). There is no graph editor, no scripting, and no raw-SQL
+or arbitrary-code action anywhere in the plugin — every rule is a single guided
+form.
 
-Rules can target **users** (add/remove cohort, suspend, assign role, enrol,
-email, set profile field, generate report, …) or **courses** (show/hide, move
-category, email teachers, copy, guarded delete, generate report, …).
+Conditions are combined with **all** (AND), **any** (OR), or a **custom boolean
+expression** such as `(1 AND 2) OR NOT 3`, and each condition can be a *match*
+or a *does not match*.
 
-Every rule has a **Preview (dry run)** that shows exactly which users or courses
-would be affected before anything changes, and every run is logged for audit.
-Destructive operations sit behind site-level kill-switches and background tasks
-are concurrency-capped.
+**A rule targets users or courses.**
 
-It also includes **Bulk restore from repository**: point it at a server
-directory of Moodle course backups (`.mbz`) and restore the selected ones into
-brand-new courses, in the background, from an admin page or CLI. The admin page
-offers a **searchable, type-to-filter file picker** that scales comfortably to
-directories holding dozens or hundreds of backups, and previews the selection
-before queueing.
+*User conditions:* account age, authentication method, cohort membership,
+standard or custom profile field, email matches (wildcard), enrolled in a
+course, inactive for N days, name contains/matches, username contains/matches.
 
-Implements the Privacy API. GPL v3.
+*User actions:* add to / remove from cohort, add to group, assign / revoke role,
+enrol in a course, suspend / unsuspend, set a profile field, send an email,
+generate a CSV report.
+
+*Course conditions:* completion rate, ID number matches, in a category, name
+contains/matches, no activity for N days, start date between, visibility.
+
+*Course actions:* copy, delete (guarded), move to a category, set visibility,
+email teachers, generate a CSV report.
+
+**Built for safe operation.** Every rule has a **Preview (dry run)** that shows
+exactly which users or courses would be affected — and what would happen —
+before anything changes. Every run is logged for audit, and background tasks
+narrate their work to the task logs. Destructive features (course delete, bulk
+restore) are off by default behind site-level kill-switches, re-checked at both
+queue and run time; course delete additionally requires a typed confirmation
+phrase. Background jobs are concurrency-capped so they cannot monopolise the
+cron worker pool.
+
+**Bulk restore from repository.** Separate from the rules engine, Automate can
+restore Moodle course backups (`.mbz`) from a server directory into
+**brand-new** courses (existing courses are never overwritten), from an admin
+page or the CLI. The admin page offers a **server-side searchable,
+type-to-filter file picker** that scales to directories holding hundreds of
+backups, and previews the selection before queueing.
+
+Implements the Moodle Privacy API. Licensed under the GPL v3.
 
 ## Submission fields
 
 - **Frankenstyle name:** `tool_automate`
+- **Plugin type:** Admin tool (`admin/tool`)
 - **Source control URL:** <https://github.com/verzog/moodle-tool_automate>
+- **Source control branch:** `main`
 - **Bug tracker URL:** <https://github.com/verzog/moodle-tool_automate/issues>
 - **Supported Moodle versions:** 5.0 – 5.2
-- **Licence:** GPL v3
+- **Licence:** GNU GPL v3 or later
+- **Maturity:** Stable
+- **Current release:** 1.0.0
+
+## Screenshots to provide (at least one required)
+
+1. The **Automation rules** list page.
+2. The rule **editor** (the five-step form) showing conditions and actions.
+3. A **Preview (dry run)** result listing the users/courses that would be
+   affected.
+4. The **Bulk restore from repository** page with the searchable file picker.
+
+## Packaging checklist
+
+- Tag the release in Git to match `$plugin->release` (e.g.
+  `git tag -a v1.0.0 -m 'tool_automate 1.0.0' && git push origin v1.0.0`).
+- Build the ZIP so its **top-level folder is named `automate`** (the install
+  folder under `admin/tool/`), not `moodle-tool_automate`:
+  from the parent of a checkout named `automate`,
+  `zip -r automate.zip automate -x '*.git*'`.
+- Confirm CI is green for the tagged commit — the directory runs the same
+  `moodle-plugin-ci` checks on upload.
