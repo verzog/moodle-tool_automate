@@ -4,6 +4,15 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.0.0] - 2026-06-29
+
+### Changed
+- **First stable release.** Maturity promoted from beta to `MATURITY_STABLE`
+  following a full pre-publication security audit (no Critical or High
+  findings) and a green test matrix across PHP 8.2/8.3/8.4 and Moodle
+  5.0/5.1/5.2 on PostgreSQL and MariaDB. No functional changes since
+  0.9.22-beta.
+
 ## [0.9.22] - 2026-06-28
 
 ### Security

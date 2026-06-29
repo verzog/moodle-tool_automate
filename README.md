@@ -7,7 +7,7 @@ language - every rule is a single form.
 
 ## Status
 
-Beta maturity (see `version.php` for the exact build number). Rules can
+Stable (see `version.php` for the exact build number). Rules can
 target either **users** or **courses**.
 The editor walks you through five steps in order:
 
