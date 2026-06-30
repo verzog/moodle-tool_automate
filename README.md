@@ -116,14 +116,17 @@ worker pool.
   large job cannot monopolise the cron worker pool.
 * **Capability-gated high-risk actions** — managing rules needs
   `tool/automate:manage` (granted to the Manager archetype by default).
-  Configuring the high-risk actions — **delete course** (irreversible data
-  loss) and **assign role** (privilege grant) — additionally needs
-  `tool/automate:managehighrisk`, which is granted to **no role by default**
-  (full site admins bypass capability checks). So delegating rule management
-  to a non-admin role does not by itself hand out course deletion or role
-  assignment. `assign role` also only ever offers, and re-validates at run
-  time against the rule author, the roles that author may actually assign at
-  the system context.
+  *Adding or editing* the high-risk actions — **delete course** (irreversible
+  data loss) and **assign role** (privilege grant) — additionally needs
+  `tool/automate:managehighrisk`, granted to **no role by default** (full site
+  admins bypass capability checks), so a delegated manager cannot wire up
+  course deletion or role assignment from scratch. This gates the action
+  editor, not the whole rule: a manager who lacks the capability can still
+  enable or retarget a rule that *already* contains a high-risk action, so
+  review existing rules before delegating `tool/automate:manage`. `assign role`
+  additionally re-validates at run time — against whoever last saved the rule —
+  that the stored role is one they may assign at the system context, so a
+  stored role only assigns if that user could assign it themselves.
 
 ## Privacy
 
