@@ -146,4 +146,47 @@ final class assign_role_test extends \advanced_testcase {
             $result
         );
     }
+
+    /**
+     * extract_config() records the configuring user, so the run-time check
+     * is pinned to whoever set the role rather than the rule's last editor.
+     */
+    public function test_extract_config_records_configuring_user(): void {
+        global $USER;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $roleid = $this->make_system_assignable_role('sysassignable');
+
+        $config = assign_role::extract_config((object) ['config_roleid' => $roleid]);
+
+        $this->assertSame((int) $USER->id, $config['authorid']);
+    }
+
+    /**
+     * execute() validates against the stored configurer, not the rule's
+     * last editor. An action configured by a user who cannot assign Manager
+     * is refused even when a later rule re-save made an admin the
+     * usermodified — closing the escalation a privileged re-save would open.
+     */
+    public function test_execute_uses_stored_author_not_last_editor(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $author = $this->getDataGenerator()->create_user();
+        $target = $this->getDataGenerator()->create_user();
+        $managerid = (int) $DB->get_field('role', 'id', ['shortname' => 'manager']);
+        $systemid = (int) \context_system::instance()->id;
+
+        // authorid is the ordinary user (cannot assign Manager); the rule's
+        // last editor is an admin (could). The stored configurer must win.
+        $action = new assign_role(['roleid' => $managerid, 'authorid' => (int) $author->id]);
+        $action->set_rule((object) ['usermodified' => (int) get_admin()->id]);
+        $result = $action->execute($target, false);
+
+        $this->assertFalse(user_has_role_assignment($target->id, $managerid, $systemid));
+        $this->assertEquals(
+            get_string('rolenotassignable', 'tool_automate', role_get_name($DB->get_record('role', ['id' => $managerid]))),
+            $result
+        );
+    }
 }

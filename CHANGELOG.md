@@ -4,6 +4,31 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.0.3] - 2026-06-30
+
+### Security
+- **A rule that contains a high-risk action can no longer be enabled,
+  retriggered, or retargeted by someone without the high-risk capability.**
+  The `tool/automate:managehighrisk` gate added in 1.0.2 only governed the
+  action picker, so a delegated manager who lacked it could still save the
+  rule form (including the *enabled* checkbox), conditions, logic and trigger
+  of a *pre-existing* high-risk rule — enabling or broadening it until it
+  fired. The rule editor now treats any rule that already contains a high-risk
+  action as **read-only** for users without the capability: every mutating
+  request (rule, condition, logic, trigger or action save, and condition /
+  action deletes) is refused server-side with a clear message, and the
+  editable forms, pickers and edit/delete controls are replaced by a read-only
+  view. Full site admins bypass the capability and are unaffected.
+- **The *assign role* run-time re-check is now pinned to the user who
+  configured the action, not the rule's last editor.** `extract_config()`
+  records the configuring user (only reachable with the high-risk capability),
+  and `execute()` validates the stored role against *that* user's assignable
+  set. Previously the check used the rule's `usermodified`, which every save
+  rewrites to the current editor — so a more privileged user re-saving an
+  unrelated part of the rule could widen what a stored role was allowed to
+  grant. Legacy actions saved before this field existed still fall back to the
+  rule's last editor.
+
 ## [1.0.2] - 2026-06-30
 
 ### Security

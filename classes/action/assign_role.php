@@ -62,20 +62,32 @@ class assign_role extends action_base {
         // written through the current form, but a rule saved by the old
         // picker (which listed every role) or by direct DB tampering would
         // otherwise reach role_assign() unchecked. Re-validate at run time
-        // that the rule's author may actually assign this role at system
-        // context; anything outside their assignable set is skipped, never
-        // granted.
-        $authorid = (int) ($this->rule->usermodified ?? 0);
+        // that the user who configured this action may actually assign the
+        // role at system context; anything outside their assignable set is
+        // skipped, never granted.
+        //
+        // The check keys off the configurer stored on the action itself
+        // (set by extract_config, which only a holder of the high-risk
+        // capability can reach), NOT the rule's usermodified - editing any
+        // part of a rule rewrites usermodified to the current editor, so a
+        // later re-save by a more privileged user must not be able to widen
+        // what a stored role may grant. Legacy actions written before this
+        // field existed fall back to the rule's last editor as the best
+        // available signal.
+        $authorid = (int) ($this->config['authorid'] ?? 0);
+        if ($authorid <= 0) {
+            $authorid = (int) ($this->rule->usermodified ?? 0);
+        }
         if ($authorid > 0) {
-            // A specific author is recorded: check against them, and fail
-            // closed if that account no longer exists rather than falling
-            // through to the (possibly more privileged) current user.
+            // A specific configurer is recorded: check against them, and
+            // fail closed if that account no longer exists rather than
+            // falling through to the (possibly more privileged) current user.
             $author = \core_user::get_user($authorid);
             if (!$author) {
                 return get_string('rolenotassignable', 'tool_automate', $rolename);
             }
         } else {
-            // No author recorded (e.g. a direct call outside the engine):
+            // No configurer recorded (e.g. a direct call outside the engine):
             // fall back to the current user.
             $author = null;
         }
@@ -124,12 +136,18 @@ class assign_role extends action_base {
      * @return array
      */
     public static function extract_config(\stdClass $formdata): array {
+        global $USER;
         $roleid = (int) ($formdata->config_roleid ?? 0);
         $assignable = get_assignable_roles(\context_system::instance(), ROLENAME_ALIAS);
         if (!isset($assignable[$roleid])) {
             $roleid = 0;
         }
-        return ['roleid' => $roleid];
+        // Pin the role to whoever configured this action. execute()
+        // re-validates the stored role against this user at run time, so a
+        // later rule re-save by a more privileged editor cannot widen what
+        // the action may grant. Only a holder of the high-risk capability
+        // can reach this save path.
+        return ['roleid' => $roleid, 'authorid' => (int) $USER->id];
     }
 
     /**
