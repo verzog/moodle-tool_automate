@@ -62,21 +62,39 @@ class assign_role extends action_base {
     /**
      * Form fields.
      *
+     * Only roles the configuring admin is actually allowed to assign at
+     * system context are offered - never the full role list. Listing
+     * every role (role_get_names) would let a tool/automate:manage holder
+     * pick a role they cannot otherwise assign (e.g. Manager, or any role
+     * carrying moodle/site:config) and have the rule grant it at system
+     * context, escalating privilege past Moodle's role_allow_assign matrix.
+     *
      * @param \MoodleQuickForm $mform
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
-        $options = role_get_names(\context_system::instance(), ROLENAME_ALIAS, true);
+        $options = get_assignable_roles(\context_system::instance(), ROLENAME_ALIAS);
         $mform->addElement('select', 'config_roleid', get_string('role', 'tool_automate'), $options);
     }
 
     /**
      * Extract.
      *
+     * Re-checks the submitted role against the assignable set server-side:
+     * the form picker only constrains the browser, so a crafted POST could
+     * otherwise smuggle in a role the admin may not assign. Anything not in
+     * the assignable set is dropped to 0, which execute() treats as a
+     * no-op ("role gone").
+     *
      * @param \stdClass $formdata
      * @return array
      */
     public static function extract_config(\stdClass $formdata): array {
-        return ['roleid' => (int) ($formdata->config_roleid ?? 0)];
+        $roleid = (int) ($formdata->config_roleid ?? 0);
+        $assignable = get_assignable_roles(\context_system::instance(), ROLENAME_ALIAS);
+        if (!isset($assignable[$roleid])) {
+            $roleid = 0;
+        }
+        return ['roleid' => $roleid];
     }
 
     /**
