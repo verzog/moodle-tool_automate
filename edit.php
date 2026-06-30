@@ -526,6 +526,15 @@ $renderactsection = function () use (
         echo $OUTPUT->heading($actclass::get_name(), 4);
         $actform->display();
     } else {
+        // Tell admins who lack the high-risk capability why destructive /
+        // escalating actions (course delete, assign role) aren't in the
+        // picker, rather than letting them silently vanish.
+        if (!has_capability('tool/automate:managehighrisk', context_system::instance())) {
+            echo $OUTPUT->notification(
+                get_string('highriskactionshidden', 'tool_automate'),
+                'info'
+            );
+        }
         echo html_writer::start_tag('form', [
             'action' => $selfurl->out_omit_querystring(),
             'method' => 'get',

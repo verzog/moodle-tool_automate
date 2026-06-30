@@ -19,15 +19,15 @@ namespace tool_automate\action;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
- * Tests that the assign_role action will only ever store a role the
- * configuring user is actually allowed to assign at system context.
+ * Tests that the assign_role action only ever grants a role the relevant
+ * user is actually allowed to assign at system context.
  *
- * The role assigned by this action lands at system context with no
- * further capability check at run time, so the privilege boundary has to
- * be enforced where the config is saved. The form picker only constrains
- * the browser; extract_config() is the real gate, and a role outside the
- * configuring user's assignable set must be dropped to 0 (a run-time
- * no-op) even when it is submitted directly.
+ * The role lands at system context with no further capability check
+ * inside role_assign(), so the privilege boundary is enforced twice:
+ * extract_config() gates what the form can save, and execute() re-gates
+ * the stored role against the rule author at run time (covering legacy
+ * configs and direct DB tampering). A role outside the allowed set is
+ * dropped to 0 / skipped, never assigned.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
@@ -36,30 +36,44 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(assign_role::class)]
 final class assign_role_test extends \advanced_testcase {
     /**
-     * A site admin may assign any role, so a normal selection survives.
+     * Create a role that is assignable at the system context.
+     *
+     * The stock student/teacher roles are not system-assignable, so a
+     * positive case needs a role explicitly allowed at that level.
+     *
+     * @param string $shortname
+     * @return int Role id.
      */
-    public function test_admin_keeps_assignable_role(): void {
-        global $DB;
-        $this->resetAfterTest();
-        $this->setAdminUser();
-
-        $studentid = (int) $DB->get_field('role', 'id', ['shortname' => 'student']);
-        $config = assign_role::extract_config((object) ['config_roleid' => $studentid]);
-
-        $this->assertSame($studentid, $config['roleid']);
+    private function make_system_assignable_role(string $shortname): int {
+        $roleid = create_role(ucfirst($shortname), $shortname, '');
+        set_role_contextlevels($roleid, [CONTEXT_SYSTEM]);
+        return $roleid;
     }
 
     /**
-     * A user who is not allowed to assign a privileged role at system
-     * context cannot smuggle it in via a crafted POST: extract_config
-     * drops it to 0 rather than storing it for the engine to grant.
+     * extract_config() keeps a role the configuring admin may assign at
+     * system context.
+     */
+    public function test_admin_keeps_assignable_role(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $roleid = $this->make_system_assignable_role('sysassignable');
+
+        $config = assign_role::extract_config((object) ['config_roleid' => $roleid]);
+
+        $this->assertSame($roleid, $config['roleid']);
+    }
+
+    /**
+     * extract_config() drops a role the configuring user may not assign at
+     * system context, even when it is submitted directly (a crafted POST
+     * that bypasses the form picker).
      */
     public function test_unassignable_role_is_dropped(): void {
         global $DB;
         $this->resetAfterTest();
 
-        // A teacher in one course is nobody's role-assigner at system
-        // context - get_assignable_roles() there is empty for them.
+        // A teacher in one course can assign nothing at system context.
         $teacher = $this->getDataGenerator()->create_user();
         $course = $this->getDataGenerator()->create_course();
         $this->getDataGenerator()->enrol_user($teacher->id, $course->id, 'editingteacher');
@@ -72,7 +86,7 @@ final class assign_role_test extends \advanced_testcase {
     }
 
     /**
-     * A role id that does not exist at all is also dropped to 0.
+     * A role id that does not exist is dropped to 0.
      */
     public function test_unknown_role_is_dropped(): void {
         $this->resetAfterTest();
@@ -81,5 +95,55 @@ final class assign_role_test extends \advanced_testcase {
         $config = assign_role::extract_config((object) ['config_roleid' => 999999]);
 
         $this->assertSame(0, $config['roleid']);
+    }
+
+    /**
+     * execute() grants the role when the rule's author may assign it.
+     */
+    public function test_execute_assigns_when_author_allowed(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $admin = get_admin();
+        $roleid = $this->make_system_assignable_role('sysassignable');
+        $target = $this->getDataGenerator()->create_user();
+        $systemid = (int) \context_system::instance()->id;
+
+        $action = new assign_role(['roleid' => $roleid]);
+        $action->set_rule((object) ['usermodified' => (int) $admin->id]);
+        $result = $action->execute($target, false);
+
+        $this->assertTrue(user_has_role_assignment($target->id, $roleid, $systemid));
+        $this->assertEquals(
+            get_string('roleassigned', 'tool_automate', role_get_name($DB->get_record('role', ['id' => $roleid]))),
+            $result
+        );
+    }
+
+    /**
+     * execute() refuses a stored role the rule's author cannot assign -
+     * the run-time guard that protects legacy / tampered configs the
+     * save-time gate never saw.
+     */
+    public function test_execute_skips_role_author_cannot_assign(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        // Author is an ordinary user with no role-assignment rights.
+        $author = $this->getDataGenerator()->create_user();
+        $target = $this->getDataGenerator()->create_user();
+        $managerid = (int) $DB->get_field('role', 'id', ['shortname' => 'manager']);
+        $systemid = (int) \context_system::instance()->id;
+
+        // Stored config grants Manager at system context - the exact
+        // escalation the old picker allowed.
+        $action = new assign_role(['roleid' => $managerid]);
+        $action->set_rule((object) ['usermodified' => (int) $author->id]);
+        $result = $action->execute($target, false);
+
+        $this->assertFalse(user_has_role_assignment($target->id, $managerid, $systemid));
+        $this->assertEquals(
+            get_string('rolenotassignable', 'tool_automate', role_get_name($DB->get_record('role', ['id' => $managerid]))),
+            $result
+        );
     }
 }

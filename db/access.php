@@ -33,4 +33,18 @@ $capabilities = [
             'manager' => CAP_ALLOW,
         ],
     ],
+
+    // Configuring the high-risk actions (course deletion, role
+    // assignment) on top of managing rules. Deliberately granted to no
+    // archetype by default - not even Manager - so that a site that
+    // delegates tool/automate:manage to a non-admin role does not thereby
+    // hand out irreversible course deletion or privilege-granting role
+    // assignment. Full site admins bypass capability checks and so always
+    // have it; any other role must be granted it explicitly.
+    'tool/automate:managehighrisk' => [
+        'riskbitmask'  => RISK_CONFIG | RISK_DATALOSS | RISK_SPAM,
+        'captype'      => 'write',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes'   => [],
+    ],
 ];

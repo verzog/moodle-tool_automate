@@ -123,12 +123,24 @@ class manager {
         // admin who later flips the setting back off also has the
         // safety net of course_delete::execute() refusing to queue.
         $allowdelete = (bool) get_config('tool_automate', 'allow_course_delete');
+        // High-risk actions (irreversible data loss or privilege grant)
+        // are also hidden from anyone who lacks the dedicated capability,
+        // which is not given to the Manager archetype out of the box. So
+        // a delegated manager cannot wire up course deletion or role
+        // assignment even after a site admin has enabled the feature.
+        $canhighrisk = has_capability(
+            'tool/automate:managehighrisk',
+            \context_system::instance()
+        );
         $out = [];
         foreach (self::get_action_types() as $code => $class) {
             if ($class::get_subject() !== $subject) {
                 continue;
             }
             if ($code === 'course_delete' && !$allowdelete) {
+                continue;
+            }
+            if ($class::is_high_risk() && !$canhighrisk) {
                 continue;
             }
             $out[$code] = $class;
@@ -153,6 +165,13 @@ class manager {
         $logic = $rule->logic ?? 'all';
         $conditions = self::load_conditions($ruleid);
         $actions = self::load_actions($ruleid);
+        // Hand each action the rule it belongs to before any execute(),
+        // so actions that re-check rule-level context at run time (e.g.
+        // assign_role validating against the rule author's assignable
+        // roles) have it available.
+        foreach ($actions as $action) {
+            $action->set_rule($rule);
+        }
         $subjects = $subject === self::SUBJECT_COURSE
             ? self::get_target_courses($conditions, $logic, $onlysubjectid)
             : self::get_target_users($conditions, $logic, $onlysubjectid);

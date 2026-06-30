@@ -34,6 +34,15 @@ class assign_role extends action_base {
     }
 
     /**
+     * High risk: grants a role at system context.
+     *
+     * @return bool
+     */
+    public static function is_high_risk(): bool {
+        return true;
+    }
+
+    /**
      * Assign.
      *
      * @param \stdClass $user
@@ -48,6 +57,32 @@ class assign_role extends action_base {
         }
         $rolename = role_get_name($DB->get_record('role', ['id' => $roleid]));
         $context = \context_system::instance();
+
+        // Defence in depth for stored config. extract_config() gates roles
+        // written through the current form, but a rule saved by the old
+        // picker (which listed every role) or by direct DB tampering would
+        // otherwise reach role_assign() unchecked. Re-validate at run time
+        // that the rule's author may actually assign this role at system
+        // context; anything outside their assignable set is skipped, never
+        // granted.
+        $authorid = (int) ($this->rule->usermodified ?? 0);
+        if ($authorid > 0) {
+            // A specific author is recorded: check against them, and fail
+            // closed if that account no longer exists rather than falling
+            // through to the (possibly more privileged) current user.
+            $author = \core_user::get_user($authorid);
+            if (!$author) {
+                return get_string('rolenotassignable', 'tool_automate', $rolename);
+            }
+        } else {
+            // No author recorded (e.g. a direct call outside the engine):
+            // fall back to the current user.
+            $author = null;
+        }
+        $assignable = get_assignable_roles($context, ROLENAME_ALIAS, false, $author);
+        if (!isset($assignable[$roleid])) {
+            return get_string('rolenotassignable', 'tool_automate', $rolename);
+        }
 
         if (user_has_role_assignment($user->id, $roleid, $context->id)) {
             return get_string('rolealready', 'tool_automate', $rolename);

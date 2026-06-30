@@ -75,6 +75,15 @@ class course_delete extends action_base {
     }
 
     /**
+     * High risk: irreversibly deletes courses.
+     *
+     * @return bool
+     */
+    public static function is_high_risk(): bool {
+        return true;
+    }
+
+    /**
      * Queue the matched course for background deletion.
      *
      * @param \stdClass $subject A course record.
