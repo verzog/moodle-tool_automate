@@ -4,6 +4,42 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.0.2] - 2026-06-30
+
+### Security
+- **Privilege escalation through the *assign role* action is closed.** The
+  action assigns a role at the system context, and the editor previously
+  listed *every* site role while only casting the submitted id to an integer,
+  so a holder of `tool/automate:manage` (the Manager archetype by default, not
+  necessarily a full site admin) could author a rule that granted Manager — or
+  any role carrying `moodle/site:config` — to themselves or every matched user.
+  The picker now offers only the roles the configuring user may actually assign
+  at the system context (`get_assignable_roles()`), `extract_config()`
+  re-validates the submitted role server-side so a crafted POST cannot smuggle
+  one in, and `execute()` re-checks the stored role at run time (failing
+  closed) against the user who last saved the rule, so a stored role only
+  assigns if that user could assign it themselves. (The run-time check keys off
+  the rule's last editor — `usermodified`, which every save rewrites — not the
+  original action author, so it narrows rather than fully eliminates the risk
+  from a legacy or tampered rule that a more privileged user later re-saves;
+  gating the enable/retarget paths for rules that contain a high-risk action is
+  noted as follow-up.)
+
+### Added
+- **New `tool/automate:managehighrisk` capability gating the high-risk
+  actions.** *Adding or editing* **delete course** (irreversible data loss) and
+  **assign role** (privilege grant) now requires this capability on top of
+  `tool/automate:manage`. It is granted to **no archetype by default** — not
+  even Manager — so a delegated manager cannot wire up course deletion or role
+  assignment from scratch (full site admins bypass capability checks and keep
+  access). This gates the action editor, not the whole rule: a manager who
+  lacks the capability can still enable or retarget a rule that already
+  contains a high-risk action, so existing rules should be reviewed before
+  delegating `tool/automate:manage`. When these actions are hidden from the
+  picker for this reason, the editor says so rather than letting them silently
+  vanish. Adds unit coverage for the assignable-role gate and the run-time
+  re-validation.
+
 ## [1.0.1] - 2026-06-29
 
 ### Fixed
