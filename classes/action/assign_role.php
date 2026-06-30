@@ -34,6 +34,15 @@ class assign_role extends action_base {
     }
 
     /**
+     * High risk: grants a role at system context.
+     *
+     * @return bool
+     */
+    public static function is_high_risk(): bool {
+        return true;
+    }
+
+    /**
      * Assign.
      *
      * @param \stdClass $user
@@ -49,6 +58,32 @@ class assign_role extends action_base {
         $rolename = role_get_name($DB->get_record('role', ['id' => $roleid]));
         $context = \context_system::instance();
 
+        // Defence in depth for stored config. extract_config() gates roles
+        // written through the current form, but a rule saved by the old
+        // picker (which listed every role) or by direct DB tampering would
+        // otherwise reach role_assign() unchecked. Re-validate at run time
+        // that the rule's author may actually assign this role at system
+        // context; anything outside their assignable set is skipped, never
+        // granted.
+        $authorid = (int) ($this->rule->usermodified ?? 0);
+        if ($authorid > 0) {
+            // A specific author is recorded: check against them, and fail
+            // closed if that account no longer exists rather than falling
+            // through to the (possibly more privileged) current user.
+            $author = \core_user::get_user($authorid);
+            if (!$author) {
+                return get_string('rolenotassignable', 'tool_automate', $rolename);
+            }
+        } else {
+            // No author recorded (e.g. a direct call outside the engine):
+            // fall back to the current user.
+            $author = null;
+        }
+        $assignable = get_assignable_roles($context, ROLENAME_ALIAS, false, $author);
+        if (!isset($assignable[$roleid])) {
+            return get_string('rolenotassignable', 'tool_automate', $rolename);
+        }
+
         if (user_has_role_assignment($user->id, $roleid, $context->id)) {
             return get_string('rolealready', 'tool_automate', $rolename);
         }
@@ -62,21 +97,39 @@ class assign_role extends action_base {
     /**
      * Form fields.
      *
+     * Only roles the configuring admin is actually allowed to assign at
+     * system context are offered - never the full role list. Listing
+     * every role (role_get_names) would let a tool/automate:manage holder
+     * pick a role they cannot otherwise assign (e.g. Manager, or any role
+     * carrying moodle/site:config) and have the rule grant it at system
+     * context, escalating privilege past Moodle's role_allow_assign matrix.
+     *
      * @param \MoodleQuickForm $mform
      */
     public static function add_config_form_elements(\MoodleQuickForm $mform): void {
-        $options = role_get_names(\context_system::instance(), ROLENAME_ALIAS, true);
+        $options = get_assignable_roles(\context_system::instance(), ROLENAME_ALIAS);
         $mform->addElement('select', 'config_roleid', get_string('role', 'tool_automate'), $options);
     }
 
     /**
      * Extract.
      *
+     * Re-checks the submitted role against the assignable set server-side:
+     * the form picker only constrains the browser, so a crafted POST could
+     * otherwise smuggle in a role the admin may not assign. Anything not in
+     * the assignable set is dropped to 0, which execute() treats as a
+     * no-op ("role gone").
+     *
      * @param \stdClass $formdata
      * @return array
      */
     public static function extract_config(\stdClass $formdata): array {
-        return ['roleid' => (int) ($formdata->config_roleid ?? 0)];
+        $roleid = (int) ($formdata->config_roleid ?? 0);
+        $assignable = get_assignable_roles(\context_system::instance(), ROLENAME_ALIAS);
+        if (!isset($assignable[$roleid])) {
+            $roleid = 0;
+        }
+        return ['roleid' => $roleid];
     }
 
     /**

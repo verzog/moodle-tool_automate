@@ -31,6 +31,9 @@ abstract class action_base {
     /** @var array Decoded configuration for this action. */
     protected $config;
 
+    /** @var \stdClass|null The rule this action belongs to, set by the engine before execute(). */
+    protected ?\stdClass $rule = null;
+
     /**
      * Constructor.
      *
@@ -38,6 +41,34 @@ abstract class action_base {
      */
     public function __construct(array $config = []) {
         $this->config = $config;
+    }
+
+    /**
+     * Give the action the rule it belongs to. The engine calls this after
+     * constructing the action from stored config and before execute(), so
+     * an action that needs rule-level context - for example the authoring
+     * user, to re-check a privilege at run time - can reach it. Most
+     * actions ignore it.
+     *
+     * @param \stdClass $rule
+     */
+    public function set_rule(\stdClass $rule): void {
+        $this->rule = $rule;
+    }
+
+    /**
+     * Whether this action is "high risk": it either causes irreversible
+     * data loss or grants privilege. High-risk actions are gated behind
+     * the dedicated tool/automate:managehighrisk capability - which is not
+     * held by the Manager archetype out of the box - on top of the manage
+     * capability, so a delegated manager cannot wire up a destructive or
+     * escalating action even once a site admin has enabled it. Defaults to
+     * false; the destructive / escalating actions override it.
+     *
+     * @return bool
+     */
+    public static function is_high_risk(): bool {
+        return false;
     }
 
     /**
