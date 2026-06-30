@@ -19,6 +19,13 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
   action deletes) is refused server-side with a clear message, and the
   editable forms, pickers and edit/delete controls are replaced by a read-only
   view. Full site admins bypass the capability and are unaffected.
+- **Manually running a high-risk rule is gated by the same capability.** The
+  read-only editor lock would be moot if the rule could still be fired from
+  the overview, so `run.php` now requires `tool/automate:managehighrisk` for a
+  live run (`dryrun=0`) of any rule that contains a high-risk action, and the
+  overview hides that rule's "Run now" button for users without it. Preview
+  (dry run) makes no changes and stays available. Cron and event triggers are
+  unchanged - they run rules as configured.
 - **The *assign role* run-time re-check is now pinned to the user who
   configured the action, not the rule's last editor.** `extract_config()`
   records the configuring user (only reachable with the high-risk capability),
@@ -28,6 +35,11 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
   unrelated part of the rule could widen what a stored role was allowed to
   grant. Legacy actions saved before this field existed still fall back to the
   rule's last editor.
+
+### Privacy
+- The configurer id newly stored on assign-role actions is declared in the
+  privacy metadata and is discovered, exported and anonymised by the privacy
+  provider, so a subject-access export or erasure request now covers it.
 
 ## [1.0.2] - 2026-06-30
 

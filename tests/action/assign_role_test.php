@@ -177,8 +177,8 @@ final class assign_role_test extends \advanced_testcase {
         $managerid = (int) $DB->get_field('role', 'id', ['shortname' => 'manager']);
         $systemid = (int) \context_system::instance()->id;
 
-        // authorid is the ordinary user (cannot assign Manager); the rule's
-        // last editor is an admin (could). The stored configurer must win.
+        // The stored configurer is the ordinary user (cannot assign Manager);
+        // the rule's last editor is an admin (could). The configurer must win.
         $action = new assign_role(['roleid' => $managerid, 'authorid' => (int) $author->id]);
         $action->set_rule((object) ['usermodified' => (int) get_admin()->id]);
         $result = $action->execute($target, false);

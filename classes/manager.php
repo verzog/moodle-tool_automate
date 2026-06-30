@@ -149,6 +149,30 @@ class manager {
     }
 
     /**
+     * Does the given rule have at least one high-risk action attached?
+     *
+     * Used to gate the manual run path (run.php) and the overview's "Run
+     * now" button the same way the editor is gated: a high-risk rule must
+     * not be runnable by someone without the high-risk capability, or the
+     * read-only editor lock could be bypassed by firing the rule directly.
+     *
+     * @param int $ruleid
+     * @return bool
+     */
+    public static function rule_has_high_risk_action(int $ruleid): bool {
+        global $DB;
+        $types = self::get_action_types();
+        $records = $DB->get_records('tool_automate_action', ['ruleid' => $ruleid], '', 'id, type');
+        foreach ($records as $record) {
+            $class = $types[$record->type] ?? null;
+            if ($class && $class::is_high_risk()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Run a rule.
      *
      * @param int $ruleid

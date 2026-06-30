@@ -73,6 +73,38 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
+     * Insert an assign_role action on a rule, configured by the given user.
+     *
+     * @param int $ruleid
+     * @param int $authorid
+     * @return int action id
+     */
+    protected function make_assign_role_action(int $ruleid, int $authorid): int {
+        global $DB;
+        return (int) $DB->insert_record('tool_automate_action', (object) [
+            'ruleid'     => $ruleid,
+            'type'       => 'assign_role',
+            'configdata' => json_encode(['roleid' => 0, 'authorid' => $authorid]),
+            'sortorder'  => 0,
+        ]);
+    }
+
+    /**
+     * Read the stored authorid back off an action.
+     *
+     * @param int $actionid
+     * @return int
+     */
+    protected function action_authorid(int $actionid): int {
+        global $DB;
+        $config = (array) json_decode(
+            (string) $DB->get_field('tool_automate_action', 'configdata', ['id' => $actionid]),
+            true
+        );
+        return (int) ($config['authorid'] ?? 0);
+    }
+
+    /**
      * The metadata describes both stored tables.
      */
     public function test_get_metadata(): void {
@@ -213,5 +245,45 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
 
         $this->assertEquals(0, $DB->count_records_select('tool_automate_rule', 'usermodified <> 0'));
         $this->assertEquals(0, $DB->count_records('tool_automate_log'));
+    }
+
+    /**
+     * A user who only configured an assign_role action (and authored no
+     * rule and no log row) is still discovered as having data here.
+     */
+    public function test_action_configurer_is_discovered(): void {
+        $this->resetAfterTest();
+        $configurer = $this->getDataGenerator()->create_user();
+        $other = $this->getDataGenerator()->create_user();
+
+        $ruleid = $this->make_rule((int) $other->id);
+        $this->make_assign_role_action($ruleid, (int) $configurer->id);
+
+        $this->assertCount(1, provider::get_contexts_for_userid((int) $configurer->id)->get_contextids());
+
+        $userlist = new userlist(\context_system::instance(), 'tool_automate');
+        provider::get_users_in_context($userlist);
+        $this->assertContains((int) $configurer->id, $userlist->get_userids());
+    }
+
+    /**
+     * Deleting a user anonymises the configurer they recorded on an
+     * assign_role action, but leaves another user's action intact.
+     */
+    public function test_delete_anonymises_action_configurer(): void {
+        $this->resetAfterTest();
+        $context = \context_system::instance();
+        $alice = $this->getDataGenerator()->create_user();
+        $bob = $this->getDataGenerator()->create_user();
+
+        $ruleid = $this->make_rule((int) $alice->id);
+        $aliceaction = $this->make_assign_role_action($ruleid, (int) $alice->id);
+        $bobaction = $this->make_assign_role_action($ruleid, (int) $bob->id);
+
+        $approved = new approved_contextlist($alice, 'tool_automate', [$context->id]);
+        provider::delete_data_for_user($approved);
+
+        $this->assertEquals(0, $this->action_authorid($aliceaction));
+        $this->assertEquals((int) $bob->id, $this->action_authorid($bobaction));
     }
 }

@@ -33,6 +33,17 @@ $id = required_param('id', PARAM_INT);
 $dryrun = optional_param('dryrun', 1, PARAM_BOOL);
 
 $rule = $DB->get_record('tool_automate_rule', ['id' => $id], '*', MUST_EXIST);
+
+// Live-running a rule that contains a high-risk action (delete course /
+// assign role) requires the high-risk capability, mirroring the read-only
+// editor lock for such rules. Otherwise a delegated manager who cannot edit
+// or enable the rule could still fire it here via run.php?dryrun=0. Preview
+// (dry run) changes nothing - actions only report what they would do - so it
+// stays open to anyone who can manage rules.
+if (!$dryrun && \tool_automate\manager::rule_has_high_risk_action($id)) {
+    require_capability('tool/automate:managehighrisk', context_system::instance());
+}
+
 $baseurl = new moodle_url('/admin/tool/automate/index.php');
 $PAGE->set_url(new moodle_url('/admin/tool/automate/run.php', ['id' => $id]));
 $PAGE->set_title(get_string('results', 'tool_automate'));

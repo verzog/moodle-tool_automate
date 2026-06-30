@@ -104,6 +104,7 @@ echo $OUTPUT->single_button(
 );
 
 $rules = $DB->get_records('tool_automate_rule', null, 'name');
+$canhighrisk = has_capability('tool/automate:managehighrisk', $context);
 if (!$rules) {
     echo $OUTPUT->notification(get_string('norules', 'tool_automate'), 'info');
 } else {
@@ -134,8 +135,13 @@ if (!$rules) {
                 'class' => 'btn btn-sm btn-' . $variant . ' me-1',
             ]);
         };
+        // The live "Run now" button is hidden for a rule that contains a
+        // high-risk action unless the admin holds the high-risk capability -
+        // run.php enforces the same gate, so the button would only 403. The
+        // harmless Preview (dry run) stays available to everyone.
+        $canalrun = $canhighrisk || !\tool_automate\manager::rule_has_high_risk_action((int) $rule->id);
         $links = $btn($previewurl, get_string('preview', 'tool_automate'), 'secondary')
-            . $btn($runurl, get_string('runnow', 'tool_automate'), 'primary')
+            . ($canalrun ? $btn($runurl, get_string('runnow', 'tool_automate'), 'primary') : '')
             . html_writer::link($editurl, get_string('edit', 'tool_automate'))
             . ' | '
             . html_writer::link($deleteurl, get_string('delete', 'tool_automate'));
