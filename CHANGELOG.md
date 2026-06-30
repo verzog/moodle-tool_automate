@@ -4,6 +4,35 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.0.2] - 2026-06-30
+
+### Security
+- **Privilege escalation through the *assign role* action is closed.** The
+  action assigns a role at the system context, and the editor previously
+  listed *every* site role while only casting the submitted id to an integer,
+  so a holder of `tool/automate:manage` (the Manager archetype by default, not
+  necessarily a full site admin) could author a rule that granted Manager — or
+  any role carrying `moodle/site:config` — to themselves or every matched user.
+  The picker now offers only the roles the configuring user may actually assign
+  at the system context (`get_assignable_roles()`), `extract_config()`
+  re-validates the submitted role server-side so a crafted POST cannot smuggle
+  one in, and `execute()` re-checks the stored role against the rule author's
+  assignable set at run time (failing closed) so a rule saved through the old
+  picker or by direct database tampering can no longer grant a non-assignable
+  role on a later scheduled or manual run.
+
+### Added
+- **New `tool/automate:managehighrisk` capability gating the high-risk
+  actions.** Configuring **delete course** (irreversible data loss) and
+  **assign role** (privilege grant) now requires this capability on top of
+  `tool/automate:manage`. It is granted to **no archetype by default** — not
+  even Manager — so a site that delegates rule management to a non-admin role
+  does not thereby hand out course deletion or role assignment (full site
+  admins bypass capability checks and keep access). When these actions are
+  hidden from the picker for this reason, the editor says so rather than
+  letting them silently vanish. Adds unit coverage for the assignable-role
+  gate and the run-time re-validation.
+
 ## [1.0.1] - 2026-06-29
 
 ### Fixed

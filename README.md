@@ -9,7 +9,7 @@ plugin.
 
 ## Status
 
-Stable (`1.0.0`). See `version.php` for the exact build number.
+Stable (`1.0.2`). See `version.php` for the exact build number.
 
 ## What it does
 
@@ -114,6 +114,16 @@ worker pool.
   requires a typed confirmation phrase.
 * **Concurrency caps** — background restore and delete tasks are throttled so a
   large job cannot monopolise the cron worker pool.
+* **Capability-gated high-risk actions** — managing rules needs
+  `tool/automate:manage` (granted to the Manager archetype by default).
+  Configuring the high-risk actions — **delete course** (irreversible data
+  loss) and **assign role** (privilege grant) — additionally needs
+  `tool/automate:managehighrisk`, which is granted to **no role by default**
+  (full site admins bypass capability checks). So delegating rule management
+  to a non-admin role does not by itself hand out course deletion or role
+  assignment. `assign role` also only ever offers, and re-validates at run
+  time against the rule author, the roles that author may actually assign at
+  the system context.
 
 ## Privacy
 
@@ -142,7 +152,7 @@ every Moodle branch in `$plugin->supported` (5.0–5.2) on the PHP versions each
 supports (8.2–8.4), against PostgreSQL and MariaDB — the same tooling the Moodle
 Plugins directory runs on upload. To cut a release: keep `$plugin->version`
 monotonically increasing, set `$plugin->release` / `$plugin->maturity`, update
-`CHANGELOG.md`, tag it (`git tag -a v1.0.0 -m 'tool_automate 1.0.0'`), and
+`CHANGELOG.md`, tag it (`git tag -a v1.0.2 -m 'tool_automate 1.0.2'`), and
 package the ZIP with a top-level folder named `automate` (not
 `moodle-tool_automate`). Directory submission copy lives in
 [`docs/plugin-description.md`](docs/plugin-description.md).

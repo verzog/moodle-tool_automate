@@ -49,7 +49,10 @@ narrate their work to the task logs. Destructive features (course delete, bulk
 restore) are off by default behind site-level kill-switches, re-checked at both
 queue and run time; course delete additionally requires a typed confirmation
 phrase. Background jobs are concurrency-capped so they cannot monopolise the
-cron worker pool.
+cron worker pool. The high-risk actions — delete course and assign role — sit
+behind a dedicated `tool/automate:managehighrisk` capability that no role
+holds by default, so delegating rule management does not by itself hand out
+course deletion or role assignment.
 
 **Bulk restore from repository.** Separate from the rules engine, Automate can
 restore Moodle course backups (`.mbz`) from a server directory into
@@ -70,7 +73,7 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
 - **Supported Moodle versions:** 5.0 – 5.2
 - **Licence:** GNU GPL v3 or later
 - **Maturity:** Stable
-- **Current release:** 1.0.0
+- **Current release:** 1.0.2
 
 ## Screenshots to provide (at least one required)
 
@@ -83,7 +86,7 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
 ## Packaging checklist
 
 - Tag the release in Git to match `$plugin->release` (e.g.
-  `git tag -a v1.0.0 -m 'tool_automate 1.0.0' && git push origin v1.0.0`).
+  `git tag -a v1.0.2 -m 'tool_automate 1.0.2' && git push origin v1.0.2`).
 - Build the ZIP so its **top-level folder is named `automate`** (the install
   folder under `admin/tool/`), not `moodle-tool_automate`:
   from the parent of a checkout named `automate`,
