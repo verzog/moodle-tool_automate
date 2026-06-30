@@ -99,6 +99,18 @@ class provider implements
             ],
             'privacy:metadata:log'
         );
+        // An assign_role action records, in its JSON config, the id of the
+        // user who configured it - so the run-time role re-check can validate
+        // the stored role against that user's assignable set rather than the
+        // rule's last editor. That is a stored user reference, so it is
+        // declared, discovered and erased here too.
+        $collection->add_database_table(
+            'tool_automate_action',
+            [
+                'configdata' => 'privacy:metadata:action:configdata',
+            ],
+            'privacy:metadata:action'
+        );
         return $collection;
     }
 
@@ -113,11 +125,61 @@ class provider implements
         global $DB;
         $contextlist = new contextlist();
         $hasdata = $DB->record_exists('tool_automate_rule', ['usermodified' => $userid])
-            || $DB->record_exists('tool_automate_log', ['userid' => $userid]);
+            || $DB->record_exists('tool_automate_log', ['userid' => $userid])
+            || in_array($userid, self::action_author_map(), true);
         if ($hasdata) {
             $contextlist->add_system_context();
         }
         return $contextlist;
+    }
+
+    /**
+     * Map of assign_role action id => configurer user id, read out of the
+     * actions' JSON config. Only actions that actually record a configurer
+     * (authorid > 0) are included. Done in PHP because the id lives inside a
+     * JSON blob that no portable SQL can filter on.
+     *
+     * @return array<int,int> action id => configurer user id
+     */
+    protected static function action_author_map(): array {
+        global $DB;
+        $out = [];
+        $records = $DB->get_records('tool_automate_action', ['type' => 'assign_role'], '', 'id, configdata');
+        foreach ($records as $record) {
+            $config = (array) json_decode($record->configdata ?? '{}', true);
+            $authorid = (int) ($config['authorid'] ?? 0);
+            if ($authorid > 0) {
+                $out[(int) $record->id] = $authorid;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Reset the recorded configurer to 0 on every assign_role action
+     * configured by one of the given users. The action (rule config) is
+     * kept; only the user reference is anonymised. execute() then falls
+     * back to the rule's last editor, as for a pre-existing action that
+     * never recorded a configurer.
+     *
+     * @param int[] $userids
+     */
+    protected static function anonymise_action_authors(array $userids): void {
+        global $DB;
+        $userids = array_map('intval', $userids);
+        if (!$userids) {
+            return;
+        }
+        foreach (self::action_author_map() as $actionid => $authorid) {
+            if (!in_array($authorid, $userids, true)) {
+                continue;
+            }
+            $record = $DB->get_record('tool_automate_action', ['id' => $actionid]);
+            $config = (array) json_decode($record->configdata ?? '{}', true);
+            $config['authorid'] = 0;
+            $record->configdata = json_encode($config);
+            $DB->update_record('tool_automate_action', $record);
+        }
     }
 
     /**
@@ -135,6 +197,10 @@ class provider implements
             'SELECT userid FROM {tool_automate_log} WHERE userid IS NOT NULL',
             []
         );
+        $authorids = array_values(array_unique(self::action_author_map()));
+        if ($authorids) {
+            $userlist->add_users($authorids);
+        }
     }
 
     /**
@@ -190,6 +256,32 @@ class provider implements
                     (object) ['log' => array_values($logsexport)]
                 );
             }
+
+            // Assign-role actions this user configured (recorded as the
+            // action's authorid so the run-time role check can validate
+            // against them).
+            $authored = [];
+            foreach (self::action_author_map() as $actionid => $authorid) {
+                if ($authorid !== (int) $user->id) {
+                    continue;
+                }
+                $action = $DB->get_record('tool_automate_action', ['id' => $actionid]);
+                if (!$action) {
+                    continue;
+                }
+                $config = (array) json_decode($action->configdata ?? '{}', true);
+                $roleid = (int) ($config['roleid'] ?? 0);
+                $authored[] = (object) [
+                    'rule' => format_string((string) $DB->get_field('tool_automate_rule', 'name', ['id' => $action->ruleid])),
+                    'role' => $roleid ? (string) $DB->get_field('role', 'shortname', ['id' => $roleid]) : '',
+                ];
+            }
+            if ($authored) {
+                writer::with_context($context)->export_data(
+                    [get_string('pluginname', 'tool_automate'), get_string('privacy:path:actions', 'tool_automate')],
+                    (object) ['actions' => $authored]
+                );
+            }
         }
     }
 
@@ -216,6 +308,7 @@ class provider implements
         }
         $DB->set_field('tool_automate_rule', 'usermodified', 0, []);
         $DB->execute('DELETE FROM {tool_automate_log}');
+        self::anonymise_action_authors(array_values(self::action_author_map()));
         get_file_storage()->delete_area_files($context->id, 'tool_automate', 'reports');
     }
 
@@ -236,6 +329,7 @@ class provider implements
                 'DELETE FROM {tool_automate_log} WHERE userid = :uid',
                 ['uid' => $user->id]
             );
+            self::anonymise_action_authors([(int) $user->id]);
         }
     }
 
@@ -264,5 +358,6 @@ class provider implements
             "DELETE FROM {tool_automate_log} WHERE userid $insql",
             $params
         );
+        self::anonymise_action_authors($userids);
     }
 }

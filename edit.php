@@ -62,6 +62,41 @@ if ($id) {
     $rulesubject = $rule->subject ?? 'user';
 }
 
+// A rule that already contains a high-risk action (delete course / assign
+// role) can only be edited by someone who also holds the high-risk
+// capability. The action picker already stops such a user adding or editing
+// the high-risk action itself; without this, a delegated manager who lacks
+// the capability could still enable, retrigger, or broaden a pre-existing
+// high-risk rule and make it fire. Full site admins bypass the capability and
+// are unaffected.
+$lockhighrisk = false;
+if ($id) {
+    $allacttypes = manager::get_action_types();
+    foreach ($actions as $a) {
+        $cls = $allacttypes[$a->type] ?? null;
+        if ($cls && $cls::is_high_risk()) {
+            $lockhighrisk = true;
+            break;
+        }
+    }
+    $lockhighrisk = $lockhighrisk
+        && !has_capability('tool/automate:managehighrisk', context_system::instance());
+
+    // Block every mutating request on a locked rule in one place - a POST
+    // save (rule, conditions, logic, trigger, or an action) or a GET
+    // condition/action delete - with a clear message. The read-only editor
+    // below explains the lock.
+    $ismutation = $delcondition || $delaction || (data_submitted() !== false);
+    if ($lockhighrisk && $ismutation) {
+        redirect(
+            $selfurl,
+            get_string('highriskrulelocked', 'tool_automate'),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
+    }
+}
+
 // Delete actions: confirm sesskey then redirect back to clean edit URL.
 if ($id && $delcondition && confirm_sesskey()) {
     $DB->delete_records('tool_automate_condition', ['id' => $delcondition, 'ruleid' => $id]);
@@ -100,7 +135,7 @@ if ($id && $editcondition) {
     $condtype = $addcondition;
 }
 $condform = null;
-if ($condtype) {
+if ($condtype && !$lockhighrisk) {
     $condtypes = manager::get_condition_types_for_subject($rulesubject);
     if (isset($condtypes[$condtype])) {
         $condclass = $condtypes[$condtype];
@@ -151,7 +186,7 @@ if ($id && $editaction) {
     $acttype = $addaction;
 }
 $actform = null;
-if ($acttype) {
+if ($acttype && !$lockhighrisk) {
     $acttypes = manager::get_action_types_for_subject($rulesubject);
     if (isset($acttypes[$acttype])) {
         $actclass = $acttypes[$acttype];
@@ -371,6 +406,7 @@ $rendercondsection = function () use (
     $condclass,
     $logicform,
     $rulesubject,
+    $lockhighrisk,
     $OUTPUT
 ) {
     $condtypes = manager::get_condition_types_for_subject($rulesubject);
@@ -386,7 +422,7 @@ $rendercondsection = function () use (
     // admins can flip between AND / OR / custom-expression in place,
     // without having to expand an "Advanced" disclosure to find it.
     $logic = $rule->logic ?? 'all';
-    if ($logicform && count($conditions) >= 2) {
+    if ($logicform && !$lockhighrisk && count($conditions) >= 2) {
         echo html_writer::start_div('tool_automate_logic mb-2');
         $logicform->display();
         echo html_writer::end_div();
@@ -420,11 +456,13 @@ $rendercondsection = function () use (
             $deleteurl = new moodle_url($selfurl, [
                 'delcondition' => $c->id, 'sesskey' => sesskey(),
             ]);
-            $links = html_writer::link($editurl, get_string('edit', 'tool_automate'), [
+            // A locked rule is read-only: drop the edit / delete controls
+            // (the matching save paths are blocked server-side anyway).
+            $links = $lockhighrisk ? '' : (html_writer::link($editurl, get_string('edit', 'tool_automate'), [
                     'class' => 'tool_automate-inline-edit',
                 ])
                 . ' | '
-                . html_writer::link($deleteurl, get_string('delete', 'tool_automate'));
+                . html_writer::link($deleteurl, get_string('delete', 'tool_automate')));
             $polarity = $c->polarity ?? manager::POLARITY_MATCH;
             $table->data[] = [
                 'c' . $i,
@@ -453,7 +491,7 @@ $rendercondsection = function () use (
     if ($condform) {
         echo $OUTPUT->heading($condclass::get_name(), 4);
         $condform->display();
-    } else {
+    } else if (!$lockhighrisk) {
         echo html_writer::start_tag('form', [
             'action' => $selfurl->out_omit_querystring(),
             'method' => 'get',
@@ -484,6 +522,7 @@ $renderactsection = function () use (
     $actform,
     $actclass,
     $rulesubject,
+    $lockhighrisk,
     $OUTPUT
 ) {
     $acttypes = manager::get_action_types_for_subject($rulesubject);
@@ -506,11 +545,12 @@ $renderactsection = function () use (
             $deleteurl = new moodle_url($selfurl, [
                 'delaction' => $a->id, 'sesskey' => sesskey(),
             ]);
-            $links = html_writer::link($editurl, get_string('edit', 'tool_automate'), [
+            // A locked rule is read-only: drop the edit / delete controls.
+            $links = $lockhighrisk ? '' : (html_writer::link($editurl, get_string('edit', 'tool_automate'), [
                     'class' => 'tool_automate-inline-edit',
                 ])
                 . ' | '
-                . html_writer::link($deleteurl, get_string('delete', 'tool_automate'));
+                . html_writer::link($deleteurl, get_string('delete', 'tool_automate')));
             $table->data[] = [
                 $class ? $class::get_name() : s($a->type),
                 $class ? $class::describe($config) : '',
@@ -525,7 +565,7 @@ $renderactsection = function () use (
     if ($actform) {
         echo $OUTPUT->heading($actclass::get_name(), 4);
         $actform->display();
-    } else {
+    } else if (!$lockhighrisk) {
         // Tell admins who lack the high-risk capability why destructive /
         // escalating actions (course delete, assign role) aren't in the
         // picker, rather than letting them silently vanish.
@@ -580,26 +620,38 @@ echo html_writer::link($baseurl, get_string('back', 'tool_automate'), [
     'class' => 'tool_automate_back',
 ]);
 
-// Step 1-3: Rule metadata + subject picker.
+// Read-only banner for a rule locked because it contains a high-risk action
+// and the current user lacks the high-risk capability.
+if ($lockhighrisk) {
+    echo $OUTPUT->notification(get_string('highriskrulereadonly', 'tool_automate'), 'warning');
+}
+
+// Step 1-3: Rule metadata + subject picker. Hidden on a locked rule so the
+// enabled / name / subject fields can't be re-saved without the capability.
 echo $OUTPUT->heading(get_string('step_rule', 'tool_automate'), 3);
-$mform->display();
+if (!$lockhighrisk) {
+    $mform->display();
+}
 
 if ($id) {
     echo $rendercondsection();
 
     echo $renderactsection();
 
-    // Step 5: Trigger - when should this run?
-    echo html_writer::start_tag('div', ['data-inline-target' => 'trigger']);
-    echo $OUTPUT->heading(get_string('triggerheading', 'tool_automate'), 3);
-    $triggerform->display();
-    echo html_writer::end_tag('div');
+    // Step 5: Trigger - when should this run? Hidden (with the inline editor
+    // JS) on a locked rule; there are no editable forms left to drive.
+    if (!$lockhighrisk) {
+        echo html_writer::start_tag('div', ['data-inline-target' => 'trigger']);
+        echo $OUTPUT->heading(get_string('triggerheading', 'tool_automate'), 3);
+        $triggerform->display();
+        echo html_writer::end_tag('div');
 
-    // Inline editor: conditional Step-5 fields, the Match/expression
-    // toggle, and AJAX fragment swaps for the inline picker / edit
-    // forms. Implemented as an AMD module, delegated on document so the
-    // bindings survive the section swaps.
-    $PAGE->requires->js_call_amd('tool_automate/editor', 'init');
+        // Inline editor: conditional Step-5 fields, the Match/expression
+        // toggle, and AJAX fragment swaps for the inline picker / edit
+        // forms. Implemented as an AMD module, delegated on document so the
+        // bindings survive the section swaps.
+        $PAGE->requires->js_call_amd('tool_automate/editor', 'init');
+    }
 }
 
 echo $OUTPUT->footer();
