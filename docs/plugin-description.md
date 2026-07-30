@@ -73,7 +73,7 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
 - **Supported Moodle versions:** 5.0 – 5.2
 - **Licence:** GNU GPL v3 or later
 - **Maturity:** Stable
-- **Current release:** 1.0.2
+- **Current release:** 1.0.3
 
 ## Screenshots to provide (at least one required)
 
@@ -86,7 +86,7 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
 ## Packaging checklist
 
 - Tag the release in Git to match `$plugin->release` (e.g.
-  `git tag -a v1.0.2 -m 'tool_automate 1.0.2' && git push origin v1.0.2`).
+  `git tag -a v1.0.3 -m 'tool_automate 1.0.3' && git push origin v1.0.3`).
 - Build the ZIP so its **top-level folder is named `automate`** (the install
   folder under `admin/tool/`), not `moodle-tool_automate`:
   from the parent of a checkout named `automate`,

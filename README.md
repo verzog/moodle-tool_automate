@@ -9,7 +9,7 @@ plugin.
 
 ## Status
 
-Stable (`1.0.2`). See `version.php` for the exact build number.
+Stable. See `version.php` for the current release and exact build number.
 
 ## What it does
 
@@ -155,7 +155,7 @@ every Moodle branch in `$plugin->supported` (5.0–5.2) on the PHP versions each
 supports (8.2–8.4), against PostgreSQL and MariaDB — the same tooling the Moodle
 Plugins directory runs on upload. To cut a release: keep `$plugin->version`
 monotonically increasing, set `$plugin->release` / `$plugin->maturity`, update
-`CHANGELOG.md`, tag it (`git tag -a v1.0.2 -m 'tool_automate 1.0.2'`), and
+`CHANGELOG.md`, tag it (`git tag -a v1.0.3 -m 'tool_automate 1.0.3'`), and
 package the ZIP with a top-level folder named `automate` (not
 `moodle-tool_automate`). Directory submission copy lives in
 [`docs/plugin-description.md`](docs/plugin-description.md).
