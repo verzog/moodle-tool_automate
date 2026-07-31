@@ -5,15 +5,20 @@ Keep this in step with the feature set as the plugin evolves.
 
 ## Short description (one line)
 
-Rules-based, no-code automation for Moodle — a trigger plus conditions and
-bounded actions against users or courses, with dry-run preview and audit
-logging — plus bulk course restore from a backup directory with a searchable
-file picker.
+<!-- Keep within 255 characters when the wrapped lines are joined (directory
+limit). Current length: 253. -->
+
+No-code Moodle admin automation: build rules — a trigger, conditions and
+bounded actions — to automate user and course management, with dry-run preview
+and audit logging. Includes bulk course restore from a backup directory with a
+searchable picker.
 
 ## Full description
 
-Automate is a no-code rules engine for routine Moodle site administration. Each
-rule is a **trigger** (manual, scheduled, or a Moodle event) plus optional
+Automate (`tool_automate`) is a no-code automation plugin for Moodle site
+administration — a rules engine that handles routine user and course management
+so admins don't have to do it by hand. Each rule is a **trigger** (manual,
+scheduled, or a Moodle event) plus optional
 **conditions** (who or what it applies to) and one or more **bounded, named
 actions** (what to do). There is no graph editor, no scripting, and no raw-SQL
 or arbitrary-code action anywhere in the plugin — every rule is a single guided
@@ -74,6 +79,12 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
 - **Licence:** GNU GPL v3 or later
 - **Maturity:** Stable
 - **Current release:** 1.0.3
+- **Tags:** `automation`, `admin tool`, `rules`, `workflow`, `user management`,
+  `course management`, `bulk restore`, `scheduled tasks`, `site administration`,
+  `no-code`
+  (These are the directory's own search/browse keywords — set them on the
+  listing so admins searching for "automation", "bulk restore", etc. find the
+  plugin. Match the terms real queries use, not internal jargon.)
 
 ## Screenshots to provide (at least one required)
 
