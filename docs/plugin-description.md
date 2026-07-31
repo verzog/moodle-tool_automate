@@ -5,10 +5,13 @@ Keep this in step with the feature set as the plugin evolves.
 
 ## Short description (one line)
 
-No-code Moodle admin automation: build rules — a trigger plus conditions and
-bounded actions — to automate user management and course management, with
-dry-run preview and audit logging. Includes bulk course restore from a backup
-directory with a searchable file picker.
+<!-- Keep within 255 characters when the wrapped lines are joined (directory
+limit). Current length: 253. -->
+
+No-code Moodle admin automation: build rules — a trigger, conditions and
+bounded actions — to automate user and course management, with dry-run preview
+and audit logging. Includes bulk course restore from a backup directory with a
+searchable picker.
 
 ## Full description
 
