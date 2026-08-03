@@ -66,16 +66,40 @@ echo html_writer::link($importurl, get_string('canvasimportsback', 'tool_automat
 
 echo html_writer::div(get_string('canvasimportsintro', 'tool_automate'), 'text-muted mb-3');
 
-// Only this admin's own jobs are shown: the Canvas Uplifter status/build page
-// only lets the queueing user act on a job, so listing others' would just link
-// to pages they cannot use.
-$jobs = canvas_repository::list_jobs((int) $USER->id);
-
 if (!canvas_repository::jobs_listable()) {
     // Canvas Uplifter is installed but predates job listing.
     echo $OUTPUT->notification(get_string('canvasimportsunsupported', 'tool_automate'), 'warning');
     echo $OUTPUT->footer();
     exit;
+}
+
+// Only this admin's own jobs are shown: the Canvas Uplifter status/build page
+// only lets the queueing user act on a job, so listing others' would just link
+// to pages they cannot use. Cap the rows so a site that has run the bulk flow
+// many times cannot turn this into an unbounded query and page render; fetch one
+// extra to detect that there are more.
+$maxrows = 200;
+$jobs = canvas_repository::list_jobs((int) $USER->id, $maxrows + 1);
+$capped = count($jobs) > $maxrows;
+if ($capped) {
+    $jobs = array_slice($jobs, 0, $maxrows, true);
+}
+
+// Directory-sourced jobs have no packageurl, so resolve each stored package's
+// filename (in one query) to show which source course a row is - otherwise they
+// would all read "Uploaded package". URL jobs show the URL instead.
+$fileids = [];
+foreach ($jobs as $job) {
+    if (empty($job->packageurl) && !empty($job->fileid)) {
+        $fileids[(int) $job->fileid] = true;
+    }
+}
+$filenames = [];
+if ($fileids) {
+    $records = $DB->get_records_list('files', 'id', array_keys($fileids), '', 'id, filename');
+    foreach ($records as $rec) {
+        $filenames[(int) $rec->id] = $rec->filename;
+    }
 }
 
 if (!$jobs) {
@@ -110,13 +134,17 @@ $table->head = [
 ];
 
 foreach ($jobs as $job) {
-    // Source: the remote URL if this was a URL import, otherwise a stored upload.
+    // Source: the remote URL if this was a URL import, otherwise the stored
+    // package's filename, falling back to a generic label when it is unknown.
     if (!empty($job->packageurl)) {
         $sourcecell = html_writer::tag('span', s(shorten_text((string) $job->packageurl, 70)), [
             'title' => s((string) $job->packageurl),
         ]);
     } else {
-        $sourcecell = get_string('canvasimportsuploaded', 'tool_automate');
+        $filename = $filenames[(int) ($job->fileid ?? 0)] ?? '';
+        $sourcecell = ($filename !== '' && $filename !== '.')
+            ? s($filename)
+            : get_string('canvasimportsuploaded', 'tool_automate');
     }
 
     $kind = (string) $job->kind;
@@ -145,5 +173,8 @@ foreach ($jobs as $job) {
     ];
 }
 
+if ($capped) {
+    echo $OUTPUT->notification(get_string('canvasimportscapped', 'tool_automate', $maxrows), 'info');
+}
 echo html_writer::table($table);
 echo $OUTPUT->footer();

@@ -74,6 +74,7 @@ $string['canvasdisabled'] = 'Bulk Canvas import is switched off. A site administ
 $string['canvasfilescapped'] = 'Showing the first {$a->shown} of {$a->total} packages in the directory. Use the search box to find one, stage fewer files, or import the rest via the URL list.';
 $string['canvasfilessearch'] = 'Filter packages by name…';
 $string['canvasimportsback'] = 'Back to bulk Canvas import';
+$string['canvasimportscapped'] = 'Showing the most recent {$a} imports.';
 $string['canvasimportscolaction'] = 'Action';
 $string['canvasimportscolcreated'] = 'Queued';
 $string['canvasimportscolsource'] = 'Package';
