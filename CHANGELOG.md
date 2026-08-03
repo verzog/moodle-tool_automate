@@ -4,6 +4,32 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.1.0] - 2026-08-03
+
+### Added
+- **Bulk Canvas import** for large-scale Canvas-to-Moodle migrations, driving the
+  sibling `tool_canvasuplifter` (Canvas Uplifter) plugin. A new *Plugins > Admin
+  tools > Automate > Bulk Canvas import* page (and a `cli/import_canvas.php` CLI)
+  queues a Canvas Uplifter background job for each package, from two sources:
+  - a **pasted list of Canvas backup download URLs** (one per line) — each is
+    fetched by Canvas Uplifter in the background, subject to the site's HTTP
+    security settings; and
+  - a **server directory of `.imscc`/`.zip` packages** (staging area).
+
+  Each package can either be **built into a course now** (automatic) or
+  **analysed for later manual build** (fetched and reported, so an admin reviews
+  and builds it from Canvas Uplifter when ready). Nothing runs inline: every
+  package becomes a throttled Canvas Uplifter adhoc job, so a directory or URL
+  list of hundreds of courses cannot block the request or the cron worker pool.
+
+  The feature is a **soft integration** — `tool_automate` does not declare a hard
+  dependency on `tool_canvasuplifter`, so it still installs standalone; the page,
+  CLI and settings only appear when Canvas Uplifter is present. Like bulk restore
+  it sits behind an off-by-default *Allow bulk Canvas import* kill-switch, and
+  "Build courses now" additionally requires permission to create courses in the
+  target category. Requires Canvas Uplifter 0.40.0 or later (for its `launcher`
+  facade).
+
 ## [1.0.3] - 2026-06-30
 
 ### Security
