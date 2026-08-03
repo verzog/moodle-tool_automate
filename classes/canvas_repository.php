@@ -94,19 +94,22 @@ class canvas_repository {
     /**
      * Whether the installed Canvas Uplifter exposes the job-listing API.
      *
-     * job_manager::list_jobs() was added in Canvas Uplifter 0.42.0; guard on it
-     * so the "Staged Canvas imports" page degrades gracefully (rather than
+     * launcher::list_jobs() was added in Canvas Uplifter 0.42.0; guard on it so
+     * the "Staged Canvas imports" page degrades gracefully (rather than
      * fatalling) on a site whose Canvas Uplifter predates it.
      *
      * @return bool
      */
     public static function jobs_listable(): bool {
         return self::is_available()
-            && method_exists('\\tool_canvasuplifter\\local\\job_manager', 'list_jobs');
+            && method_exists(self::LAUNCHER, 'list_jobs');
     }
 
     /**
      * List a user's Canvas Uplifter import jobs, newest first.
+     *
+     * Reads through Canvas Uplifter's public launcher facade, not its internal
+     * job_manager.
      *
      * @param int $userid User whose jobs to list.
      * @param int $limit Maximum rows (0 = no limit).
@@ -117,7 +120,8 @@ class canvas_repository {
         if (!self::jobs_listable()) {
             return [];
         }
-        return (new \tool_canvasuplifter\local\job_manager())->list_jobs($userid, null, null, $limit);
+        $launcher = self::LAUNCHER;
+        return $launcher::list_jobs($userid, null, null, $limit);
     }
 
     /**
