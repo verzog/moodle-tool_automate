@@ -62,10 +62,14 @@ $PAGE->set_title(get_string('canvasimportstitle', 'tool_automate'));
 $PAGE->set_heading(get_string('canvasimportstitle', 'tool_automate'));
 $PAGE->add_body_class('tool_automate-page');
 
+// Deletion needs Canvas Uplifter 0.43.0+; on 0.42.x listing works but delete
+// does not, so hide the whole delete affordance rather than offer a no-op.
+$candelete = canvas_repository::deletion_supported();
+
 // Process a delete before any output, so a refresh cannot re-run it. Each ticked
 // job is deleted (its stored package freed) only if it belongs to this user; a
 // built course is left in place.
-if (optional_param('delete', 0, PARAM_INT) && confirm_sesskey()) {
+if ($candelete && optional_param('delete', 0, PARAM_INT) && confirm_sesskey()) {
     $ids = optional_param_array('jobids', [], PARAM_INT);
     $deleted = 0;
     foreach ($ids as $id) {
@@ -152,9 +156,13 @@ $statuslabels = [
     'failed' => get_string('canvasjobstatus_failed', 'tool_automate'),
 ];
 
-// A tick-all control and a confirm on delete. Inline AMD only reads values and
-// toggles checkboxes - it never writes markup from user data.
-$PAGE->requires->js_amd_inline(<<<'JS'
+// The delete affordance (form, checkbox column, button, tick-all script) is only
+// rendered when Canvas Uplifter can actually delete; otherwise this is a plain
+// read-only listing.
+if ($candelete) {
+    // A tick-all control and a confirm on delete. Inline AMD only reads values
+    // and toggles checkboxes - it never writes markup from user data.
+    $PAGE->requires->js_amd_inline(<<<'JS'
 require([], function() {
     var selectall = document.getElementById('tool_automate_imports_selectall');
     var form = document.getElementById('tool_automate_imports_form');
@@ -177,29 +185,30 @@ require([], function() {
 });
 JS);
 
-echo html_writer::start_tag('form', [
-    'method' => 'post',
-    'action' => $baseurl->out(false),
-    'id' => 'tool_automate_imports_form',
-]);
-echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-
-$selectall = html_writer::empty_tag('input', [
-    'type' => 'checkbox',
-    'id' => 'tool_automate_imports_selectall',
-    'aria-label' => get_string('canvasimportsselectall', 'tool_automate'),
-]);
+    echo html_writer::start_tag('form', [
+        'method' => 'post',
+        'action' => $baseurl->out(false),
+        'id' => 'tool_automate_imports_form',
+    ]);
+    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+}
 
 $table = new html_table();
 $table->attributes['class'] = 'generaltable';
 $table->head = [
-    $selectall,
     get_string('canvasimportscolsource', 'tool_automate'),
     get_string('canvasimportscoltype', 'tool_automate'),
     get_string('canvasimportscolstatus', 'tool_automate'),
     get_string('canvasimportscolcreated', 'tool_automate'),
     get_string('canvasimportscolaction', 'tool_automate'),
 ];
+if ($candelete) {
+    array_unshift($table->head, html_writer::empty_tag('input', [
+        'type' => 'checkbox',
+        'id' => 'tool_automate_imports_selectall',
+        'aria-label' => get_string('canvasimportsselectall', 'tool_automate'),
+    ]));
+}
 
 foreach ($jobs as $job) {
     // Source: the remote URL if this was a URL import, otherwise the stored
@@ -232,24 +241,27 @@ foreach ($jobs as $job) {
         $action = html_writer::link($statusurl, get_string('canvasimportsviewstatus', 'tool_automate'));
     }
 
-    // Only finished jobs are deletable, so a delete never races an in-flight
-    // conversion that is still reading the package.
-    $deletable = $status === 'done' || $status === 'failed';
-    $checkbox = $deletable
-        ? html_writer::checkbox('jobids[]', (int) $job->id, false, '', [
-            'class' => 'tool_automate_importcb',
-            'aria-label' => get_string('canvasimportsselectrow', 'tool_automate'),
-        ])
-        : '';
-
-    $table->data[] = [
-        $checkbox,
+    $row = [
         $sourcecell,
         $kindlabel,
         $statuslabel,
         userdate((int) $job->timecreated),
         $action,
     ];
+    if ($candelete) {
+        // Only finished jobs are deletable, so a delete never races an in-flight
+        // conversion that is still reading the package.
+        $deletable = $status === 'done' || $status === 'failed';
+        $checkbox = $deletable
+            ? html_writer::checkbox('jobids[]', (int) $job->id, false, '', [
+                'class' => 'tool_automate_importcb',
+                'aria-label' => get_string('canvasimportsselectrow', 'tool_automate'),
+            ])
+            : '';
+        array_unshift($row, $checkbox);
+    }
+
+    $table->data[] = $row;
 }
 
 if ($capped) {
@@ -257,19 +269,21 @@ if ($capped) {
 }
 echo html_writer::table($table);
 
-echo html_writer::div(get_string('canvasimportsdeletehelp', 'tool_automate'), 'text-muted mb-2');
-echo html_writer::tag(
-    'button',
-    get_string('canvasimportsdeleteselected', 'tool_automate'),
-    [
-        'type' => 'submit',
-        'name' => 'delete',
-        'value' => '1',
-        'id' => 'tool_automate_imports_delete',
-        'class' => 'btn btn-danger',
-        'data-confirm' => get_string('canvasimportsdeleteconfirm', 'tool_automate'),
-    ]
-);
-echo html_writer::end_tag('form');
+if ($candelete) {
+    echo html_writer::div(get_string('canvasimportsdeletehelp', 'tool_automate'), 'text-muted mb-2');
+    echo html_writer::tag(
+        'button',
+        get_string('canvasimportsdeleteselected', 'tool_automate'),
+        [
+            'type' => 'submit',
+            'name' => 'delete',
+            'value' => '1',
+            'id' => 'tool_automate_imports_delete',
+            'class' => 'btn btn-danger',
+            'data-confirm' => get_string('canvasimportsdeleteconfirm', 'tool_automate'),
+        ]
+    );
+    echo html_writer::end_tag('form');
+}
 
 echo $OUTPUT->footer();
