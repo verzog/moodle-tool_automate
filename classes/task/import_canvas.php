@@ -38,6 +38,15 @@ use tool_automate\canvas_repository;
  */
 class import_canvas extends \core\task\adhoc_task {
     /**
+     * Human-readable name shown in Server > Tasks > Task logs.
+     *
+     * @return string
+     */
+    public function get_name(): string {
+        return get_string('taskimportcanvas', 'tool_automate');
+    }
+
+    /**
      * Create the Canvas Uplifter job for this selection.
      *
      * @return void

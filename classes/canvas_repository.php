@@ -92,6 +92,39 @@ class canvas_repository {
     }
 
     /**
+     * Whether the installed Canvas Uplifter exposes the job-listing API.
+     *
+     * launcher::list_jobs() was added in Canvas Uplifter 0.42.0; guard on it so
+     * the "Staged Canvas imports" page degrades gracefully (rather than
+     * fatalling) on a site whose Canvas Uplifter predates it.
+     *
+     * @return bool
+     */
+    public static function jobs_listable(): bool {
+        return self::is_available()
+            && method_exists(self::LAUNCHER, 'list_jobs');
+    }
+
+    /**
+     * List a user's Canvas Uplifter import jobs, newest first.
+     *
+     * Reads through Canvas Uplifter's public launcher facade, not its internal
+     * job_manager.
+     *
+     * @param int $userid User whose jobs to list.
+     * @param int $limit Maximum rows (0 = no limit).
+     * @return array Job records keyed by id, or [] when Canvas Uplifter is
+     *               absent or too old to list jobs.
+     */
+    public static function list_jobs(int $userid, int $limit = 0): array {
+        if (!self::jobs_listable()) {
+            return [];
+        }
+        $launcher = self::LAUNCHER;
+        return $launcher::list_jobs($userid, null, null, $limit);
+    }
+
+    /**
      * The configured source directory, with any trailing slash trimmed.
      *
      * @return string Absolute path, or '' when unset.

@@ -133,6 +133,11 @@ inline — throttled by that plugin's own task concurrency, so a directory or UR
 list of hundreds of courses cannot block the request or starve the cron worker
 pool. Watch progress in *Server > Tasks > Task logs*.
 
+Packages you staged with **Analyse for later** are listed under *Automate >
+Staged Canvas imports* once analysed. From there, open a package to review its
+conversion report and build the course (via Canvas Uplifter's status page), or
+jump straight to the course a completed build created.
+
 The whole feature sits behind an off-by-default *Allow bulk Canvas import*
 kill-switch. The same job can be driven from the command line:
 

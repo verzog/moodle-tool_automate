@@ -59,6 +59,14 @@ if ($hassiteconfig) {
             new moodle_url('/admin/tool/automate/canvas_import.php'),
             'tool/automate:manage'
         ));
+        // History of Canvas import jobs - in particular the packages staged for a
+        // later manual build via "Analyse & stage for later".
+        $ADMIN->add('tool_automate_category', new admin_externalpage(
+            'tool_automate_canvas_imports',
+            get_string('canvasimportstitle', 'tool_automate'),
+            new moodle_url('/admin/tool/automate/canvas_imports.php'),
+            'tool/automate:manage'
+        ));
     }
 
     // Site-level toggles. The destructive course_delete action is

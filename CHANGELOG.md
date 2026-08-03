@@ -4,6 +4,23 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.2.0] - 2026-08-03
+
+### Added
+- **Staged Canvas imports** list page (*Plugins > Admin tools > Automate > Staged
+  Canvas imports*), so the "Analyse & stage for later" bulk-import flow is
+  actually usable: it lists the Canvas import jobs you have queued (newest
+  first) with their type, status and source, and links each done analyse job to
+  its Canvas Uplifter status page — where the conversion report and the "Build
+  this course" action live — and each completed build job to the created course.
+  The bulk Canvas import page links to it. It reads the jobs through Canvas
+  Uplifter's `job_manager::list_jobs()` and degrades gracefully (a prompt to
+  update) on a Canvas Uplifter older than 0.42.0.
+
+### Changed
+- The bulk Canvas import adhoc task now shows a friendly name — **Bulk Canvas
+  import** — in *Server > Tasks > Task logs* instead of its class name.
+
 ## [1.1.0] - 2026-08-03
 
 ### Added
