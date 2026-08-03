@@ -200,6 +200,16 @@ echo html_writer::link($indexurl, get_string('back', 'tool_automate'), ['class' 
 // as authored, so a package from an untrusted source could carry active content.
 echo $OUTPUT->notification(get_string('canvastrustwarning', 'tool_automate'), 'warning');
 
+// A shortcut to the import history, where "Analyse & stage for later" packages
+// are reviewed and built.
+echo html_writer::div(
+    html_writer::link(
+        new moodle_url('/admin/tool/automate/canvas_imports.php'),
+        get_string('canvasimportslink', 'tool_automate')
+    ),
+    'mb-3'
+);
+
 // Site-level kill-switch. A dead end with a pointer to the setting.
 if (!$enabled) {
     echo $OUTPUT->notification(get_string('canvasdisabled', 'tool_automate'), 'warning');

@@ -167,6 +167,19 @@ final class canvas_repository_test extends \advanced_testcase {
     }
 
     /**
+     * Without tool_canvasuplifter installed, job listing reports unavailable and
+     * returns nothing rather than fataling on a missing class.
+     */
+    public function test_list_jobs_degrades_without_canvasuplifter(): void {
+        $this->resetAfterTest();
+        if (canvas_repository::is_available()) {
+            $this->markTestSkipped('tool_canvasuplifter is installed in this environment');
+        }
+        $this->assertFalse(canvas_repository::jobs_listable());
+        $this->assertSame([], canvas_repository::list_jobs(1));
+    }
+
+    /**
      * queue_file enqueues a tool_automate import_canvas adhoc task carrying the
      * file source and chosen options, acting as the queueing user. The task -
      * not the queue call - creates the Canvas Uplifter job, so the kill-switch
