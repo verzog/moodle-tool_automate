@@ -136,7 +136,10 @@ pool. Watch progress in *Server > Tasks > Task logs*.
 Packages you staged with **Analyse for later** are listed under *Automate >
 Staged Canvas imports* once analysed. From there, open a package to review its
 conversion report and build the course (via Canvas Uplifter's status page), or
-jump straight to the course a completed build created.
+jump straight to the course a completed build created. The page shows how much
+space your stored packages use and lets you **selectively delete** finished
+imports to reclaim it — deleting frees the stored `.imscc` package but keeps any
+course a build already created.
 
 The whole feature sits behind an off-by-default *Allow bulk Canvas import*
 kill-switch. The same job can be driven from the command line:

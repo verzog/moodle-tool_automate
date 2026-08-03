@@ -125,6 +125,41 @@ class canvas_repository {
     }
 
     /**
+     * Delete a Canvas import job and free its stored package, to reclaim space.
+     *
+     * Delegates to Canvas Uplifter's launcher, which frees the stored .imscc and
+     * removes the job (leaving any built course in place) and only if the job
+     * belongs to $userid. A no-op returning false when Canvas Uplifter is absent
+     * or too old to support deletion.
+     *
+     * @param int $jobid Job to delete.
+     * @param int $userid The job must belong to this user.
+     * @return bool True if a job was deleted.
+     */
+    public static function delete_job(int $jobid, int $userid): bool {
+        if (!self::is_available() || !method_exists(self::LAUNCHER, 'delete_job')) {
+            return false;
+        }
+        $launcher = self::LAUNCHER;
+        return (bool) $launcher::delete_job($jobid, $userid);
+    }
+
+    /**
+     * Total bytes of a user's stored Canvas packages, for a storage counter.
+     *
+     * @param int $userid User whose packages to total.
+     * @return int|null Bytes, or null when Canvas Uplifter is absent or too old
+     *                  to report storage usage.
+     */
+    public static function storage_used(int $userid): ?int {
+        if (!self::is_available() || !method_exists(self::LAUNCHER, 'package_storage_used')) {
+            return null;
+        }
+        $launcher = self::LAUNCHER;
+        return (int) $launcher::package_storage_used($userid);
+    }
+
+    /**
      * The configured source directory, with any trailing slash trimmed.
      *
      * @return string Absolute path, or '' when unset.

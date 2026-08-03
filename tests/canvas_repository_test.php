@@ -177,6 +177,9 @@ final class canvas_repository_test extends \advanced_testcase {
         }
         $this->assertFalse(canvas_repository::jobs_listable());
         $this->assertSame([], canvas_repository::list_jobs(1));
+        // Delete and storage-usage also degrade rather than fatal.
+        $this->assertFalse(canvas_repository::delete_job(1, 1));
+        $this->assertNull(canvas_repository::storage_used(1));
     }
 
     /**
