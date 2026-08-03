@@ -20,7 +20,8 @@
  * The main use is the "Analyse & stage for later" flow: each staged package is a
  * Canvas Uplifter analyse job, and this page links each done analyse job to its
  * Canvas Uplifter status page, where the conversion report and a "Build this
- * course" action live. Build jobs link to the created course.
+ * course" action live. Build jobs link to the created course. Finished imports
+ * can be selectively deleted to free the stored package storage.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
@@ -61,6 +62,29 @@ $PAGE->set_title(get_string('canvasimportstitle', 'tool_automate'));
 $PAGE->set_heading(get_string('canvasimportstitle', 'tool_automate'));
 $PAGE->add_body_class('tool_automate-page');
 
+// Deletion needs Canvas Uplifter 0.43.0+; on 0.42.x listing works but delete
+// does not, so hide the whole delete affordance rather than offer a no-op.
+$candelete = canvas_repository::deletion_supported();
+
+// Process a delete before any output, so a refresh cannot re-run it. Each ticked
+// job is deleted (its stored package freed) only if it belongs to this user; a
+// built course is left in place.
+if ($candelete && optional_param('delete', 0, PARAM_INT) && confirm_sesskey()) {
+    $ids = optional_param_array('jobids', [], PARAM_INT);
+    $deleted = 0;
+    foreach ($ids as $id) {
+        if (canvas_repository::delete_job((int) $id, (int) $USER->id)) {
+            $deleted++;
+        }
+    }
+    redirect(
+        $baseurl,
+        get_string('canvasimportsdeleted', 'tool_automate', $deleted),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
+}
+
 echo $OUTPUT->header();
 echo html_writer::link($importurl, get_string('canvasimportsback', 'tool_automate'), ['class' => 'tool_automate_back']);
 
@@ -71,6 +95,15 @@ if (!canvas_repository::jobs_listable()) {
     echo $OUTPUT->notification(get_string('canvasimportsunsupported', 'tool_automate'), 'warning');
     echo $OUTPUT->footer();
     exit;
+}
+
+// Storage counter: how much space this user's stored packages occupy.
+$storagebytes = canvas_repository::storage_used((int) $USER->id);
+if ($storagebytes !== null) {
+    echo html_writer::div(
+        get_string('canvasimportsstorage', 'tool_automate', display_size($storagebytes)),
+        'tool_automate_sourcedir mb-3'
+    );
 }
 
 // Only this admin's own jobs are shown: the Canvas Uplifter status/build page
@@ -123,6 +156,43 @@ $statuslabels = [
     'failed' => get_string('canvasjobstatus_failed', 'tool_automate'),
 ];
 
+// The delete affordance (form, checkbox column, button, tick-all script) is only
+// rendered when Canvas Uplifter can actually delete; otherwise this is a plain
+// read-only listing.
+if ($candelete) {
+    // A tick-all control and a confirm on delete. Inline AMD only reads values
+    // and toggles checkboxes - it never writes markup from user data.
+    $PAGE->requires->js_amd_inline(<<<'JS'
+require([], function() {
+    var selectall = document.getElementById('tool_automate_imports_selectall');
+    var form = document.getElementById('tool_automate_imports_form');
+    if (selectall && form) {
+        selectall.addEventListener('change', function() {
+            form.querySelectorAll('input.tool_automate_importcb').forEach(function(box) {
+                box.checked = selectall.checked;
+            });
+        });
+    }
+    var del = document.getElementById('tool_automate_imports_delete');
+    if (del && form) {
+        del.addEventListener('click', function(e) {
+            var any = form.querySelector('input.tool_automate_importcb:checked');
+            if (!any || !window.confirm(del.getAttribute('data-confirm'))) {
+                e.preventDefault();
+            }
+        });
+    }
+});
+JS);
+
+    echo html_writer::start_tag('form', [
+        'method' => 'post',
+        'action' => $baseurl->out(false),
+        'id' => 'tool_automate_imports_form',
+    ]);
+    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+}
+
 $table = new html_table();
 $table->attributes['class'] = 'generaltable';
 $table->head = [
@@ -132,6 +202,13 @@ $table->head = [
     get_string('canvasimportscolcreated', 'tool_automate'),
     get_string('canvasimportscolaction', 'tool_automate'),
 ];
+if ($candelete) {
+    array_unshift($table->head, html_writer::empty_tag('input', [
+        'type' => 'checkbox',
+        'id' => 'tool_automate_imports_selectall',
+        'aria-label' => get_string('canvasimportsselectall', 'tool_automate'),
+    ]));
+}
 
 foreach ($jobs as $job) {
     // Source: the remote URL if this was a URL import, otherwise the stored
@@ -164,17 +241,49 @@ foreach ($jobs as $job) {
         $action = html_writer::link($statusurl, get_string('canvasimportsviewstatus', 'tool_automate'));
     }
 
-    $table->data[] = [
+    $row = [
         $sourcecell,
         $kindlabel,
         $statuslabel,
         userdate((int) $job->timecreated),
         $action,
     ];
+    if ($candelete) {
+        // Only finished jobs are deletable, so a delete never races an in-flight
+        // conversion that is still reading the package.
+        $deletable = $status === 'done' || $status === 'failed';
+        $checkbox = $deletable
+            ? html_writer::checkbox('jobids[]', (int) $job->id, false, '', [
+                'class' => 'tool_automate_importcb',
+                'aria-label' => get_string('canvasimportsselectrow', 'tool_automate'),
+            ])
+            : '';
+        array_unshift($row, $checkbox);
+    }
+
+    $table->data[] = $row;
 }
 
 if ($capped) {
     echo $OUTPUT->notification(get_string('canvasimportscapped', 'tool_automate', $maxrows), 'info');
 }
 echo html_writer::table($table);
+
+if ($candelete) {
+    echo html_writer::div(get_string('canvasimportsdeletehelp', 'tool_automate'), 'text-muted mb-2');
+    echo html_writer::tag(
+        'button',
+        get_string('canvasimportsdeleteselected', 'tool_automate'),
+        [
+            'type' => 'submit',
+            'name' => 'delete',
+            'value' => '1',
+            'id' => 'tool_automate_imports_delete',
+            'class' => 'btn btn-danger',
+            'data-confirm' => get_string('canvasimportsdeleteconfirm', 'tool_automate'),
+        ]
+    );
+    echo html_writer::end_tag('form');
+}
+
 echo $OUTPUT->footer();

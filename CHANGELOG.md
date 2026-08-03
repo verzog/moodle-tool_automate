@@ -4,6 +4,19 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.3.0] - 2026-08-03
+
+### Added
+- The *Staged Canvas imports* page now shows a **package storage counter** at the
+  top (how much space this admin's stored `.imscc` packages occupy) and lets you
+  **selectively delete finished imports** to reclaim that space: tick the ones
+  you no longer need and *Delete selected*. Deleting frees the stored package
+  (the space-consuming part) and removes the history row; any course a build
+  already created is **kept**. Only finished (done/failed) imports are
+  deletable, so a delete never races an in-flight conversion. Requires Canvas
+  Uplifter 0.43.0 or later for the delete/storage helpers; older versions still
+  show the list without these controls.
+
 ## [1.2.0] - 2026-08-03
 
 ### Added
