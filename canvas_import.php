@@ -38,8 +38,7 @@ $settingsurl = new moodle_url('/admin/settings.php', ['section' => 'tool_automat
 
 // The feature is a soft integration: without tool_canvasuplifter installed the
 // admin-tree node is never added, so a direct hit lands here. Handle it with a
-// minimal page rather than fataling in admin_externalpage_setup on an unknown
-// page id.
+// minimal page rather than fataling in admin_externalpage_setup on an unknown id.
 if (!canvas_repository::is_available()) {
     require_login();
     require_capability('tool/automate:manage', $context);
@@ -67,12 +66,30 @@ $sourcedir = canvas_repository::get_source_dir();
 $dirok = $sourcedir !== '' && is_dir($sourcedir) && is_readable($sourcedir);
 
 // At most this many directory rows are rendered; the client-side box filters
-// them live. The URL list has no such cap, so a very large migration can lean
-// on it (or stage the directory in batches).
+// them live. The URL list has no cap, so a very large migration can lean on it
+// (or stage the directory in batches).
 $maxrows = 1000;
 
 $categories = $DB->get_records_menu('course_categories', null, 'name', 'id, name');
 $files = $dirok ? canvas_repository::list_packages($sourcedir) : [];
+
+// Build a token => basename map once from the directory listing (a single scan),
+// so resolving many ticked packages never rescans, stats and sorts the whole
+// directory per token - which would be quadratic work under a select-all.
+$tokenmap = [];
+foreach ($files as $basename) {
+    $tokenmap[canvas_repository::token($basename)] = $basename;
+}
+
+// Remembered field values, so a preview re-render keeps everything the admin
+// entered - including the ticked directory packages.
+$urlsvalue = optional_param('urls', '', PARAM_RAW);
+$selectedmode = canvas_repository::normalise_mode(optional_param('mode', canvas_repository::MODE_ANALYSE, PARAM_ALPHA));
+$selectedcategory = optional_param('categoryid', 0, PARAM_INT);
+$selectedquiz = optional_param('quizfrombank', 0, PARAM_INT) ? true : false;
+$grouping = optional_param('pagegrouping', '', PARAM_ALPHA);
+$selectedgrouping = in_array($grouping, ['book', 'lesson'], true) ? $grouping : '';
+$submittedtokens = optional_param_array('files', [], PARAM_ALPHANUM);
 
 $preview = null;
 $formerror = null;
@@ -91,50 +108,62 @@ if ($enabled) {
         }
 
         $dryrun = !$doqueue;
-        $mode = canvas_repository::normalise_mode(optional_param('mode', canvas_repository::MODE_ANALYSE, PARAM_ALPHA));
-        $categoryid = optional_param('categoryid', 0, PARAM_INT);
-        $quizfrombank = optional_param('quizfrombank', 0, PARAM_INT) ? true : false;
-        $pagegrouping = optional_param('pagegrouping', '', PARAM_ALPHA);
-        if (!in_array($pagegrouping, ['book', 'lesson'], true)) {
-            $pagegrouping = '';
+        $urls = canvas_repository::parse_urls($urlsvalue);
+
+        // Resolve ticked tokens to basenames through the single scan above.
+        $selectedbasenames = [];
+        foreach ($submittedtokens as $token) {
+            if (isset($tokenmap[$token])) {
+                $selectedbasenames[$token] = $tokenmap[$token];
+            }
         }
 
-        // Directory selections arrive as cleaning-proof tokens; URLs as raw text.
-        $tokens = optional_param_array('files', [], PARAM_ALPHANUM);
-        $urls = canvas_repository::parse_urls(optional_param('urls', '', PARAM_RAW));
+        $buildwanted = $selectedmode === canvas_repository::MODE_BUILD;
+        $cancreate = isset($categories[$selectedcategory])
+            && has_capability('moodle/course:create', context_coursecat::instance($selectedcategory));
 
-        if (empty($tokens) && empty($urls)) {
+        if (empty($selectedbasenames) && empty($urls)) {
             $formerror = get_string('canvasselectone', 'tool_automate');
-        } else if (!isset($categories[$categoryid])) {
+        } else if (!isset($categories[$selectedcategory])) {
             $formerror = get_string('canvasselectcategory', 'tool_automate');
-        } else if ($mode === canvas_repository::MODE_BUILD
-                && !has_capability('moodle/course:create', context_coursecat::instance($categoryid))) {
-            // Building creates courses in the target category, so require the
-            // same capability tool_canvasuplifter enforces for a build. Analyse
-            // creates nothing, so it is allowed without it.
+        } else if ($buildwanted && !$cancreate) {
+            // Building creates courses in the target category, so require the same
+            // capability Canvas Uplifter enforces for a build. Analyse creates
+            // nothing, so it is allowed without it.
             $formerror = get_string('canvasnobuildcap', 'tool_automate');
         } else {
-            $categoryname = $categories[$categoryid];
+            $categoryname = $categories[$selectedcategory];
             $queued = [];
             $skipped = [];
 
-            // Resolve each ticked directory token back to a real file on disk;
-            // drop anything that does not map inside the source directory.
-            foreach ($tokens as $token) {
-                $basename = canvas_repository::basename_for_token($token, $sourcedir);
-                $resolved = $basename === null ? null : canvas_repository::resolve($basename, $sourcedir);
+            foreach ($selectedbasenames as $basename) {
+                $resolved = canvas_repository::resolve($basename, $sourcedir);
                 if ($resolved === null) {
-                    $skipped[] = $basename ?? $token;
+                    $skipped[] = $basename;
                     continue;
                 }
                 if (!$dryrun) {
-                    canvas_repository::queue_file($resolved, $categoryid, $USER->id, $mode, $quizfrombank, $pagegrouping);
+                    canvas_repository::queue_file(
+                        $resolved,
+                        $selectedcategory,
+                        $USER->id,
+                        $selectedmode,
+                        $selectedquiz,
+                        $selectedgrouping
+                    );
                 }
                 $queued[] = $basename;
             }
             foreach ($urls as $url) {
                 if (!$dryrun) {
-                    canvas_repository::queue_url($url, $categoryid, $USER->id, $mode, $quizfrombank, $pagegrouping);
+                    canvas_repository::queue_url(
+                        $url,
+                        $selectedcategory,
+                        $USER->id,
+                        $selectedmode,
+                        $selectedquiz,
+                        $selectedgrouping
+                    );
                 }
                 $queued[] = $url;
             }
@@ -142,9 +171,9 @@ if ($enabled) {
             if (!$dryrun) {
                 // Redirect-after-POST so a refresh cannot re-queue everything.
                 $a = (object) [
-                    'count'    => count($queued),
+                    'count' => count($queued),
                     'category' => format_string($categoryname),
-                    'mode'     => get_string('canvasmode_' . $mode, 'tool_automate'),
+                    'mode' => get_string('canvasmode_' . $selectedmode, 'tool_automate'),
                 ];
                 $message = get_string('canvasqueued', 'tool_automate', $a);
                 if ($skipped) {
@@ -153,11 +182,12 @@ if ($enabled) {
                 redirect($baseurl, $message, null, \core\output\notification::NOTIFY_SUCCESS);
             }
 
+            // Dry-run preview: stash the outcome to render after the header.
             $preview = (object) [
-                'queued'   => $queued,
-                'skipped'  => $skipped,
+                'queued' => $queued,
+                'skipped' => $skipped,
                 'category' => $categoryname,
-                'mode'     => $mode,
+                'mode' => $selectedmode,
             ];
         }
     }
@@ -185,9 +215,9 @@ if ($formerror !== null) {
 if ($preview !== null) {
     if ($preview->queued) {
         $a = (object) [
-            'count'    => count($preview->queued),
+            'count' => count($preview->queued),
             'category' => format_string($preview->category),
-            'mode'     => get_string('canvasmode_' . $preview->mode, 'tool_automate'),
+            'mode' => get_string('canvasmode_' . $preview->mode, 'tool_automate'),
         ];
         echo $OUTPUT->notification(get_string('canvaswouldqueue', 'tool_automate', $a), 'info');
         echo html_writer::div(
@@ -196,10 +226,8 @@ if ($preview !== null) {
         );
     }
     if ($preview->skipped) {
-        echo $OUTPUT->notification(
-            get_string('canvasskipped', 'tool_automate', html_writer::alist(array_map('s', $preview->skipped))),
-            'warning'
-        );
+        $skippedlist = html_writer::alist(array_map('s', $preview->skipped));
+        echo $OUTPUT->notification(get_string('canvasskipped', 'tool_automate', $skippedlist), 'warning');
     }
 }
 
@@ -255,13 +283,12 @@ JS);
 echo html_writer::start_tag('form', [
     'method' => 'post',
     'action' => $baseurl->out(false),
-    'id'     => 'tool_automate_canvas_form',
-    'class'  => 'tool_automate_restore_form',
+    'id' => 'tool_automate_canvas_form',
+    'class' => 'tool_automate_restore_form',
 ]);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
 
-// --- Source 1: URL list ------------------------------------------------------
-$urlsvalue = optional_param('urls', '', PARAM_RAW);
+// Source 1: a pasted list of Canvas backup URLs.
 echo html_writer::start_div('tool_automate_field');
 echo html_writer::label(
     get_string('canvasurls', 'tool_automate'),
@@ -271,17 +298,17 @@ echo html_writer::label(
 );
 echo html_writer::div(get_string('canvasurls_help', 'tool_automate'), 'text-muted mb-1');
 echo html_writer::tag('textarea', s($urlsvalue), [
-    'name'        => 'urls',
-    'id'          => 'tool_automate_canvasurls',
-    'rows'        => 6,
-    'class'       => 'tool_automate_canvasurls',
-    'style'       => 'width:100%;font-family:monospace;',
+    'name' => 'urls',
+    'id' => 'tool_automate_canvasurls',
+    'rows' => 6,
+    'class' => 'tool_automate_canvasurls',
+    'style' => 'width:100%;font-family:monospace;',
     'placeholder' => "https://example.edu/exports/course-1.imscc\nhttps://example.edu/exports/course-2.imscc",
-    'spellcheck'  => 'false',
+    'spellcheck' => 'false',
 ]);
 echo html_writer::end_div();
 
-// --- Source 2: server directory ---------------------------------------------
+// Source 2: a server directory of packages.
 echo html_writer::tag('h3', get_string('canvasdirheading', 'tool_automate'), ['class' => 'mt-3']);
 if (!$dirok) {
     // Not a dead end: the URL list above still works without a directory.
@@ -299,14 +326,12 @@ if (!$dirok) {
     } else {
         $shownfiles = array_slice($files, 0, $maxrows);
 
-        // Live-filter box (client-side only, so it never disturbs the URL text
-        // area or the chosen options - there is no page reload).
         echo html_writer::start_div('tool_automate_searchrow mb-2');
         echo html_writer::empty_tag('input', [
-            'type'         => 'text',
-            'id'           => 'tool_automate_canvassearch',
-            'class'        => 'tool_automate_backupsearch',
-            'placeholder'  => get_string('canvasfilessearch', 'tool_automate'),
+            'type' => 'text',
+            'id' => 'tool_automate_canvassearch',
+            'class' => 'tool_automate_backupsearch',
+            'placeholder' => get_string('canvasfilessearch', 'tool_automate'),
             'autocomplete' => 'off',
         ]);
         echo html_writer::end_div();
@@ -316,14 +341,14 @@ if (!$dirok) {
             echo $OUTPUT->notification(get_string('canvasfilescapped', 'tool_automate', $a), 'info');
         }
 
+        $selectall = html_writer::empty_tag('input', [
+            'type' => 'checkbox',
+            'id' => 'tool_automate_canvas_selectall',
+            'aria-label' => get_string('canvasselectall', 'tool_automate'),
+        ]);
         $table = new html_table();
         $table->attributes['id'] = 'tool_automate_canvas_table';
         $table->attributes['class'] = 'generaltable tool_automate_backups_table';
-        $selectall = html_writer::empty_tag('input', [
-            'type'       => 'checkbox',
-            'id'         => 'tool_automate_canvas_selectall',
-            'aria-label' => get_string('canvasselectall', 'tool_automate'),
-        ]);
         $table->head = [
             $selectall,
             get_string('restorecolname', 'tool_automate'),
@@ -332,15 +357,16 @@ if (!$dirok) {
         ];
         foreach ($shownfiles as $basename) {
             $resolved = canvas_repository::resolve($basename, $sourcedir);
-            $readable = $resolved !== null && is_readable($resolved);
+            $readable = $resolved !== null;
             $token = canvas_repository::token($basename);
+            // Keep the admin's ticks across a preview re-render.
+            $checked = in_array($token, $submittedtokens, true);
 
-            $checkcell = new html_table_cell(
-                html_writer::checkbox('files[]', $token, false, '', [
-                    'class'      => 'tool_automate_backupcb',
-                    'aria-label' => get_string('canvasselectfile', 'tool_automate', $basename),
-                ])
-            );
+            $checkbox = html_writer::checkbox('files[]', $token, $checked, '', [
+                'class' => 'tool_automate_backupcb',
+                'aria-label' => get_string('canvasselectfile', 'tool_automate', $basename),
+            ]);
+            $checkcell = new html_table_cell($checkbox);
             $checkcell->attributes['class'] = 'tool_automate_backupcheck';
 
             $namecell = new html_table_cell(s($basename));
@@ -370,8 +396,7 @@ if (!$dirok) {
     }
 }
 
-// --- Target category ---------------------------------------------------------
-$selectedcategory = optional_param('categoryid', 0, PARAM_INT);
+// Target category.
 echo html_writer::start_div('tool_automate_field tool_automate_categoryfield mt-3');
 echo html_writer::label(
     get_string('canvastargetcategory', 'tool_automate'),
@@ -380,68 +405,70 @@ echo html_writer::label(
     ['class' => 'd-block fw-bold']
 );
 echo html_writer::select($categories, 'categoryid', $selectedcategory, ['0' => get_string('choosedots')], [
-    'id'    => 'menucategoryid',
+    'id' => 'menucategoryid',
     'class' => 'tool_automate_categoryselect',
 ]);
 echo html_writer::end_div();
 
-// --- Run mode ----------------------------------------------------------------
-$selectedmode = canvas_repository::normalise_mode(
-    optional_param('mode', canvas_repository::MODE_ANALYSE, PARAM_ALPHA)
-);
+// Run mode.
 echo html_writer::start_div('tool_automate_field mt-3');
 echo html_writer::div(get_string('canvasmode', 'tool_automate'), 'fw-bold');
 foreach ([canvas_repository::MODE_BUILD, canvas_repository::MODE_ANALYSE] as $modeoption) {
     $radioattrs = [
-        'type'  => 'radio',
-        'name'  => 'mode',
-        'id'    => 'tool_automate_mode_' . $modeoption,
+        'type' => 'radio',
+        'name' => 'mode',
+        'id' => 'tool_automate_mode_' . $modeoption,
         'value' => $modeoption,
         'class' => 'me-1',
     ];
     if ($modeoption === $selectedmode) {
         $radioattrs['checked'] = 'checked';
     }
+    $modelabel = get_string('canvasmode_' . $modeoption, 'tool_automate')
+        . ' - ' . get_string('canvasmode_' . $modeoption . '_desc', 'tool_automate');
     echo html_writer::div(
-        html_writer::empty_tag('input', $radioattrs) . html_writer::label(
-            get_string('canvasmode_' . $modeoption, 'tool_automate')
-                . ' - ' . get_string('canvasmode_' . $modeoption . '_desc', 'tool_automate'),
-            'tool_automate_mode_' . $modeoption,
-            false,
-            ['class' => 'ms-1']
-        ),
+        html_writer::empty_tag('input', $radioattrs)
+            . html_writer::label($modelabel, 'tool_automate_mode_' . $modeoption, false, ['class' => 'ms-1']),
         'tool_automate_moderow'
     );
 }
 echo html_writer::end_div();
 
-// --- Conversion options (passed through to Canvas Uplifter) ------------------
-$selectedgrouping = optional_param('pagegrouping', '', PARAM_ALPHA);
-if (!in_array($selectedgrouping, ['book', 'lesson'], true)) {
-    $selectedgrouping = '';
-}
+// Conversion options passed through to Canvas Uplifter.
 echo html_writer::start_div('tool_automate_field mt-3');
 echo html_writer::div(get_string('canvasoptions', 'tool_automate'), 'fw-bold');
+$quizlabel = ' ' . get_string('canvasquizfrombank', 'tool_automate');
 echo html_writer::div(
-    html_writer::checkbox('quizfrombank', 1, (bool) optional_param('quizfrombank', 0, PARAM_INT),
-        ' ' . get_string('canvasquizfrombank', 'tool_automate'), ['id' => 'tool_automate_quizfrombank'])
+    html_writer::checkbox('quizfrombank', 1, $selectedquiz, $quizlabel, ['id' => 'tool_automate_quizfrombank'])
 );
 echo html_writer::start_div('mt-2');
-echo html_writer::label(get_string('canvaspagegrouping', 'tool_automate'), 'menupagegrouping', true, ['class' => 'me-2']);
-echo html_writer::select([
-    ''       => get_string('canvaspagegrouping_none', 'tool_automate'),
-    'book'   => get_string('canvaspagegrouping_book', 'tool_automate'),
+echo html_writer::label(
+    get_string('canvaspagegrouping', 'tool_automate'),
+    'menupagegrouping',
+    true,
+    ['class' => 'me-2']
+);
+$groupingoptions = [
+    '' => get_string('canvaspagegrouping_none', 'tool_automate'),
+    'book' => get_string('canvaspagegrouping_book', 'tool_automate'),
     'lesson' => get_string('canvaspagegrouping_lesson', 'tool_automate'),
-], 'pagegrouping', $selectedgrouping, false, ['id' => 'menupagegrouping']);
+];
+echo html_writer::select($groupingoptions, 'pagegrouping', $selectedgrouping, false, ['id' => 'menupagegrouping']);
 echo html_writer::end_div();
 echo html_writer::end_div();
 
-// --- Actions -----------------------------------------------------------------
+// Actions.
 echo html_writer::start_div('tool_automate_restore_actions mt-3');
-echo html_writer::tag('button', get_string('canvaspreview', 'tool_automate'),
-    ['type' => 'submit', 'name' => 'preview', 'value' => '1', 'class' => 'btn btn-secondary']);
-echo html_writer::tag('button', get_string('canvasqueue', 'tool_automate'),
-    ['type' => 'submit', 'name' => 'queue', 'value' => '1', 'class' => 'btn btn-primary']);
+echo html_writer::tag(
+    'button',
+    get_string('canvaspreview', 'tool_automate'),
+    ['type' => 'submit', 'name' => 'preview', 'value' => '1', 'class' => 'btn btn-secondary']
+);
+echo html_writer::tag(
+    'button',
+    get_string('canvasqueue', 'tool_automate'),
+    ['type' => 'submit', 'name' => 'queue', 'value' => '1', 'class' => 'btn btn-primary']
+);
 echo html_writer::link($indexurl, get_string('cancel'), ['class' => 'btn btn-link']);
 echo html_writer::end_div();
 

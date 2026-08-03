@@ -34,6 +34,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
  */
 #[CoversClass(canvas_repository::class)]
 final class canvas_repository_test extends \advanced_testcase {
+    /** Class name of the adhoc import task queue_* enqueues. */
+    private const IMPORT_TASK = '\\tool_automate\\task\\import_canvas';
+
     /**
      * Create a throwaway directory with the given filenames in it.
      *
@@ -161,5 +164,59 @@ final class canvas_repository_test extends \advanced_testcase {
         $this->assertSame(canvas_repository::MODE_ANALYSE, canvas_repository::normalise_mode('analyse'));
         $this->assertSame(canvas_repository::MODE_ANALYSE, canvas_repository::normalise_mode('wat'));
         $this->assertSame(canvas_repository::MODE_ANALYSE, canvas_repository::normalise_mode(''));
+    }
+
+    /**
+     * queue_file enqueues a tool_automate import_canvas adhoc task carrying the
+     * file source and chosen options, acting as the queueing user. The task -
+     * not the queue call - creates the Canvas Uplifter job, so the kill-switch
+     * can still be re-checked at run time.
+     */
+    public function test_queue_file_enqueues_import_task(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $dir = $this->make_dir_with(['good.imscc']);
+        $path = realpath($dir . '/good.imscc');
+        $user = $this->getDataGenerator()->create_user();
+        $category = $this->getDataGenerator()->create_category();
+
+        canvas_repository::queue_file(
+            $path,
+            (int) $category->id,
+            (int) $user->id,
+            canvas_repository::MODE_BUILD,
+            true,
+            'book'
+        );
+
+        $record = $DB->get_record('task_adhoc', ['classname' => self::IMPORT_TASK], '*', MUST_EXIST);
+        $custom = (object) json_decode($record->customdata);
+        $this->assertSame(canvas_repository::SOURCE_FILE, $custom->sourcetype);
+        $this->assertSame($path, $custom->source);
+        $this->assertSame((int) $category->id, (int) $custom->categoryid);
+        $this->assertSame((int) $user->id, (int) $custom->userid);
+        $this->assertSame(canvas_repository::MODE_BUILD, $custom->mode);
+        $this->assertEquals(1, (int) $custom->quizfrombank);
+        $this->assertSame('book', $custom->pagegrouping);
+        $this->assertEquals((int) $user->id, (int) $record->userid);
+    }
+
+    /**
+     * queue_url enqueues an import_canvas task carrying the URL source, and an
+     * unrecognised mode is coerced to the safe read-only analyse.
+     */
+    public function test_queue_url_enqueues_import_task(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user();
+        $category = $this->getDataGenerator()->create_category();
+
+        canvas_repository::queue_url('https://x.edu/c.imscc', (int) $category->id, (int) $user->id, 'wat');
+
+        $record = $DB->get_record('task_adhoc', ['classname' => self::IMPORT_TASK], '*', MUST_EXIST);
+        $custom = (object) json_decode($record->customdata);
+        $this->assertSame(canvas_repository::SOURCE_URL, $custom->sourcetype);
+        $this->assertSame('https://x.edu/c.imscc', $custom->source);
+        $this->assertSame(canvas_repository::MODE_ANALYSE, $custom->mode);
     }
 }

@@ -50,7 +50,7 @@ namespace tool_automate;
  */
 class canvas_repository {
     /** Canvas Uplifter's launcher facade - the supported programmatic entry point. */
-    public const LAUNCHER = '\\tool_canvasuplifter\\local\\launcher';
+    public const LAUNCHER = '\\tool_canvasuplifter\\launcher';
 
     /** File extensions (lower-case, including the dot) a Canvas package may use. */
     public const EXTENSIONS = ['.imscc', '.zip'];
@@ -59,6 +59,11 @@ class canvas_repository {
     public const MODE_BUILD = 'build';
     /** Run mode: fetch and analyse for later manual build. Matches KIND_ANALYSE. */
     public const MODE_ANALYSE = 'analyse';
+
+    /** Package source: an absolute path to a file on the server's disk. */
+    public const SOURCE_FILE = 'file';
+    /** Package source: a remote http(s) URL Canvas Uplifter will fetch. */
+    public const SOURCE_URL = 'url';
 
     /**
      * Is the Canvas Uplifter plugin installed, so we can drive it at all?
@@ -149,11 +154,13 @@ class canvas_repository {
      *
      * Guards against path traversal: the name must be a bare package basename
      * and the resolved real path must sit inside the real source directory.
-     * Returns null for anything that fails those checks or does not exist.
+     * Returns null for anything that fails those checks, does not exist, or is
+     * not readable by this process - queueing a package the importer cannot
+     * open would only fail later, so it is rejected here.
      *
      * @param string $basename
      * @param string|null $dir Directory to resolve against; defaults to config.
-     * @return string|null Absolute path, or null if invalid / missing.
+     * @return string|null Absolute path, or null if invalid / missing / unreadable.
      */
     public static function resolve(string $basename, ?string $dir = null): ?string {
         $dir = $dir ?? self::get_source_dir();
@@ -162,7 +169,7 @@ class canvas_repository {
         }
         $realdir = realpath($dir);
         $real = realpath($dir . DIRECTORY_SEPARATOR . $basename);
-        if ($realdir === false || $real === false || !is_file($real)) {
+        if ($realdir === false || $real === false || !is_file($real) || !is_readable($real)) {
             return null;
         }
         // Belt and braces on top of the basename check: the resolved file must
@@ -226,7 +233,7 @@ class canvas_repository {
             if (!preg_match('#^https?://#i', $line)) {
                 continue;
             }
-            // clean_param(PARAM_URL) returns '' for anything not a valid URL.
+            // The PARAM_URL cleaner returns '' for anything not a valid URL.
             $clean = clean_param($line, PARAM_URL);
             if ($clean !== '' && !in_array($clean, $urls, true)) {
                 $urls[] = $clean;
@@ -246,7 +253,7 @@ class canvas_repository {
     }
 
     /**
-     * Queue a Canvas Uplifter job for a package file on the server's disk.
+     * Queue a background import of a package file on the server's disk.
      *
      * @param string $filepath Absolute path to a resolved .imscc/.zip file.
      * @param int $categoryid Target category for the new course.
@@ -254,7 +261,7 @@ class canvas_repository {
      * @param string $mode self::MODE_BUILD or self::MODE_ANALYSE.
      * @param bool $quizfrombank Also build a quiz from each standalone question bank.
      * @param string $pagegrouping '' | 'book' | 'lesson' page-combining option.
-     * @return int The Canvas Uplifter job id (poll it for progress/result).
+     * @return void
      */
     public static function queue_file(
         string $filepath,
@@ -263,24 +270,12 @@ class canvas_repository {
         string $mode,
         bool $quizfrombank = false,
         string $pagegrouping = ''
-    ): int {
-        $launcher = self::LAUNCHER;
-        return (int) $launcher::queue_from_path(
-            $userid,
-            $categoryid,
-            self::normalise_mode($mode),
-            $filepath,
-            '',
-            $quizfrombank,
-            $pagegrouping
-        );
+    ): void {
+        self::queue(self::SOURCE_FILE, $filepath, $categoryid, $userid, $mode, $quizfrombank, $pagegrouping);
     }
 
     /**
-     * Queue a Canvas Uplifter job for a package identified by a remote URL.
-     *
-     * The download is deferred to Canvas Uplifter's task (SSRF-safe), so this is
-     * cheap even for a long list - no package is fetched at queue time.
+     * Queue a background import of a package identified by a remote URL.
      *
      * @param string $url A validated http(s) package URL.
      * @param int $categoryid Target category for the new course.
@@ -288,7 +283,7 @@ class canvas_repository {
      * @param string $mode self::MODE_BUILD or self::MODE_ANALYSE.
      * @param bool $quizfrombank Also build a quiz from each standalone question bank.
      * @param string $pagegrouping '' | 'book' | 'lesson' page-combining option.
-     * @return int The Canvas Uplifter job id (poll it for progress/result).
+     * @return void
      */
     public static function queue_url(
         string $url,
@@ -297,15 +292,51 @@ class canvas_repository {
         string $mode,
         bool $quizfrombank = false,
         string $pagegrouping = ''
-    ): int {
-        $launcher = self::LAUNCHER;
-        return (int) $launcher::queue_from_url(
-            $userid,
-            $categoryid,
-            self::normalise_mode($mode),
-            $url,
-            $quizfrombank,
-            $pagegrouping
-        );
+    ): void {
+        self::queue(self::SOURCE_URL, $url, $categoryid, $userid, $mode, $quizfrombank, $pagegrouping);
+    }
+
+    /**
+     * Queue one import as a tool_automate adhoc task.
+     *
+     * The task - not this method - creates the Canvas Uplifter job, and it
+     * re-checks the kill-switch (and that Canvas Uplifter is still installed) at
+     * run time. So an admin who disables "Allow bulk Canvas import" after
+     * queueing the wrong batch stops the Canvas Uplifter jobs from ever being
+     * created, mirroring how the bulk-restore kill-switch drains its queue.
+     * Deferring also keeps a large directory or URL list off the web request.
+     *
+     * @param string $sourcetype self::SOURCE_FILE or self::SOURCE_URL.
+     * @param string $source Absolute file path or package URL.
+     * @param int $categoryid Target category for the new course.
+     * @param int $userid User the job runs as.
+     * @param string $mode self::MODE_BUILD or self::MODE_ANALYSE.
+     * @param bool $quizfrombank Also build a quiz from each standalone question bank.
+     * @param string $pagegrouping '' | 'book' | 'lesson' page-combining option.
+     * @return void
+     */
+    protected static function queue(
+        string $sourcetype,
+        string $source,
+        int $categoryid,
+        int $userid,
+        string $mode,
+        bool $quizfrombank,
+        string $pagegrouping
+    ): void {
+        $task = new task\import_canvas();
+        $task->set_custom_data([
+            'sourcetype' => $sourcetype,
+            'source' => $source,
+            'categoryid' => $categoryid,
+            'userid' => $userid,
+            'mode' => self::normalise_mode($mode),
+            'quizfrombank' => $quizfrombank ? 1 : 0,
+            'pagegrouping' => $pagegrouping,
+        ]);
+        // Run as the queueing admin so cron sets up $USER and the created
+        // course's attribution is sensible.
+        $task->set_userid($userid);
+        \core\task\manager::queue_adhoc_task($task);
     }
 }
