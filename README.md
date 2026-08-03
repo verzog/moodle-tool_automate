@@ -101,6 +101,46 @@ kill-switch, and the background restores are throttled by a *Restore
 concurrency* setting so a directory of large backups can't starve the cron
 worker pool.
 
+## Bulk Canvas import (large-scale Canvas migrations)
+
+For sites moving many courses off Canvas, the plugin can bulk-import Canvas
+Common Cartridge (`.imscc`) exports by driving the sibling
+[`tool_canvasuplifter`](https://github.com/verzog/moodle-tool_canvasuplifter)
+("Canvas Uplifter") plugin. This is a **soft integration**: the feature only
+appears when Canvas Uplifter is installed, and `tool_automate` still works
+standalone without it.
+
+Use *Plugins > Admin tools > Automate > Bulk Canvas import* (or the
+`cli/import_canvas.php` CLI). Packages come from either or both of:
+
+- a **pasted list of Canvas backup download URLs**, one per line — each is
+  fetched by Canvas Uplifter in the background, through Moodle's SSRF-aware cURL
+  security layer; and
+- a **server directory of `.imscc`/`.zip` packages** (a staging area), pointed
+  at by the *Bulk Canvas import source directory* setting.
+
+Choose what happens to each package:
+
+- **Build courses now** — a new course is created from each package
+  automatically (this requires permission to create courses in the target
+  category); or
+- **Analyse for later** — each package is fetched and a conversion report
+  produced, so an administrator can review it and build the course manually from
+  Canvas Uplifter when ready.
+
+Every package becomes a background Canvas Uplifter job — nothing is converted
+inline — throttled by that plugin's own task concurrency, so a directory or URL
+list of hundreds of courses cannot block the request or starve the cron worker
+pool. Watch progress in *Server > Tasks > Task logs*.
+
+The whole feature sits behind an off-by-default *Allow bulk Canvas import*
+kill-switch. The same job can be driven from the command line:
+
+    $ php admin/tool/automate/cli/import_canvas.php --urls=/data/urls.txt --category=5 --mode=build --execute
+
+Run with `--help` for all options, or `--list` to inspect the sources. Requires
+Canvas Uplifter 0.40.0 or later.
+
 ## Safety
 
 * **Bounded, named actions only** — there is no raw-SQL or arbitrary-code action.

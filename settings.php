@@ -50,6 +50,17 @@ if ($hassiteconfig) {
         'tool/automate:manage'
     ));
 
+    // Bulk Canvas import, shown only when the sibling tool_canvasuplifter plugin
+    // is installed (this is a soft integration - we do not force the dependency).
+    if (\tool_automate\canvas_repository::is_available()) {
+        $ADMIN->add('tool_automate_category', new admin_externalpage(
+            'tool_automate_canvas',
+            get_string('canvastitle', 'tool_automate'),
+            new moodle_url('/admin/tool/automate/canvas_import.php'),
+            'tool/automate:manage'
+        ));
+    }
+
     // Site-level toggles. The destructive course_delete action is
     // off by default - a site admin has to opt in here before it
     // shows up in the action picker or will run on an existing rule.
@@ -103,5 +114,34 @@ if ($hassiteconfig) {
         2,
         PARAM_INT
     ));
+
+    // Bulk Canvas import settings, shown only when tool_canvasuplifter is
+    // installed. Off by default - like bulk restore, it creates courses in
+    // bulk, so a site admin opts in here first. Package fetching, conversion and
+    // build concurrency are all handled by tool_canvasuplifter, so there is no
+    // separate concurrency setting here.
+    if (\tool_automate\canvas_repository::is_available()) {
+        $settings->add(new admin_setting_heading(
+            'tool_automate/canvas_heading',
+            get_string('setting_canvas_heading', 'tool_automate'),
+            get_string('setting_canvas_heading_desc', 'tool_automate')
+        ));
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_automate/allow_bulk_canvas',
+            get_string('setting_allow_bulk_canvas', 'tool_automate'),
+            get_string('setting_allow_bulk_canvas_desc', 'tool_automate'),
+            0
+        ));
+        // Server directory the import page / CLI reads .imscc packages from.
+        // Reuses the same readable/not-readable badge setting as bulk restore.
+        $settings->add(new \tool_automate\admin\setting_restore_source_dir(
+            'tool_automate/canvas_source_dir',
+            get_string('setting_canvas_source_dir', 'tool_automate'),
+            get_string('setting_canvas_source_dir_desc', 'tool_automate'),
+            '',
+            PARAM_RAW_TRIMMED
+        ));
+    }
+
     $ADMIN->add('tool_automate_category', $settings);
 }
