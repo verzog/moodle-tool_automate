@@ -36,11 +36,15 @@ Less clicking. Fewer mistakes. Hours back every week.
 
 Free and open source (GPL v3). Built for Moodle 5.0–5.2.
 
-🔗 github.com/verzog/moodle-tool_automate
+Link in the comments. 👇
 
-What's the one Moodle admin task you'd automate first? 👇
+What's the one Moodle admin task you'd automate first?
 
 #Moodle #EdTech #LMS #eLearning #Automation #MoodleAdmin #OpenSource #HigherEd
+
+## First comment (post this yourself right after publishing)
+
+Grab it here — free and open source: github.com/verzog/moodle-tool_automate
 
 ## Why it's structured this way
 
@@ -55,3 +59,8 @@ What's the one Moodle admin task you'd automate first? 👇
 - **Engagement CTA.** The closing question invites comments; comments are what
   drive LinkedIn reach more than likes or reposts.
 - **3–8 focused hashtags.** Enough for discovery without looking spammy.
+- **Link in the first comment, not the body.** LinkedIn tends to suppress reach
+  on posts with outbound links in the body, and URLs there aren't clickable
+  anyway. Keeping the post link-free and dropping the URL in the first comment
+  (posted yourself, immediately after publishing) preserves reach while still
+  giving readers one tap to the repo.
