@@ -4,6 +4,15 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.3.1] - 2026-09-07
+
+### Changed
+- Maintenance release with no functional changes: version bump only. Plugin
+  behaviour is identical to 1.3.0; the release is re-issued solely to obtain a
+  fresh marketplace automated-test run after the 1.3.0 upload's `phplint` and
+  `validate` checks reported "Log file not found" (a checker-side log-capture
+  issue, not a code fault).
+
 ## [1.3.0] - 2026-08-03
 
 ### Added
