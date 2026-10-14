@@ -12,6 +12,10 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
   Canvas Uplifter (`tool_canvasuplifter`), so a site that has not switched yet keeps
   working. The "Staged Canvas imports" links open the status page of whichever plugin
   is installed. Messages and documentation use the new name.
+- Bulk Canvas import now also requires the importer's own "use" capability
+  (`tool/courseuplift:use`, or `tool/canvasuplifter:use`) on top of
+  `tool/automate:manage`, for its pages and when the queued import runs, so a user
+  denied the importer can't reach it through Automate.
 
 ## [1.3.1] - 2026-09-07
 
