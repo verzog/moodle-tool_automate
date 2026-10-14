@@ -15,9 +15,9 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * CLI: bulk import Canvas packages via tool_canvasuplifter.
+ * CLI: bulk import Canvas packages via tool_courseuplift.
  *
- * Queues a Canvas Uplifter analyse or build job for each .imscc package found
+ * Queues a CourseUplift analyse or build job for each .imscc package found
  * in a directory and/or listed (one per line) in a URL file. Defaults to a dry
  * run; pass --execute to actually queue the jobs.
  *
@@ -62,10 +62,10 @@ if ($unrecognised) {
 }
 
 if ($options['help']) {
-    echo "Bulk import Canvas Common Cartridge (.imscc) packages via tool_canvasuplifter.
+    echo "Bulk import Canvas Common Cartridge (.imscc) packages via tool_courseuplift.
 
 Each package (from a directory and/or a URL list) is queued as a background
-Canvas Uplifter job. In 'build' mode a new course is created automatically; in
+CourseUplift job. In 'build' mode a new course is created automatically; in
 'analyse' mode the package is fetched and a conversion report produced for a
 later manual build. Existing courses are never overwritten.
 
@@ -80,7 +80,7 @@ Options:
   -m, --mode=MODE         'build' (create courses now) or 'analyse' (fetch and
                           report for later manual build). Default: analyse.
       --quizfrombank      Also build a runnable quiz from each standalone question
-                          bank (passed through to Canvas Uplifter).
+                          bank (passed through to CourseUplift).
       --pagegrouping=X    Combine consecutive pages: 'book', 'lesson', or '' (off).
   -e, --execute           Queue the jobs. Without this flag the script only
                           reports what it would do (dry run).
@@ -98,10 +98,10 @@ Examples:
     exit(0);
 }
 
-// The sibling tool_canvasuplifter plugin does the actual conversion; without it
+// The sibling tool_courseuplift plugin does the actual conversion; without it
 // there is nothing to drive.
 if (!canvas_repository::is_available()) {
-    cli_error("tool_canvasuplifter is not installed. Install the Canvas Uplifter plugin to use bulk Canvas import.");
+    cli_error("CourseUplift (tool_courseuplift) is not installed. Install it to use bulk Canvas import.");
 }
 
 // Honour the same site-level kill-switch as the web UI.

@@ -25,7 +25,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
  * the web page and the CLI rely on - in particular that only bare .imscc/.zip
  * basenames inside the configured directory ever resolve, and that only
  * well-formed http(s) URLs survive parsing. The queueing methods delegate to
- * tool_canvasuplifter's launcher, which is not installed in this plugin's CI,
+ * tool_courseuplift's launcher, which is not installed in this plugin's CI,
  * so they are exercised there rather than here.
  *
  * @package    tool_automate
@@ -167,14 +167,18 @@ final class canvas_repository_test extends \advanced_testcase {
     }
 
     /**
-     * Without tool_canvasuplifter installed, job listing reports unavailable and
-     * returns nothing rather than fataling on a missing class.
+     * Without CourseUplift (or Canvas Uplifter) installed, job listing reports unavailable
+     * and returns nothing rather than fataling on a missing class.
+     *
+     * @return void
      */
-    public function test_list_jobs_degrades_without_canvasuplifter(): void {
+    public function test_list_jobs_degrades_without_importer(): void {
         $this->resetAfterTest();
         if (canvas_repository::is_available()) {
-            $this->markTestSkipped('tool_canvasuplifter is installed in this environment');
+            $this->markTestSkipped('An importer plugin is installed in this environment');
         }
+        $this->assertNull(canvas_repository::component());
+        $this->assertNull(canvas_repository::launcher());
         $this->assertFalse(canvas_repository::jobs_listable());
         $this->assertSame([], canvas_repository::list_jobs(1));
         // Delete and storage-usage also degrade rather than fatal.
@@ -183,9 +187,31 @@ final class canvas_repository_test extends \advanced_testcase {
     }
 
     /**
+     * The importer is found under its current name first, then its former one, and the
+     * job status link points into whichever plugin is installed.
+     *
+     * @return void
+     */
+    public function test_importer_lookup_prefers_courseuplift(): void {
+        $this->assertSame(
+            ['tool_courseuplift', 'tool_canvasuplifter'],
+            array_keys(canvas_repository::LAUNCHERS)
+        );
+        $component = canvas_repository::component();
+        $name = substr($component ?? 'tool_courseuplift', strlen('tool_'));
+        $this->assertStringContainsString(
+            '/admin/tool/' . $name . '/status.php?jobid=7',
+            canvas_repository::status_url(7)->out(false)
+        );
+        if ($component !== null) {
+            $this->assertSame(canvas_repository::LAUNCHERS[$component], canvas_repository::launcher());
+        }
+    }
+
+    /**
      * queue_file enqueues a tool_automate import_canvas adhoc task carrying the
      * file source and chosen options, acting as the queueing user. The task -
-     * not the queue call - creates the Canvas Uplifter job, so the kill-switch
+     * not the queue call - creates the CourseUplift job, so the kill-switch
      * can still be re-checked at run time.
      */
     public function test_queue_file_enqueues_import_task(): void {

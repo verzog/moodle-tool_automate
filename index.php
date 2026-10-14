@@ -103,7 +103,7 @@ echo $OUTPUT->single_button(
     'get'
 );
 // Bulk Canvas import is a soft integration - only offer it when the sibling
-// tool_canvasuplifter plugin is installed to drive the conversion.
+// tool_courseuplift plugin is installed to drive the conversion.
 if (\tool_automate\canvas_repository::is_available()) {
     echo $OUTPUT->single_button(
         new moodle_url('/admin/tool/automate/canvas_import.php'),

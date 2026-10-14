@@ -17,30 +17,30 @@
 namespace tool_automate;
 
 /**
- * Bulk import of Canvas Common Cartridge (.imscc) packages, via tool_canvasuplifter.
+ * Bulk import of Canvas Common Cartridge (.imscc) packages, via tool_courseuplift.
  *
  * This is the Canvas counterpart to {@see restore_repository}: instead of
- * restoring Moodle .mbz backups, it drives the sibling Canvas Uplifter plugin
+ * restoring Moodle .mbz backups, it drives the sibling CourseUplift plugin
  * to convert many Canvas exports into Moodle courses at once - the workhorse
  * behind a large-scale Canvas-to-Moodle migration.
  *
  * Two package sources are supported, matching the two problems a migration hits:
  *  - a server directory of .imscc/.zip files (bulk upload from a staging area), and
  *  - a pasted list of Canvas backup download URLs (the packages are fetched,
- *    SSRF-safely, inside Canvas Uplifter's own background task).
+ *    SSRF-safely, inside CourseUplift's own background task).
  *
  * Two run modes decide what happens to each package:
- *  - "build" queues a Canvas Uplifter build job, so a course is created
+ *  - "build" queues a CourseUplift build job, so a course is created
  *    automatically; and
  *  - "analyse" queues an analyse-only job, so the package is fetched and a
  *    conversion report produced for later manual review and build.
  *
- * Nothing is done inline: every package becomes a background Canvas Uplifter
+ * Nothing is done inline: every package becomes a background CourseUplift
  * job, throttled by that plugin's own task concurrency, so a directory (or URL
  * list) of hundreds of courses cannot block the request or the cron worker pool.
  *
  * The whole feature is a soft integration - tool_automate does not declare a
- * hard dependency on tool_canvasuplifter, so it still installs on sites that do
+ * hard dependency on tool_courseuplift, so it still installs on sites that do
  * not want Canvas import. {@see self::is_available()} gates the page, CLI and
  * settings on the sibling plugin actually being present.
  *
@@ -49,8 +49,15 @@ namespace tool_automate;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class canvas_repository {
-    /** Canvas Uplifter's launcher facade - the supported programmatic entry point. */
-    public const LAUNCHER = '\\tool_canvasuplifter\\launcher';
+    /**
+     * The importer's launcher facade (its supported programmatic entry point), keyed by
+     * component: CourseUplift first, then Canvas Uplifter, its name before 1.0.0, so a
+     * site still running the old plugin keeps working.
+     */
+    public const LAUNCHERS = [
+        'tool_courseuplift' => '\\tool_courseuplift\\launcher',
+        'tool_canvasuplifter' => '\\tool_canvasuplifter\\launcher',
+    ];
 
     /** File extensions (lower-case, including the dot) a Canvas package may use. */
     public const EXTENSIONS = ['.imscc', '.zip'];
@@ -62,20 +69,56 @@ class canvas_repository {
 
     /** Package source: an absolute path to a file on the server's disk. */
     public const SOURCE_FILE = 'file';
-    /** Package source: a remote http(s) URL Canvas Uplifter will fetch. */
+    /** Package source: a remote http(s) URL CourseUplift will fetch. */
     public const SOURCE_URL = 'url';
 
     /**
-     * Is the Canvas Uplifter plugin installed, so we can drive it at all?
+     * Is the CourseUplift plugin installed, so we can drive it at all?
      *
      * Checked before the import page, CLI and settings expose anything, so the
-     * feature simply does not appear on a site without tool_canvasuplifter,
+     * feature simply does not appear on a site without tool_courseuplift,
      * rather than fatalling on a missing class.
      *
      * @return bool
      */
     public static function is_available(): bool {
-        return class_exists(self::LAUNCHER);
+        return self::component() !== null;
+    }
+
+    /**
+     * The installed importer's component: tool_courseuplift, or tool_courseuplift on a
+     * site still running it under its former name.
+     *
+     * @return string|null The component, or null when neither is installed.
+     */
+    public static function component(): ?string {
+        foreach (self::LAUNCHERS as $component => $class) {
+            if (class_exists($class)) {
+                return $component;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The installed importer's launcher class.
+     *
+     * @return string|null Fully qualified class name, or null when neither is installed.
+     */
+    public static function launcher(): ?string {
+        $component = self::component();
+        return $component === null ? null : self::LAUNCHERS[$component];
+    }
+
+    /**
+     * The importer's status page for a job, where its report and build button live.
+     *
+     * @param int $jobid The job id.
+     * @return \moodle_url
+     */
+    public static function status_url(int $jobid): \moodle_url {
+        $name = substr(self::component() ?? 'tool_courseuplift', strlen('tool_'));
+        return new \moodle_url('/admin/tool/' . $name . '/status.php', ['jobid' => $jobid]);
     }
 
     /**
@@ -92,44 +135,44 @@ class canvas_repository {
     }
 
     /**
-     * Whether the installed Canvas Uplifter exposes the job-listing API.
+     * Whether the installed CourseUplift exposes the job-listing API.
      *
      * launcher::list_jobs() was added in Canvas Uplifter 0.42.0; guard on it so
      * the "Staged Canvas imports" page degrades gracefully (rather than
-     * fatalling) on a site whose Canvas Uplifter predates it.
+     * fatalling) on a site whose CourseUplift predates it.
      *
      * @return bool
      */
     public static function jobs_listable(): bool {
         return self::is_available()
-            && method_exists(self::LAUNCHER, 'list_jobs');
+            && method_exists(self::launcher(), 'list_jobs');
     }
 
     /**
-     * List a user's Canvas Uplifter import jobs, newest first.
+     * List a user's CourseUplift import jobs, newest first.
      *
-     * Reads through Canvas Uplifter's public launcher facade, not its internal
+     * Reads through CourseUplift's public launcher facade, not its internal
      * job_manager.
      *
      * @param int $userid User whose jobs to list.
      * @param int $limit Maximum rows (0 = no limit).
-     * @return array Job records keyed by id, or [] when Canvas Uplifter is
+     * @return array Job records keyed by id, or [] when CourseUplift is
      *               absent or too old to list jobs.
      */
     public static function list_jobs(int $userid, int $limit = 0): array {
         if (!self::jobs_listable()) {
             return [];
         }
-        $launcher = self::LAUNCHER;
+        $launcher = self::launcher();
         return $launcher::list_jobs($userid, null, null, $limit);
     }
 
     /**
      * Delete a Canvas import job and free its stored package, to reclaim space.
      *
-     * Delegates to Canvas Uplifter's launcher, which frees the stored .imscc and
+     * Delegates to CourseUplift's launcher, which frees the stored .imscc and
      * removes the job (leaving any built course in place) and only if the job
-     * belongs to $userid. A no-op returning false when Canvas Uplifter is absent
+     * belongs to $userid. A no-op returning false when CourseUplift is absent
      * or too old to support deletion.
      *
      * @param int $jobid Job to delete.
@@ -140,12 +183,12 @@ class canvas_repository {
         if (!self::deletion_supported()) {
             return false;
         }
-        $launcher = self::LAUNCHER;
+        $launcher = self::launcher();
         return (bool) $launcher::delete_job($jobid, $userid);
     }
 
     /**
-     * Whether the installed Canvas Uplifter can delete jobs.
+     * Whether the installed CourseUplift can delete jobs.
      *
      * launcher::delete_job() arrived in Canvas Uplifter 0.43.0, after listing
      * (0.42.0); gate the delete UI on it so a site on 0.42.x does not show
@@ -154,21 +197,21 @@ class canvas_repository {
      * @return bool
      */
     public static function deletion_supported(): bool {
-        return self::is_available() && method_exists(self::LAUNCHER, 'delete_job');
+        return self::is_available() && method_exists(self::launcher(), 'delete_job');
     }
 
     /**
      * Total bytes of a user's stored Canvas packages, for a storage counter.
      *
      * @param int $userid User whose packages to total.
-     * @return int|null Bytes, or null when Canvas Uplifter is absent or too old
+     * @return int|null Bytes, or null when CourseUplift is absent or too old
      *                  to report storage usage.
      */
     public static function storage_used(int $userid): ?int {
-        if (!self::is_available() || !method_exists(self::LAUNCHER, 'package_storage_used')) {
+        if (!self::is_available() || !method_exists(self::launcher(), 'package_storage_used')) {
             return null;
         }
-        $launcher = self::LAUNCHER;
+        $launcher = self::launcher();
         return (int) $launcher::package_storage_used($userid);
     }
 
@@ -298,7 +341,7 @@ class canvas_repository {
      * Accepts one URL per line, ignores blank lines and #-comment lines, and
      * keeps only well-formed http(s) URLs. The real network safety (blocking
      * loopback/private ranges, port restrictions) is enforced downstream by
-     * Canvas Uplifter's fetch, which routes through Moodle's cURL security
+     * CourseUplift's fetch, which routes through Moodle's cURL security
      * layer; this only filters out obvious junk before we queue a job per URL.
      *
      * @param string $text Raw textarea contents.
@@ -380,10 +423,10 @@ class canvas_repository {
     /**
      * Queue one import as a tool_automate adhoc task.
      *
-     * The task - not this method - creates the Canvas Uplifter job, and it
-     * re-checks the kill-switch (and that Canvas Uplifter is still installed) at
+     * The task - not this method - creates the CourseUplift job, and it
+     * re-checks the kill-switch (and that CourseUplift is still installed) at
      * run time. So an admin who disables "Allow bulk Canvas import" after
-     * queueing the wrong batch stops the Canvas Uplifter jobs from ever being
+     * queueing the wrong batch stops the CourseUplift jobs from ever being
      * created, mirroring how the bulk-restore kill-switch drains its queue.
      * Deferring also keeps a large directory or URL list off the web request.
      *

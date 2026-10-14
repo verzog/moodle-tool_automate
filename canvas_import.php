@@ -15,11 +15,11 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Bulk import Canvas Common Cartridge (.imscc) packages via tool_canvasuplifter.
+ * Bulk import Canvas Common Cartridge (.imscc) packages via tool_courseuplift.
  *
  * Two sources: a pasted list of Canvas backup URLs, and/or a server directory of
  * .imscc packages. Two run modes: build a course now, or analyse (fetch + report)
- * for later manual build. Every package becomes a background Canvas Uplifter job.
+ * for later manual build. Every package becomes a background CourseUplift job.
  *
  * @package    tool_automate
  * @copyright  2026 verzog <verzog@gmail.com>
@@ -36,7 +36,7 @@ $baseurl = new moodle_url('/admin/tool/automate/canvas_import.php');
 $indexurl = new moodle_url('/admin/tool/automate/index.php');
 $settingsurl = new moodle_url('/admin/settings.php', ['section' => 'tool_automate_settings']);
 
-// The feature is a soft integration: without tool_canvasuplifter installed the
+// The feature is a soft integration: without tool_courseuplift installed the
 // admin-tree node is never added, so a direct hit lands here. Handle it with a
 // minimal page rather than fataling in admin_externalpage_setup on an unknown id.
 if (!canvas_repository::is_available()) {
@@ -128,7 +128,7 @@ if ($enabled) {
             $formerror = get_string('canvasselectcategory', 'tool_automate');
         } else if ($buildwanted && !$cancreate) {
             // Building creates courses in the target category, so require the same
-            // capability Canvas Uplifter enforces for a build. Analyse creates
+            // capability CourseUplift enforces for a build. Analyse creates
             // nothing, so it is allowed without it.
             $formerror = get_string('canvasnobuildcap', 'tool_automate');
         } else {
@@ -196,7 +196,7 @@ if ($enabled) {
 echo $OUTPUT->header();
 echo html_writer::link($indexurl, get_string('back', 'tool_automate'), ['class' => 'tool_automate_back']);
 
-// Only import packages you trust: Canvas Uplifter stores/renders imported HTML
+// Only import packages you trust: CourseUplift stores/renders imported HTML
 // as authored, so a package from an untrusted source could carry active content.
 echo $OUTPUT->notification(get_string('canvastrustwarning', 'tool_automate'), 'warning');
 
@@ -444,7 +444,7 @@ foreach ([canvas_repository::MODE_BUILD, canvas_repository::MODE_ANALYSE] as $mo
 }
 echo html_writer::end_div();
 
-// Conversion options passed through to Canvas Uplifter.
+// Conversion options passed through to CourseUplift.
 echo html_writer::start_div('tool_automate_field mt-3');
 echo html_writer::div(get_string('canvasoptions', 'tool_automate'), 'fw-bold');
 $quizlabel = ' ' . get_string('canvasquizfrombank', 'tool_automate');
