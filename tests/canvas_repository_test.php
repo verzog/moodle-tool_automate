@@ -203,8 +203,11 @@ final class canvas_repository_test extends \advanced_testcase {
             '/admin/tool/' . $name . '/status.php?jobid=7',
             canvas_repository::status_url(7)->out(false)
         );
-        if ($component !== null) {
+        if ($component === null) {
+            $this->assertNull(canvas_repository::use_capability());
+        } else {
             $this->assertSame(canvas_repository::LAUNCHERS[$component], canvas_repository::launcher());
+            $this->assertSame('tool/' . $name . ':use', canvas_repository::use_capability());
         }
     }
 

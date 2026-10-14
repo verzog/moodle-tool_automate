@@ -68,6 +68,11 @@ class import_canvas extends \core\task\adhoc_task {
             mtrace('tool_automate: CourseUplift (tool_courseuplift) is not installed, skipping Canvas import of ' . $source);
             return;
         }
+        // The queueing user must still be allowed to use the importer itself.
+        if (!has_capability(canvas_repository::use_capability(), \context_system::instance(), $userid)) {
+            mtrace('tool_automate: user ' . $userid . ' may not use CourseUplift, skipping Canvas import of ' . $source);
+            return;
+        }
         // Re-check the site kill-switch at run time so turning "Allow bulk Canvas
         // import" back off stops queued work, rather than draining it out anyway.
         if (!canvas_repository::is_enabled()) {

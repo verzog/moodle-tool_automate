@@ -111,6 +111,18 @@ class canvas_repository {
     }
 
     /**
+     * The installed importer's "use" capability. Automate's pages and tasks require it on
+     * top of tool/automate:manage, so a user denied the importer (which renders imported
+     * packages as trusted content) can't reach it through Automate.
+     *
+     * @return string|null The capability, or null when neither importer is installed.
+     */
+    public static function use_capability(): ?string {
+        $component = self::component();
+        return $component === null ? null : 'tool/' . substr($component, strlen('tool_')) . ':use';
+    }
+
+    /**
      * The importer's status page for a job, where its report and build button live.
      *
      * @param int $jobid The job id.

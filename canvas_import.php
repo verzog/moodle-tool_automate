@@ -55,6 +55,8 @@ if (!canvas_repository::is_available()) {
 
 admin_externalpage_setup('tool_automate_canvas');
 require_capability('tool/automate:manage', $context);
+// The importer's own capability gates importing too, so Automate can't bypass it.
+require_capability(canvas_repository::use_capability(), $context);
 
 $PAGE->set_url($baseurl);
 $PAGE->set_title(get_string('canvastitle', 'tool_automate'));
