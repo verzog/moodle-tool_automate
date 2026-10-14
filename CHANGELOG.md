@@ -4,6 +4,19 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.4.0] - 2026-10-14
+
+### Changed
+- Bulk Canvas import now works with **CourseUplift** (`tool_courseuplift`), the new
+  name of the Canvas Uplifter plugin. It looks for CourseUplift first and falls back to
+  Canvas Uplifter (`tool_canvasuplifter`), so a site that has not switched yet keeps
+  working. The "Staged Canvas imports" links open the status page of whichever plugin
+  is installed. Messages and documentation use the new name.
+- Bulk Canvas import now also requires the importer's own "use" capability
+  (`tool/courseuplift:use`, or `tool/canvasuplifter:use`) on top of
+  `tool/automate:manage`, for its pages and when the queued import runs, so a user
+  denied the importer can't reach it through Automate.
+
 ## [1.3.1] - 2026-09-07
 
 ### Changed

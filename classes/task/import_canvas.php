@@ -19,13 +19,13 @@ namespace tool_automate\task;
 use tool_automate\canvas_repository;
 
 /**
- * Adhoc task: create one Canvas Uplifter job for a bulk-import selection.
+ * Adhoc task: create one CourseUplift job for a bulk-import selection.
  *
  * Queued by the bulk Canvas import page / CLI (via canvas_repository::queue_*)
  * so a directory or URL list of many packages can be kicked off at once without
  * blocking the request, and - crucially - so the kill-switch is re-checked here
  * at run time. An admin who disables "Allow bulk Canvas import" after queueing
- * the wrong batch therefore stops the Canvas Uplifter jobs from ever being
+ * the wrong batch therefore stops the CourseUplift jobs from ever being
  * created, mirroring how the bulk-restore task drains its queue when its
  * kill-switch is turned off.
  *
@@ -47,7 +47,7 @@ class import_canvas extends \core\task\adhoc_task {
     }
 
     /**
-     * Create the Canvas Uplifter job for this selection.
+     * Create the CourseUplift job for this selection.
      *
      * @return void
      */
@@ -63,9 +63,14 @@ class import_canvas extends \core\task\adhoc_task {
         $quizfrombank = !empty($data->quizfrombank);
         $pagegrouping = (string) ($data->pagegrouping ?? '');
 
-        // Canvas Uplifter does the conversion; without it there is nothing to do.
+        // CourseUplift does the conversion; without it there is nothing to do.
         if (!canvas_repository::is_available()) {
-            mtrace('tool_automate: tool_canvasuplifter is not installed, skipping Canvas import of ' . $source);
+            mtrace('tool_automate: CourseUplift (tool_courseuplift) is not installed, skipping Canvas import of ' . $source);
+            return;
+        }
+        // The queueing user must still be allowed to use the importer itself.
+        if (!has_capability(canvas_repository::use_capability(), \context_system::instance(), $userid)) {
+            mtrace('tool_automate: user ' . $userid . ' may not use CourseUplift, skipping Canvas import of ' . $source);
             return;
         }
         // Re-check the site kill-switch at run time so turning "Allow bulk Canvas
@@ -79,7 +84,7 @@ class import_canvas extends \core\task\adhoc_task {
             return;
         }
 
-        $launcher = canvas_repository::LAUNCHER;
+        $launcher = canvas_repository::launcher();
         if ($sourcetype === canvas_repository::SOURCE_FILE) {
             // The file may have moved or become unreadable between queue and run;
             // that is not worth failing the queue over, so skip it.
@@ -107,6 +112,6 @@ class import_canvas extends \core\task\adhoc_task {
             );
         }
 
-        mtrace("tool_automate: queued Canvas Uplifter {$mode} job {$jobid} for " . $source);
+        mtrace("tool_automate: queued CourseUplift {$mode} job {$jobid} for " . $source);
     }
 }

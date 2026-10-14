@@ -105,16 +105,17 @@ worker pool.
 
 For sites moving many courses off Canvas, the plugin can bulk-import Canvas
 Common Cartridge (`.imscc`) exports by driving the sibling
-[`tool_canvasuplifter`](https://github.com/verzog/moodle-tool_canvasuplifter)
-("Canvas Uplifter") plugin. This is a **soft integration**: the feature only
-appears when Canvas Uplifter is installed, and `tool_automate` still works
-standalone without it.
+[`tool_courseuplift`](https://github.com/verzog/moodle-tool_canvasuplifter)
+("CourseUplift", formerly Canvas Uplifter, `tool_canvasuplifter`) plugin. This is
+a **soft integration**: the feature only appears when CourseUplift (or Canvas
+Uplifter, on a site that has not switched yet) is installed, and `tool_automate`
+still works standalone without it.
 
 Use *Plugins > Admin tools > Automate > Bulk Canvas import* (or the
 `cli/import_canvas.php` CLI). Packages come from either or both of:
 
 - a **pasted list of Canvas backup download URLs**, one per line — each is
-  fetched by Canvas Uplifter in the background, through Moodle's SSRF-aware cURL
+  fetched by CourseUplift in the background, through Moodle's SSRF-aware cURL
   security layer; and
 - a **server directory of `.imscc`/`.zip` packages** (a staging area), pointed
   at by the *Bulk Canvas import source directory* setting.
@@ -126,16 +127,16 @@ Choose what happens to each package:
   category); or
 - **Analyse for later** — each package is fetched and a conversion report
   produced, so an administrator can review it and build the course manually from
-  Canvas Uplifter when ready.
+  CourseUplift when ready.
 
-Every package becomes a background Canvas Uplifter job — nothing is converted
+Every package becomes a background CourseUplift job — nothing is converted
 inline — throttled by that plugin's own task concurrency, so a directory or URL
 list of hundreds of courses cannot block the request or starve the cron worker
 pool. Watch progress in *Server > Tasks > Task logs*.
 
 Packages you staged with **Analyse for later** are listed under *Automate >
 Staged Canvas imports* once analysed. From there, open a package to review its
-conversion report and build the course (via Canvas Uplifter's status page), or
+conversion report and build the course (via CourseUplift's status page), or
 jump straight to the course a completed build created. The page shows how much
 space your stored packages use and lets you **selectively delete** finished
 imports to reclaim it — deleting frees the stored `.imscc` package but keeps any
@@ -147,7 +148,7 @@ kill-switch. The same job can be driven from the command line:
     $ php admin/tool/automate/cli/import_canvas.php --urls=/data/urls.txt --category=5 --mode=build --execute
 
 Run with `--help` for all options, or `--list` to inspect the sources. Requires
-Canvas Uplifter 0.40.0 or later.
+CourseUplift 1.0.0 or later, or Canvas Uplifter (its former name) 0.40.0 or later.
 
 ## Safety
 

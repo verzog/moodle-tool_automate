@@ -50,7 +50,7 @@ if ($hassiteconfig) {
         'tool/automate:manage'
     ));
 
-    // Bulk Canvas import, shown only when the sibling tool_canvasuplifter plugin
+    // Bulk Canvas import, shown only when the sibling tool_courseuplift plugin
     // is installed (this is a soft integration - we do not force the dependency).
     if (\tool_automate\canvas_repository::is_available()) {
         $ADMIN->add('tool_automate_category', new admin_externalpage(
@@ -123,10 +123,10 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
-    // Bulk Canvas import settings, shown only when tool_canvasuplifter is
+    // Bulk Canvas import settings, shown only when tool_courseuplift is
     // installed. Off by default - like bulk restore, it creates courses in
     // bulk, so a site admin opts in here first. Package fetching, conversion and
-    // build concurrency are all handled by tool_canvasuplifter, so there is no
+    // build concurrency are all handled by tool_courseuplift, so there is no
     // separate concurrency setting here.
     if (\tool_automate\canvas_repository::is_available()) {
         $settings->add(new admin_setting_heading(

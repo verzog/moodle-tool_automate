@@ -15,11 +15,11 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * List the Canvas Uplifter import jobs this admin has queued (their history).
+ * List the CourseUplift import jobs this admin has queued (their history).
  *
  * The main use is the "Analyse & stage for later" flow: each staged package is a
- * Canvas Uplifter analyse job, and this page links each done analyse job to its
- * Canvas Uplifter status page, where the conversion report and a "Build this
+ * CourseUplift analyse job, and this page links each done analyse job to its
+ * CourseUplift status page, where the conversion report and a "Build this
  * course" action live. Build jobs link to the created course. Finished imports
  * can be selectively deleted to free the stored package storage.
  *
@@ -38,7 +38,7 @@ $baseurl = new moodle_url('/admin/tool/automate/canvas_imports.php');
 $importurl = new moodle_url('/admin/tool/automate/canvas_import.php');
 $indexurl = new moodle_url('/admin/tool/automate/index.php');
 
-// Soft integration: the tree node only exists when Canvas Uplifter is installed,
+// Soft integration: the tree node only exists when CourseUplift is installed,
 // so a direct hit lands here. Handle it without fataling.
 if (!canvas_repository::is_available()) {
     require_login();
@@ -56,6 +56,8 @@ if (!canvas_repository::is_available()) {
 
 admin_externalpage_setup('tool_automate_canvas_imports');
 require_capability('tool/automate:manage', $context);
+// The importer's own capability gates its jobs too, so Automate can't bypass it.
+require_capability(canvas_repository::use_capability(), $context);
 
 $PAGE->set_url($baseurl);
 $PAGE->set_title(get_string('canvasimportstitle', 'tool_automate'));
@@ -91,7 +93,7 @@ echo html_writer::link($importurl, get_string('canvasimportsback', 'tool_automat
 echo html_writer::div(get_string('canvasimportsintro', 'tool_automate'), 'text-muted mb-3');
 
 if (!canvas_repository::jobs_listable()) {
-    // Canvas Uplifter is installed but predates job listing.
+    // CourseUplift is installed but predates job listing.
     echo $OUTPUT->notification(get_string('canvasimportsunsupported', 'tool_automate'), 'warning');
     echo $OUTPUT->footer();
     exit;
@@ -106,7 +108,7 @@ if ($storagebytes !== null) {
     );
 }
 
-// Only this admin's own jobs are shown: the Canvas Uplifter status/build page
+// Only this admin's own jobs are shown: the CourseUplift status/build page
 // only lets the queueing user act on a job, so listing others' would just link
 // to pages they cannot use. Cap the rows so a site that has run the bulk flow
 // many times cannot turn this into an unbounded query and page render; fetch one
@@ -142,9 +144,9 @@ if (!$jobs) {
     exit;
 }
 
-// Short labels for a job's kind and status. These mirror Canvas Uplifter's
+// Short labels for a job's kind and status. These mirror CourseUplift's
 // job_manager KIND_*/STATUS_* constant values (a documented contract) so the
-// table reads without depending on Canvas Uplifter's own language strings.
+// table reads without depending on CourseUplift's own language strings.
 $kindlabels = [
     'analyse' => get_string('canvasmode_analyse', 'tool_automate'),
     'build' => get_string('canvasmode_build', 'tool_automate'),
@@ -157,7 +159,7 @@ $statuslabels = [
 ];
 
 // The delete affordance (form, checkbox column, button, tick-all script) is only
-// rendered when Canvas Uplifter can actually delete; otherwise this is a plain
+// rendered when CourseUplift can actually delete; otherwise this is a plain
 // read-only listing.
 if ($candelete) {
     // A tick-all control and a confirm on delete. Inline AMD only reads values
@@ -230,7 +232,7 @@ foreach ($jobs as $job) {
     $statuslabel = $statuslabels[$status] ?? s($status);
 
     // Action: send the admin where they can act on this job.
-    $statusurl = new moodle_url('/admin/tool/canvasuplifter/status.php', ['jobid' => $job->id]);
+    $statusurl = canvas_repository::status_url((int) $job->id);
     if ($kind === 'analyse' && $status === 'done') {
         // The status page shows the report and the "Build this course" button.
         $action = html_writer::link($statusurl, get_string('canvasimportsreview', 'tool_automate'));
