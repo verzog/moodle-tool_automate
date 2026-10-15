@@ -18,7 +18,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -29,7 +29,7 @@ jobs:
           --health-cmd="pg_isready" --health-interval=10s
           --health-timeout=5s --health-retries=3
       mariadb:
-        image: mariadb:10.11
+        image: mariadb:11.4
         env:
           MYSQL_USER: root
           MYSQL_ALLOW_EMPTY_PASSWORD: true
@@ -44,16 +44,19 @@ jobs:
       fail-fast: false
       matrix:
         # Moodle 5.0 requires PHP 8.2+; 8.4 is supported on 5.0 and later.
-        # Moodle 5.2 drops PHP 8.2, so that combination is excluded below.
+        # Moodle 5.2 and 5.3 LTS drop PHP 8.2, so those combinations are excluded below.
         # The branches here must cover everything version.php declares in
-        # $plugin->supported (currently 5.0-5.2).
+        # $plugin->supported (currently 5.0-5.3 LTS). Moodle `main` (5.4 in
+        # development) is deliberately not tested.
         php: ['8.2', '8.3', '8.4']
-        moodle-branch: ['MOODLE_500_STABLE', 'MOODLE_501_STABLE', 'MOODLE_502_STABLE']
+        moodle-branch: ['MOODLE_500_STABLE', 'MOODLE_501_STABLE', 'MOODLE_502_STABLE', 'MOODLE_503_STABLE']
         database: ['pgsql', 'mariadb']
         exclude:
-          # Moodle 5.2 requires PHP 8.3 or later.
+          # Moodle 5.2 and 5.3 require PHP 8.3 or later.
           - php: '8.2'
             moodle-branch: 'MOODLE_502_STABLE'
+          - php: '8.2'
+            moodle-branch: 'MOODLE_503_STABLE'
 
     env:
       # Australian timezone so date/time tests respect AEST/AWST offsets.

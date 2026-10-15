@@ -40,7 +40,7 @@ And because it's admin automation, safety is the whole point:
 
 Less clicking. Fewer mistakes. Hours back every week.
 
-Free and open source (GPL v3). Built for Moodle 5.0–5.2.
+Free and open source (GPL v3). Built for Moodle 5.0–5.3 LTS.
 
 Link in the comments. 👇
 
@@ -86,7 +86,7 @@ And because it's admin automation, safety is the whole point:
 
 Less clicking. Fewer mistakes. Hours back every week.
 
-Free and open source (GPL v3). Built for Moodle 5.0–5.2.
+Free and open source (GPL v3). Built for Moodle 5.0–5.3 LTS.
 
 Link in the comments. 👇
 

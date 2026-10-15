@@ -4,7 +4,12 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
-## [Unreleased]
+## [1.4.1] - 2026-10-15
+
+### Added
+- Declares support for **Moodle 5.3 LTS** (`$plugin->supported = [500, 503]`). CI now
+  tests 5.3 on PHP 8.3 and 8.4 against PostgreSQL and MariaDB, and its database services
+  move to PostgreSQL 17 and MariaDB 11.4, the minimums Moodle 5.3 requires. No code changes.
 
 ### Documentation
 - The bulk Canvas import section now says where the conversion limit comes from:
