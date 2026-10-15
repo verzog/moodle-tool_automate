@@ -4,6 +4,23 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.5.0] - 2026-10-16
+
+### Added
+- **Create group calendar event** course action. Adds an event to each group in a matched
+  course whose name matches a wildcard pattern (blank for all groups), skipping events that
+  already exist. Needs the Calendar Group Event Importer (`local_grpcalendarimport`) v1.2.0
+  or later, and the `local/grpcalendarimport:manage` capability, both checked again when the
+  rule runs.
+- **Calendar folder import.** A new *Pick up calendar import files* scheduled task (every
+  15 minutes) imports CSV/TSV files from a server folder through the same plugin, one adhoc
+  task per file, filing each into `processed` or `failed` with a results CSV. Off by default
+  behind *Allow calendar folder import*.
+- CI installs `local_grpcalendarimport` on the Moodle 5.1+ cells so these tests run.
+
+### Changed
+- `condition_base::wildcard_match()` is now public so the calendar action can reuse it.
+
 ## [1.4.2] - 2026-10-15
 
 ### Removed

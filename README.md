@@ -46,11 +46,16 @@ role, enrol in a course, suspend / unsuspend, set a profile field, send an
 email, generate a CSV report.
 
 **Course actions:** copy, delete (guarded), move to a category, set visibility,
-email teachers, generate a CSV report.
+email teachers, generate a CSV report, create a group calendar event (needs the
+Calendar Group Event Importer — see [Group calendar events](#group-calendar-events)).
 
 ## Requirements
 
 * Moodle 5.0–5.3 LTS (PHP 8.2 or later; Moodle 5.2 and 5.3 require PHP 8.3 or later).
+* Optional: [CourseUplift](https://github.com/verzog/moodle-tool_courseuplift) 1.0.0 or later
+  for bulk Canvas import.
+* Optional: [Calendar Group Event Importer](https://github.com/verzog/moodle-local_grpcalendarimport)
+  (`local_grpcalendarimport`) v1.2.0 or later for group calendar events. It needs Moodle 5.1 or later.
 
 ## Installing via uploaded ZIP file
 
@@ -152,6 +157,30 @@ kill-switch. The same job can be driven from the command line:
 
 Run with `--help` for all options, or `--list` to inspect the sources. Requires
 CourseUplift 1.0.0 or later.
+
+## Group calendar events
+
+When the [Calendar Group Event Importer](https://github.com/verzog/moodle-local_grpcalendarimport)
+(`local_grpcalendarimport`, v1.2.0 or later) is installed, Automate can create group calendar
+events in two ways. This is a **soft integration**, like bulk Canvas import: neither feature
+appears without that plugin, and `tool_automate` still works standalone.
+
+**Create group calendar event (course action).** Adds one event (name, start, duration,
+location, description) to each group in a matched course whose name matches a pattern, such
+as `Cohort*`. Leave the pattern blank for all groups. Events that already exist (same name,
+group and start time) are skipped, so a scheduled rule can run again without creating copies.
+The action is only offered to users with `local/grpcalendarimport:manage`, and it stops
+working if the user who set it up loses that capability.
+
+**Calendar folder import (scheduled).** Drop CSV or TSV files, in the importer's own column
+format, into the folder set in *Calendar import folder*. Every 15 minutes the *Pick up
+calendar import files* task moves up to 20 files into a `processing` subfolder and queues one
+import task per file, run one at a time. Each file then moves to `processed` (or `failed` if
+it could not be read at all), with a `<file>.results.csv` beside it showing what happened to
+each row. Moodle must be able to write to the folder.
+
+The folder import sits behind an off-by-default *Allow calendar folder import* kill-switch,
+and *Skip duplicate events* is on by default.
 
 ## Safety
 

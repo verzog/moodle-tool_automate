@@ -88,6 +88,12 @@ jobs:
           echo "$(pwd)/ci/bin" >> "$GITHUB_PATH"
           echo "$(pwd)/ci/vendor/bin" >> "$GITHUB_PATH"
           sudo locale-gen en_AU.UTF-8
+      # Soft dependency, installed so the calendar action and folder import tests run rather than
+      # skip. The importer needs Moodle 5.1 or later, so it is left out of the 5.0 cells.
+      - name: Add calendar importer
+        if: ${{ matrix.moodle-branch != 'MOODLE_500_STABLE' }}
+        run: moodle-plugin-ci add-plugin verzog/moodle-local_grpcalendarimport
+
       - name: Install Moodle
         run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
         env:

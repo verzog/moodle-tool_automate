@@ -140,7 +140,8 @@ abstract class condition_base {
 
     /**
      * Case-insensitive wildcard match where `*` means "any run of
-     * characters". Shared by the *_matches conditions.
+     * characters". Shared by the *_matches conditions and the calendar
+     * event action.
      *
      * Implemented as an iterative two-pointer scan rather than a compiled
      * regex so that a pathological pattern (for example `*a*a*a*...`) cannot
@@ -152,7 +153,7 @@ abstract class condition_base {
      * @param string $haystack The value to test.
      * @return bool
      */
-    protected static function wildcard_match(string $pattern, string $haystack): bool {
+    public static function wildcard_match(string $pattern, string $haystack): bool {
         if ($pattern === '') {
             return false;
         }
