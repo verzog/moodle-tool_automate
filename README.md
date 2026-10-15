@@ -130,9 +130,13 @@ Choose what happens to each package:
   CourseUplift when ready.
 
 Every package becomes a background CourseUplift job — nothing is converted
-inline — throttled by that plugin's own task concurrency, so a directory or URL
-list of hundreds of courses cannot block the request or starve the cron worker
-pool. Watch progress in *Server > Tasks > Task logs*.
+inline — so a directory or URL list of hundreds of courses cannot block the
+request. From CourseUplift 1.3.0, its *Maximum simultaneous conversions* setting
+(default 2 analyse and 2 build jobs at once) keeps a large batch from starving
+the cron worker pool; with older versions, or the former Canvas Uplifter, how
+many run at once depends only on your cron workers. Watch progress on
+CourseUplift's *Conversion jobs* page (1.2.0 and later), or in
+*Server > Tasks > Task logs*.
 
 Packages you staged with **Analyse for later** are listed under *Automate >
 Staged Canvas imports* once analysed. From there, open a package to review its
