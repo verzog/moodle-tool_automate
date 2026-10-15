@@ -105,11 +105,10 @@ worker pool.
 
 For sites moving many courses off Canvas, the plugin can bulk-import Canvas
 Common Cartridge (`.imscc`) exports by driving the sibling
-[`tool_courseuplift`](https://github.com/verzog/moodle-tool_canvasuplifter)
-("CourseUplift", formerly Canvas Uplifter, `tool_canvasuplifter`) plugin. This is
-a **soft integration**: the feature only appears when CourseUplift (or Canvas
-Uplifter, on a site that has not switched yet) is installed, and `tool_automate`
-still works standalone without it.
+[`tool_courseuplift`](https://github.com/verzog/moodle-tool_courseuplift)
+("CourseUplift") plugin. This is a **soft integration**: the feature only appears
+when CourseUplift is installed, and `tool_automate` still works standalone without
+it.
 
 Use *Plugins > Admin tools > Automate > Bulk Canvas import* (or the
 `cli/import_canvas.php` CLI). Packages come from either or both of:
@@ -133,8 +132,8 @@ Every package becomes a background CourseUplift job — nothing is converted
 inline — so a directory or URL list of hundreds of courses cannot block the
 request. From CourseUplift 1.3.0, its *Maximum simultaneous conversions* setting
 (default 2 analyse and 2 build jobs at once) keeps a large batch from starving
-the cron worker pool; with older versions, or the former Canvas Uplifter, how
-many run at once depends only on your cron workers. Watch progress on
+the cron worker pool; with older versions, how many run at once depends only on
+your cron workers. Watch progress on
 CourseUplift's *Conversion jobs* page (1.2.0 and later), or in
 *Server > Tasks > Task logs*.
 
@@ -152,7 +151,7 @@ kill-switch. The same job can be driven from the command line:
     $ php admin/tool/automate/cli/import_canvas.php --urls=/data/urls.txt --category=5 --mode=build --execute
 
 Run with `--help` for all options, or `--list` to inspect the sources. Requires
-CourseUplift 1.0.0 or later, or Canvas Uplifter (its former name) 0.40.0 or later.
+CourseUplift 1.0.0 or later.
 
 ## Safety
 

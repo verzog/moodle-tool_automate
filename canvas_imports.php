@@ -64,8 +64,8 @@ $PAGE->set_title(get_string('canvasimportstitle', 'tool_automate'));
 $PAGE->set_heading(get_string('canvasimportstitle', 'tool_automate'));
 $PAGE->add_body_class('tool_automate-page');
 
-// Deletion needs Canvas Uplifter 0.43.0+; on 0.42.x listing works but delete
-// does not, so hide the whole delete affordance rather than offer a no-op.
+// Hide the whole delete affordance, rather than offer a no-op, if the installed
+// CourseUplift can't delete jobs.
 $candelete = canvas_repository::deletion_supported();
 
 // Process a delete before any output, so a refresh cannot re-run it. Each ticked
