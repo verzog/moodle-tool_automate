@@ -167,7 +167,7 @@ final class canvas_repository_test extends \advanced_testcase {
     }
 
     /**
-     * Without CourseUplift (or Canvas Uplifter) installed, job listing reports unavailable
+     * Without CourseUplift installed, job listing reports unavailable
      * and returns nothing rather than fataling on a missing class.
      *
      * @return void
@@ -187,14 +187,13 @@ final class canvas_repository_test extends \advanced_testcase {
     }
 
     /**
-     * The importer is found under its current name first, then its former one, and the
-     * job status link points into whichever plugin is installed.
+     * The importer is CourseUplift, and the job status link points into it.
      *
      * @return void
      */
     public function test_importer_lookup_prefers_courseuplift(): void {
         $this->assertSame(
-            ['tool_courseuplift', 'tool_canvasuplifter'],
+            ['tool_courseuplift'],
             array_keys(canvas_repository::LAUNCHERS)
         );
         $component = canvas_repository::component();

@@ -51,12 +51,10 @@ namespace tool_automate;
 class canvas_repository {
     /**
      * The importer's launcher facade (its supported programmatic entry point), keyed by
-     * component: CourseUplift first, then Canvas Uplifter, its name before 1.0.0, so a
-     * site still running the old plugin keeps working.
+     * component.
      */
     public const LAUNCHERS = [
         'tool_courseuplift' => '\\tool_courseuplift\\launcher',
-        'tool_canvasuplifter' => '\\tool_canvasuplifter\\launcher',
     ];
 
     /** File extensions (lower-case, including the dot) a Canvas package may use. */
@@ -86,10 +84,9 @@ class canvas_repository {
     }
 
     /**
-     * The installed importer's component: tool_courseuplift, or tool_courseuplift on a
-     * site still running it under its former name.
+     * The installed importer's component.
      *
-     * @return string|null The component, or null when neither is installed.
+     * @return string|null The component, or null when CourseUplift is not installed.
      */
     public static function component(): ?string {
         foreach (self::LAUNCHERS as $component => $class) {
@@ -103,7 +100,7 @@ class canvas_repository {
     /**
      * The installed importer's launcher class.
      *
-     * @return string|null Fully qualified class name, or null when neither is installed.
+     * @return string|null Fully qualified class name, or null when CourseUplift is not installed.
      */
     public static function launcher(): ?string {
         $component = self::component();
@@ -115,7 +112,7 @@ class canvas_repository {
      * top of tool/automate:manage, so a user denied the importer (which renders imported
      * packages as trusted content) can't reach it through Automate.
      *
-     * @return string|null The capability, or null when neither importer is installed.
+     * @return string|null The capability, or null when CourseUplift is not installed.
      */
     public static function use_capability(): ?string {
         $component = self::component();
@@ -149,9 +146,9 @@ class canvas_repository {
     /**
      * Whether the installed CourseUplift exposes the job-listing API.
      *
-     * launcher::list_jobs() was added in Canvas Uplifter 0.42.0; guard on it so
-     * the "Staged Canvas imports" page degrades gracefully (rather than
-     * fatalling) on a site whose CourseUplift predates it.
+     * Guard on launcher::list_jobs() so the "Staged Canvas imports" page
+     * degrades gracefully (rather than fatalling) if the installed
+     * CourseUplift does not provide it.
      *
      * @return bool
      */
@@ -202,9 +199,8 @@ class canvas_repository {
     /**
      * Whether the installed CourseUplift can delete jobs.
      *
-     * launcher::delete_job() arrived in Canvas Uplifter 0.43.0, after listing
-     * (0.42.0); gate the delete UI on it so a site on 0.42.x does not show
-     * delete controls that would silently no-op.
+     * Gate the delete UI on launcher::delete_job() so a CourseUplift without it
+     * does not show delete controls that would silently no-op.
      *
      * @return bool
      */

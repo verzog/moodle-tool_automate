@@ -4,6 +4,14 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.4.2] - 2026-10-15
+
+### Removed
+- The fallback to `tool_canvasuplifter`. That was only a working name for unpublished
+  CourseUplift development builds, so no site runs it. Bulk Canvas import now looks for
+  CourseUplift (`tool_courseuplift`) alone, and the README and code comments no longer
+  mention the old name.
+
 ## [1.4.1] - 2026-10-15
 
 ### Added
