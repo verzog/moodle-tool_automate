@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'tool_automate';
-$plugin->version   = 2026101400;
+$plugin->version   = 2026101500;
 $plugin->requires  = 2025041400; // Moodle 5.0.
-$plugin->supported = [500, 502];
+$plugin->supported = [500, 503];
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.4.0 (Build 2026101400)';
+$plugin->release   = '1.4.1 (Build 2026101500)';

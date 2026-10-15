@@ -50,7 +50,7 @@ email teachers, generate a CSV report.
 
 ## Requirements
 
-* Moodle 5.0–5.2 (PHP 8.2 or later; Moodle 5.2 requires PHP 8.3 or later).
+* Moodle 5.0–5.3 LTS (PHP 8.2 or later; Moodle 5.2 and 5.3 require PHP 8.3 or later).
 
 ## Installing via uploaded ZIP file
 
@@ -204,7 +204,7 @@ formula-injection neutralisation (`action_base::csv_safe_row()`).
 
 The GitHub Actions workflow runs the full `moodle-plugin-ci` suite (PHP lint,
 `phpcs` Moodle standard, PHPDoc, Mustache lint, Grunt, PHPUnit, Behat) across
-every Moodle branch in `$plugin->supported` (5.0–5.2) on the PHP versions each
+every Moodle branch in `$plugin->supported` (5.0–5.3 LTS) on the PHP versions each
 supports (8.2–8.4), against PostgreSQL and MariaDB — the same tooling the Moodle
 Plugins directory runs on upload. To cut a release: keep `$plugin->version`
 monotonically increasing, set `$plugin->release` / `$plugin->maturity`, update
