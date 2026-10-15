@@ -4,6 +4,14 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [Unreleased]
+
+### Documentation
+- The bulk Canvas import section now says where the conversion limit comes from:
+  CourseUplift 1.3.0's *Maximum simultaneous conversions* setting (older versions have
+  no limit of their own), and points to CourseUplift's *Conversion jobs* page for
+  following progress.
+
 ## [1.4.0] - 2026-10-14
 
 ### Changed
