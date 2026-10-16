@@ -15,6 +15,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Moodle `main` is the next version in development, so its cell may fail without turning
+    # the run red. It is an early warning of upstream changes, not a supported target.
+    continue-on-error: ${{ matrix.moodle-branch == 'main' }}
 
     services:
       postgres:
@@ -47,7 +50,7 @@ jobs:
         # Moodle 5.2 and 5.3 LTS drop PHP 8.2, so those combinations are excluded below.
         # The branches here must cover everything version.php declares in
         # $plugin->supported (currently 5.0-5.3 LTS). Moodle `main` (5.4 in
-        # development) is deliberately not tested.
+        # development) gets one extra cell below, allowed to fail.
         php: ['8.2', '8.3', '8.4']
         moodle-branch: ['MOODLE_500_STABLE', 'MOODLE_501_STABLE', 'MOODLE_502_STABLE', 'MOODLE_503_STABLE']
         database: ['pgsql', 'mariadb']
@@ -57,6 +60,9 @@ jobs:
             moodle-branch: 'MOODLE_502_STABLE'
           - php: '8.2'
             moodle-branch: 'MOODLE_503_STABLE'
+        include:
+          # Next version; allowed to fail (see continue-on-error above).
+          - {php: '8.4', moodle-branch: 'main', database: 'pgsql'}
 
     env:
       # Australian timezone so date/time tests respect AEST/AWST offsets.
