@@ -108,6 +108,7 @@ class manager {
             'course_generate_report'  => action\course_generate_report::class,
             'course_copy'             => action\course_copy::class,
             'course_delete'           => action\course_delete::class,
+            'course_create_group_event' => action\course_create_group_event::class,
         ];
     }
 
@@ -141,6 +142,11 @@ class manager {
                 continue;
             }
             if ($class::is_high_risk() && !$canhighrisk) {
+                continue;
+            }
+            // Soft integration with local_grpcalendarimport: hide the calendar action unless
+            // that plugin is installed and the current user may use it.
+            if ($code === 'course_create_group_event' && !action\course_create_group_event::is_available_to_current_user()) {
                 continue;
             }
             $out[$code] = $class;

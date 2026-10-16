@@ -75,7 +75,7 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
 - **Source control URL:** <https://github.com/verzog/moodle-tool_automate>
 - **Source control branch:** `main`
 - **Bug tracker URL:** <https://github.com/verzog/moodle-tool_automate/issues>
-- **Supported Moodle versions:** 5.0 – 5.3 LTS
+- **Supported Moodle versions:** 5.1 – 5.3 LTS
 - **Licence:** GNU GPL v3 or later
 - **Maturity:** Stable
 - **Current release:** 1.0.3
