@@ -18,9 +18,12 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
   behind *Allow calendar folder import*. The task reports a folder it cannot read or write
   and files it could not move, and re-queues files left in `processing` with no task to
   import them (for example after a crash or while the import was switched off).
-- CI installs `local_grpcalendarimport` on the Moodle 5.1+ cells so these tests run.
+- CI installs `local_grpcalendarimport` so these tests run.
 
 ### Changed
+- **Requires Moodle 5.1 or later** (`$plugin->requires = 2025100600`,
+  `$plugin->supported = [501, 503]`). Moodle 5.0 is no longer supported and its CI cells are
+  removed. Sites on 5.0 should stay on 1.4.2 until they upgrade Moodle.
 - `condition_base::wildcard_match()` is now public so the calendar action can reuse it.
 - Privacy provider: the user who configured a *Create group calendar event* action is now
   discovered, exported and anonymised, as for *Assign role*.

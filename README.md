@@ -51,11 +51,11 @@ Calendar Group Event Importer — see [Group calendar events](#group-calendar-ev
 
 ## Requirements
 
-* Moodle 5.0–5.3 LTS (PHP 8.2 or later; Moodle 5.2 and 5.3 require PHP 8.3 or later).
+* Moodle 5.1–5.3 LTS (PHP 8.2 or later; Moodle 5.2 and 5.3 require PHP 8.3 or later).
 * Optional: [CourseUplift](https://github.com/verzog/moodle-tool_courseuplift) 1.0.0 or later
   for bulk Canvas import.
 * Optional: [Calendar Group Event Importer](https://github.com/verzog/moodle-local_grpcalendarimport)
-  (`local_grpcalendarimport`) v1.2.0 or later for group calendar events. It needs Moodle 5.1 or later.
+  (`local_grpcalendarimport`) v1.2.0 or later for group calendar events.
 
 ## Installing via uploaded ZIP file
 
@@ -232,7 +232,7 @@ formula-injection neutralisation (`action_base::csv_safe_row()`).
 
 The GitHub Actions workflow runs the full `moodle-plugin-ci` suite (PHP lint,
 `phpcs` Moodle standard, PHPDoc, Mustache lint, Grunt, PHPUnit, Behat) across
-every Moodle branch in `$plugin->supported` (5.0–5.3 LTS) on the PHP versions each
+every Moodle branch in `$plugin->supported` (5.1–5.3 LTS) on the PHP versions each
 supports (8.2–8.4), against PostgreSQL and MariaDB — the same tooling the Moodle
 Plugins directory runs on upload. To cut a release: keep `$plugin->version`
 monotonically increasing, set `$plugin->release` / `$plugin->maturity`, update
