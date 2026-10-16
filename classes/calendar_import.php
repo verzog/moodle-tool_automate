@@ -143,44 +143,105 @@ class calendar_import {
     /**
      * Move waiting files into the processing subfolder and queue an import task for each.
      *
+     * Files already in processing that no queued task owns (for example after a crash between the
+     * move and the queueing, or a run while the import was switched off) are queued again first.
+     *
      * @param string|null $dir Folder to scan; defaults to the configured one.
-     * @return array Keys: queued (int), error (string, empty when the folder was usable).
+     * @return array Keys: queued (int), error (string, empty when every waiting file was queued).
      */
     public static function queue_waiting_files(?string $dir = null): array {
         $dir = $dir ?? self::get_source_dir();
         if ($dir === '' || !is_dir($dir)) {
             return ['queued' => 0, 'error' => get_string('calendarimport_nodir', 'tool_automate')];
         }
-        $files = array_slice(self::list_files($dir), 0, self::BATCH);
-        if (empty($files)) {
-            return ['queued' => 0, 'error' => ''];
-        }
-        $processing = self::subfolder($dir, self::DIR_PROCESSING);
-        if ($processing === null) {
-            return ['queued' => 0, 'error' => get_string('calendarimport_notwritable', 'tool_automate', $dir)];
+        if (!is_readable($dir)) {
+            return ['queued' => 0, 'error' => get_string('calendarimport_notreadable', 'tool_automate', $dir)];
         }
 
-        $queued = 0;
+        $queued = self::requeue_orphans($dir);
+        $files = array_slice(self::list_files($dir), 0, max(0, self::BATCH - $queued));
+        if (empty($files)) {
+            return ['queued' => $queued, 'error' => ''];
+        }
+        // Moving a file out of the folder needs write access to the folder itself.
+        $processing = is_writable($dir) ? self::subfolder($dir, self::DIR_PROCESSING) : null;
+        if ($processing === null) {
+            return ['queued' => $queued, 'error' => get_string('calendarimport_notwritable', 'tool_automate', $dir)];
+        }
+
+        $failed = 0;
         foreach ($files as $name) {
             // A timestamp prefix keeps a re-dropped file with the same name from overwriting one
             // still waiting in processing.
+            $source = $dir . DIRECTORY_SEPARATOR . $name;
             $target = $processing . DIRECTORY_SEPARATOR . date('Ymd-His') . '-' . $name;
-            if (file_exists($target) || !@rename($dir . DIRECTORY_SEPARATOR . $name, $target)) {
+            if (file_exists($target) || !@rename($source, $target)) {
+                $failed++;
                 continue;
             }
-            $task = new task\import_calendar_file();
-            $task->set_custom_data(['filepath' => $target]);
-            \core\task\manager::queue_adhoc_task($task);
+            try {
+                self::queue_file($target);
+            } catch (\Throwable $e) {
+                // Put the file back so the next run picks it up again, then let the task fail.
+                @rename($target, $source);
+                throw $e;
+            }
             $queued++;
         }
-        return ['queued' => $queued, 'error' => ''];
+        $error = $failed ? get_string('calendarimport_movefailed', 'tool_automate', $failed) : '';
+        return ['queued' => $queued, 'error' => $error];
+    }
+
+    /**
+     * Queue an import task for files in the processing subfolder that no queued task owns.
+     *
+     * A queued (or running, or failed and waiting to retry) import task keeps its record until it
+     * finishes, and it moves its file out of processing before then, so an unowned file was never
+     * queued or was left behind on purpose.
+     *
+     * @param string $dir The source folder.
+     * @return int How many files were queued.
+     */
+    protected static function requeue_orphans(string $dir): int {
+        $processing = $dir . DIRECTORY_SEPARATOR . self::DIR_PROCESSING;
+        $files = self::list_files($processing);
+        if (empty($files)) {
+            return 0;
+        }
+        $owned = [];
+        foreach (\core\task\manager::get_adhoc_tasks(task\import_calendar_file::class) as $task) {
+            $owned[(string) ($task->get_custom_data()->filepath ?? '')] = true;
+        }
+        $queued = 0;
+        foreach (array_slice($files, 0, self::BATCH) as $name) {
+            $path = $processing . DIRECTORY_SEPARATOR . $name;
+            if (!isset($owned[$path])) {
+                self::queue_file($path);
+                $queued++;
+            }
+        }
+        return $queued;
+    }
+
+    /**
+     * Queue the import task for one file in the processing subfolder.
+     *
+     * @param string $filepath Absolute path to the file.
+     */
+    protected static function queue_file(string $filepath): void {
+        $task = new task\import_calendar_file();
+        $task->set_custom_data(['filepath' => $filepath]);
+        \core\task\manager::queue_adhoc_task($task);
     }
 
     /**
      * Import one file that is waiting in the processing subfolder, then file it away.
      *
+     * If the file cannot be moved to processed or failed, it is renamed in place with a ".done"
+     * suffix instead, so it is not queued and imported again.
+     *
      * @param string $filepath Absolute path to the file in the processing subfolder.
-     * @return array The importer's import_file() outcome, plus 'movedto' (path or empty).
+     * @return array The importer's import_file() outcome, plus 'movedto' (path; empty if renamed in place).
      */
     public static function import_queued_file(string $filepath): array {
         $class = self::IMPORTER;
@@ -189,13 +250,16 @@ class calendar_import {
         $base = dirname(dirname($filepath));
         $destdir = self::subfolder($base, $outcome['error'] === '' ? self::DIR_PROCESSED : self::DIR_FAILED);
         $outcome['movedto'] = '';
-        if ($destdir === null) {
-            return $outcome;
+        if ($destdir !== null) {
+            $dest = $destdir . DIRECTORY_SEPARATOR . basename($filepath);
+            if (@rename($filepath, $dest)) {
+                $outcome['movedto'] = $dest;
+                self::write_results($dest . '.results.csv', $outcome);
+                return $outcome;
+            }
         }
-        $dest = $destdir . DIRECTORY_SEPARATOR . basename($filepath);
-        if (@rename($filepath, $dest)) {
-            $outcome['movedto'] = $dest;
-            self::write_results($dest . '.results.csv', $outcome);
+        if (@rename($filepath, $filepath . '.done')) {
+            self::write_results($filepath . '.done.results.csv', $outcome);
         }
         return $outcome;
     }

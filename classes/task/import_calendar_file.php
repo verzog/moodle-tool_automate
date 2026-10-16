@@ -51,7 +51,8 @@ class import_calendar_file extends \core\task\adhoc_task {
             return;
         }
         // Re-check at run time: an admin who switches the import off, or uninstalls the importer,
-        // expects queued work to stop. The file stays in "processing" for them to deal with.
+        // expects queued work to stop. The file stays in "processing", and the scheduled task
+        // queues it again once the import is switched back on.
         if (!calendar_import::is_available() || !calendar_import::is_enabled()) {
             mtrace('tool_automate: calendar import is switched off, leaving ' . $filepath . ' in place');
             return;
@@ -66,7 +67,7 @@ class import_calendar_file extends \core\task\adhoc_task {
                 . ', skipped ' . $counts['skip'] . ', errors ' . $counts['error']);
         }
         if ($outcome['movedto'] === '') {
-            mtrace('tool_automate: could not move ' . $filepath . ' out of the processing folder');
+            mtrace('tool_automate: could not move ' . $filepath . ' out of the processing folder, renamed it to .done');
         }
     }
 }

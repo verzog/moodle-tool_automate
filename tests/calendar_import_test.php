@@ -125,6 +125,28 @@ final class calendar_import_test extends \advanced_testcase {
     }
 
     /**
+     * A file left in processing with no task to import it is queued again, once.
+     */
+    public function test_orphaned_processing_file_is_requeued(): void {
+        $this->resetAfterTest();
+
+        $dir = make_request_directory();
+        mkdir($dir . '/processing');
+        $file = $dir . '/processing/20270503-090000-events.csv';
+        file_put_contents($file, "name,courseid,groupid,timestart\n");
+
+        $outcome = calendar_import::queue_waiting_files($dir);
+        $this->assertSame(['queued' => 1, 'error' => ''], $outcome);
+        $tasks = \core\task\manager::get_adhoc_tasks(task\import_calendar_file::class);
+        $this->assertCount(1, $tasks);
+        $this->assertSame($file, reset($tasks)->get_custom_data()->filepath);
+
+        // Now a task owns it, so the next run leaves it alone.
+        $this->assertSame(['queued' => 0, 'error' => ''], calendar_import::queue_waiting_files($dir));
+        $this->assertCount(1, \core\task\manager::get_adhoc_tasks(task\import_calendar_file::class));
+    }
+
+    /**
      * A file that cannot be imported at all goes to the failed folder with the reason.
      */
     public function test_unreadable_file_goes_to_failed(): void {

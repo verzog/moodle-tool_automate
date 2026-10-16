@@ -48,12 +48,11 @@ class queue_calendar_imports extends \core\task\scheduled_task {
             return;
         }
         $outcome = calendar_import::queue_waiting_files();
-        if ($outcome['error'] !== '') {
-            mtrace('tool_automate: calendar import - ' . $outcome['error']);
-            return;
-        }
         if ($outcome['queued'] > 0) {
             mtrace('tool_automate: queued ' . $outcome['queued'] . ' calendar import file(s)');
+        }
+        if ($outcome['error'] !== '') {
+            mtrace('tool_automate: calendar import - ' . $outcome['error']);
         }
     }
 }

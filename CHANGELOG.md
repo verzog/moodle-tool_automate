@@ -15,11 +15,15 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 - **Calendar folder import.** A new *Pick up calendar import files* scheduled task (every
   15 minutes) imports CSV/TSV files from a server folder through the same plugin, one adhoc
   task per file, filing each into `processed` or `failed` with a results CSV. Off by default
-  behind *Allow calendar folder import*.
+  behind *Allow calendar folder import*. The task reports a folder it cannot read or write
+  and files it could not move, and re-queues files left in `processing` with no task to
+  import them (for example after a crash or while the import was switched off).
 - CI installs `local_grpcalendarimport` on the Moodle 5.1+ cells so these tests run.
 
 ### Changed
 - `condition_base::wildcard_match()` is now public so the calendar action can reuse it.
+- Privacy provider: the user who configured a *Create group calendar event* action is now
+  discovered, exported and anonymised, as for *Assign role*.
 
 ## [1.4.2] - 2026-10-15
 
