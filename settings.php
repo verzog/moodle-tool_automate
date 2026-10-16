@@ -151,5 +151,35 @@ if ($hassiteconfig) {
         ));
     }
 
+    // Calendar import settings, shown only when local_grpcalendarimport is installed. Off by
+    // default - the folder import creates events in bulk, so a site admin opts in here first.
+    if (\tool_automate\calendar_import::is_available()) {
+        $settings->add(new admin_setting_heading(
+            'tool_automate/calendar_heading',
+            get_string('setting_calendar_heading', 'tool_automate'),
+            get_string('setting_calendar_heading_desc', 'tool_automate')
+        ));
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_automate/allow_calendar_import',
+            get_string('setting_allow_calendar_import', 'tool_automate'),
+            get_string('setting_allow_calendar_import_desc', 'tool_automate'),
+            0
+        ));
+        // Reuses the readable/not-readable badge setting from bulk restore.
+        $settings->add(new \tool_automate\admin\setting_restore_source_dir(
+            'tool_automate/calendar_source_dir',
+            get_string('setting_calendar_source_dir', 'tool_automate'),
+            get_string('setting_calendar_source_dir_desc', 'tool_automate'),
+            '',
+            PARAM_RAW_TRIMMED
+        ));
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_automate/calendar_skip_duplicates',
+            get_string('setting_calendar_skip_duplicates', 'tool_automate'),
+            get_string('setting_calendar_skip_duplicates_desc', 'tool_automate'),
+            1
+        ));
+    }
+
     $ADMIN->add('tool_automate_category', $settings);
 }

@@ -34,4 +34,15 @@ $tasks = [
         'dayofweek' => '*',
         'month'     => '*',
     ],
+    [
+        // Picks up calendar CSV files for local_grpcalendarimport. Does nothing unless the
+        // calendar import setting is on and that plugin is installed.
+        'classname' => 'tool_automate\task\queue_calendar_imports',
+        'blocking'  => 0,
+        'minute'    => '*/15',
+        'hour'      => '*',
+        'day'       => '*',
+        'dayofweek' => '*',
+        'month'     => '*',
+    ],
 ];

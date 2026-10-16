@@ -90,6 +90,23 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
+     * Insert a course_create_group_event action on a rule, configured by the given user.
+     *
+     * @param int $ruleid
+     * @param int $authorid
+     * @return int action id
+     */
+    protected function make_group_event_action(int $ruleid, int $authorid): int {
+        global $DB;
+        return (int) $DB->insert_record('tool_automate_action', (object) [
+            'ruleid'     => $ruleid,
+            'type'       => 'course_create_group_event',
+            'configdata' => json_encode(['name' => 'Orientation', 'timestart' => 0, 'authorid' => $authorid]),
+            'sortorder'  => 0,
+        ]);
+    }
+
+    /**
      * Read the stored authorid back off an action.
      *
      * @param int $actionid
@@ -285,5 +302,37 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
 
         $this->assertEquals(0, $this->action_authorid($aliceaction));
         $this->assertEquals((int) $bob->id, $this->action_authorid($bobaction));
+    }
+
+    /**
+     * A user who only configured a group calendar event action is discovered, exported and
+     * anonymised on deletion, like an assign_role configurer.
+     */
+    public function test_group_event_configurer(): void {
+        $this->resetAfterTest();
+        $context = \context_system::instance();
+        $configurer = $this->getDataGenerator()->create_user();
+        $other = $this->getDataGenerator()->create_user();
+
+        $ruleid = $this->make_rule((int) $other->id);
+        $actionid = $this->make_group_event_action($ruleid, (int) $configurer->id);
+
+        $this->assertCount(1, provider::get_contexts_for_userid((int) $configurer->id)->get_contextids());
+        $userlist = new userlist($context, 'tool_automate');
+        provider::get_users_in_context($userlist);
+        $this->assertContains((int) $configurer->id, $userlist->get_userids());
+
+        $approved = new approved_contextlist($configurer, 'tool_automate', [$context->id]);
+        provider::export_user_data($approved);
+        $data = writer::with_context($context)->get_data([
+            get_string('pluginname', 'tool_automate'),
+            get_string('privacy:path:actions', 'tool_automate'),
+        ]);
+        $this->assertCount(1, $data->actions);
+        $this->assertSame('course_create_group_event', $data->actions[0]->type);
+        $this->assertSame('Orientation', $data->actions[0]->event);
+
+        provider::delete_data_for_user($approved);
+        $this->assertEquals(0, $this->action_authorid($actionid));
     }
 }

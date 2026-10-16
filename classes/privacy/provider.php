@@ -99,11 +99,11 @@ class provider implements
             ],
             'privacy:metadata:log'
         );
-        // An assign_role action records, in its JSON config, the id of the
-        // user who configured it - so the run-time role re-check can validate
-        // the stored role against that user's assignable set rather than the
-        // rule's last editor. That is a stored user reference, so it is
-        // declared, discovered and erased here too.
+        // An assign_role or course_create_group_event action records, in its
+        // JSON config, the id of the user who configured it - so the run-time
+        // re-check can test that user's permissions rather than the rule's
+        // last editor's. That is a stored user reference, so it is declared,
+        // discovered and erased here too.
         $collection->add_database_table(
             'tool_automate_action',
             [
@@ -133,8 +133,11 @@ class provider implements
         return $contextlist;
     }
 
+    /** Action types that record their configurer as authorid in the JSON config. */
+    protected const AUTHORED_ACTION_TYPES = ['assign_role', 'course_create_group_event'];
+
     /**
-     * Map of assign_role action id => configurer user id, read out of the
+     * Map of authored action id => configurer user id, read out of the
      * actions' JSON config. Only actions that actually record a configurer
      * (authorid > 0) are included. Done in PHP because the id lives inside a
      * JSON blob that no portable SQL can filter on.
@@ -144,7 +147,8 @@ class provider implements
     protected static function action_author_map(): array {
         global $DB;
         $out = [];
-        $records = $DB->get_records('tool_automate_action', ['type' => 'assign_role'], '', 'id, configdata');
+        [$insql, $params] = $DB->get_in_or_equal(self::AUTHORED_ACTION_TYPES);
+        $records = $DB->get_records_select('tool_automate_action', "type $insql", $params, '', 'id, configdata');
         foreach ($records as $record) {
             $config = (array) json_decode($record->configdata ?? '{}', true);
             $authorid = (int) ($config['authorid'] ?? 0);
@@ -156,7 +160,7 @@ class provider implements
     }
 
     /**
-     * Reset the recorded configurer to 0 on every assign_role action
+     * Reset the recorded configurer to 0 on every authored action
      * configured by one of the given users. The action (rule config) is
      * kept; only the user reference is anonymised. execute() then falls
      * back to the rule's last editor, as for a pre-existing action that
@@ -257,9 +261,9 @@ class provider implements
                 );
             }
 
-            // Assign-role actions this user configured (recorded as the
-            // action's authorid so the run-time role check can validate
-            // against them).
+            // Assign-role and group-event actions this user configured
+            // (recorded as the action's authorid so the run-time check can
+            // validate against them).
             $authored = [];
             foreach (self::action_author_map() as $actionid => $authorid) {
                 if ($authorid !== (int) $user->id) {
@@ -270,11 +274,17 @@ class provider implements
                     continue;
                 }
                 $config = (array) json_decode($action->configdata ?? '{}', true);
-                $roleid = (int) ($config['roleid'] ?? 0);
-                $authored[] = (object) [
+                $item = (object) [
                     'rule' => format_string((string) $DB->get_field('tool_automate_rule', 'name', ['id' => $action->ruleid])),
-                    'role' => $roleid ? (string) $DB->get_field('role', 'shortname', ['id' => $roleid]) : '',
+                    'type' => (string) $action->type,
                 ];
+                if ($action->type === 'assign_role') {
+                    $roleid = (int) ($config['roleid'] ?? 0);
+                    $item->role = $roleid ? (string) $DB->get_field('role', 'shortname', ['id' => $roleid]) : '';
+                } else {
+                    $item->event = (string) ($config['name'] ?? '');
+                }
+                $authored[] = $item;
             }
             if ($authored) {
                 writer::with_context($context)->export_data(
