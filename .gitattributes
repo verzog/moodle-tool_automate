@@ -1,0 +1,10 @@
+# Normalise line endings to LF on checkout and in archives, so Windows
+# checkouts do not introduce CRLF (phpcs rejects CRLF).
+* text=auto eol=lf
+
+# Keep development-only files out of the release zip (git archive) and out
+# of GitHub's automatic "Source code" archives.
+/.github        export-ignore
+/tests          export-ignore
+/.gitattributes export-ignore
+/.gitignore     export-ignore
