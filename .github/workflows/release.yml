@@ -1,10 +1,6 @@
 name: Release zip
 
-# Publishing a GitHub release builds the installable plugin zip from the
-# release tag and attaches it to the release. The zip's single top-level
-# folder is "automate" (the plugin's directory name under admin/tool/), which
-# is what Moodle's "Install plugins" page expects.
-
+# Publishing a GitHub release builds the installable plugin zip from the release tag and attaches it to the release.
 on:
   release:
     types: [published]
@@ -13,37 +9,5 @@ permissions:
   contents: write
 
 jobs:
-  zip:
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
-      TAG: ${{ github.event.release.tag_name }}
-    steps:
-      - name: Check out the release tag
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.release.tag_name }}
-
-      - name: Check the tag matches version.php
-        run: |
-          version="${TAG#v}"
-          release=$(awk -F"'" '/\$plugin->release/ {split($2, a, " "); print a[1]; exit}' version.php)
-          if [ -z "$release" ]; then
-            echo "Could not read \$plugin->release from version.php." >&2
-            exit 1
-          fi
-          if [ "$version" != "$release" ]; then
-            echo "Tag $TAG (version $version) does not match \$plugin->release ($release) in version.php." >&2
-            echo "Bump version.php and tag to match, for example v$release." >&2
-            exit 1
-          fi
-          echo "version=$version" >> "$GITHUB_ENV"
-
-      - name: Build the plugin zip
-        run: |
-          git archive --format=zip --prefix=automate/ -o "automate-${version}.zip" HEAD
-          unzip -l "automate-${version}.zip" | head -n 20
-
-      - name: Attach the zip to the release
-        run: |
-          gh release upload "$TAG" "automate-${version}.zip" --clobber
+  release:
+    uses: verzog/moodle-ci-workflows/.github/workflows/release-zip.yml@vdiddy/more-inputs

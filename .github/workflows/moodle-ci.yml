@@ -1,9 +1,7 @@
 name: Moodle CI
 
-# Run on pull requests, and on pushes to main and tags only. A plain
-# "[push, pull_request]" runs the whole matrix twice for every push to a PR
-# branch (once per event); scoping push to main/tags avoids that duplication
-# while still covering post-merge and release builds.
+# Run on pull requests, and on pushes to main and tags only. A plain "[push, pull_request]" runs the whole matrix
+# twice for every push to a PR branch (once per event).
 on:
   push:
     branches:
@@ -12,141 +10,32 @@ on:
       - '*'
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    # Moodle `main` is the next version in development, so its cell may fail without turning
-    # the run red. It is an early warning of upstream changes, not a supported target.
-    continue-on-error: ${{ matrix.moodle-branch == 'main' }}
-
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready" --health-interval=10s
-          --health-timeout=5s --health-retries=3
-      mariadb:
-        image: mariadb:11.4
-        env:
-          MYSQL_USER: root
-          MYSQL_ALLOW_EMPTY_PASSWORD: true
-          MYSQL_CHARACTER_SET_SERVER: utf8mb4
-          MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=10s
-          --health-timeout=5s --health-retries=3
-    strategy:
-      fail-fast: false
-      matrix:
-        # Moodle 5.1 supports PHP 8.2-8.4; 5.2 and 5.3 LTS drop PHP 8.2, so those
-        # combinations are excluded below. The branches here must cover everything
-        # version.php declares in $plugin->supported (currently 5.1-5.3 LTS).
-        # MOODLE_500_STABLE is deliberately excluded: it is below the 5.1 baseline.
-        # Moodle `main` (5.4 in development) gets one extra cell below, allowed to fail.
-        php: ['8.2', '8.3', '8.4']
-        moodle-branch: ['MOODLE_501_STABLE', 'MOODLE_502_STABLE', 'MOODLE_503_STABLE']
-        database: ['pgsql', 'mariadb']
-        exclude:
-          # Moodle 5.2 and 5.3 require PHP 8.3 or later.
-          - php: '8.2'
-            moodle-branch: 'MOODLE_502_STABLE'
-          - php: '8.2'
-            moodle-branch: 'MOODLE_503_STABLE'
-        include:
-          # Next version; allowed to fail (see continue-on-error above).
-          - {php: '8.4', moodle-branch: 'main', database: 'pgsql'}
-
-    env:
-      # Australian timezone so date/time tests respect AEST/AWST offsets.
-      TZ: Australia/Sydney
-
-    steps:
-      - name: Check out plugin
-        uses: actions/checkout@v4
-        with:
-          path: plugin
-
-      - name: Set up PHP ${{ matrix.php }}
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: zip, xml, gd, mbstring, sodium, intl, soap, xmlrpc
-          ini-values: max_input_vars=5000
-          coverage: none
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Initialise moodle-plugin-ci
-        run: |
-          composer create-project -n --no-dev --prefer-dist \
-            moodlehq/moodle-plugin-ci ci ^4
-          echo "$(pwd)/ci/bin" >> "$GITHUB_PATH"
-          echo "$(pwd)/ci/vendor/bin" >> "$GITHUB_PATH"
-          sudo locale-gen en_AU.UTF-8
-      # Soft dependency, installed so the calendar action and folder import tests run rather than
-      # skip.
-      - name: Add calendar importer
-        run: moodle-plugin-ci add-plugin verzog/moodle-local_grpcalendarimport
-
-      - name: Install Moodle
-        run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
-        env:
-          DB: ${{ matrix.database }}
-          MOODLE_BRANCH: ${{ matrix.moodle-branch }}
-
-      - name: PHP Lint
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci phplint
-
-      - name: PHP Copy/Paste Detector
-        continue-on-error: true
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci phpcpd
-
-      - name: PHP Mess Detector
-        continue-on-error: true
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci phpmd
-
-      - name: Moodle Code Checker
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci phpcs --max-warnings 0
-
-      - name: Moodle PHPDoc Checker
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci phpdoc --max-warnings 0
-
-      - name: Validating
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci validate
-
-      - name: Check upgrade savepoints
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci savepoints
-
-      - name: Mustache Lint
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci mustache
-
-      - name: Grunt
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci grunt --max-lint-warnings 0
-
-      - name: PHPUnit tests
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci phpunit --fail-on-warning
-
-      - name: Behat features
-        if: ${{ !cancelled() }}
-        run: moodle-plugin-ci behat --profile chrome
+  ci:
+    uses: verzog/moodle-ci-workflows/.github/workflows/moodle-plugin-ci.yml@vdiddy/more-inputs
+    with:
+      # Every PHP the branch supports, on both databases. Moodle 5.2 and later dropped PHP 8.2.
+      # Moodle main is the next version and is allowed to fail.
+      matrix: >-
+        [
+          {"moodle-branch": "MOODLE_501_STABLE", "php": "8.2", "database": "pgsql"},
+          {"moodle-branch": "MOODLE_501_STABLE", "php": "8.2", "database": "mariadb"},
+          {"moodle-branch": "MOODLE_501_STABLE", "php": "8.3", "database": "pgsql"},
+          {"moodle-branch": "MOODLE_501_STABLE", "php": "8.3", "database": "mariadb"},
+          {"moodle-branch": "MOODLE_501_STABLE", "php": "8.4", "database": "pgsql"},
+          {"moodle-branch": "MOODLE_501_STABLE", "php": "8.4", "database": "mariadb"},
+          {"moodle-branch": "MOODLE_502_STABLE", "php": "8.3", "database": "pgsql"},
+          {"moodle-branch": "MOODLE_502_STABLE", "php": "8.3", "database": "mariadb"},
+          {"moodle-branch": "MOODLE_502_STABLE", "php": "8.4", "database": "pgsql"},
+          {"moodle-branch": "MOODLE_502_STABLE", "php": "8.4", "database": "mariadb"},
+          {"moodle-branch": "MOODLE_503_STABLE", "php": "8.3", "database": "pgsql"},
+          {"moodle-branch": "MOODLE_503_STABLE", "php": "8.3", "database": "mariadb"},
+          {"moodle-branch": "MOODLE_503_STABLE", "php": "8.4", "database": "pgsql"},
+          {"moodle-branch": "MOODLE_503_STABLE", "php": "8.4", "database": "mariadb"},
+          {"moodle-branch": "main", "php": "8.4", "database": "pgsql"}
+        ]
+      # Soft dependency, installed so the calendar action and folder import tests run rather than skip.
+      extra-plugins: verzog/moodle-local_grpcalendarimport
