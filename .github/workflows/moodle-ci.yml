@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   ci:
-    uses: verzog/moodle-ci-workflows/.github/workflows/moodle-plugin-ci.yml@vdiddy/more-inputs
+    uses: verzog/moodle-ci-workflows/.github/workflows/moodle-plugin-ci.yml@v1
     with:
       # Every PHP the branch supports, on both databases. Moodle 5.2 and later dropped PHP 8.2.
       # Moodle main is the next version and is allowed to fail.
