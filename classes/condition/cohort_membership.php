@@ -20,7 +20,7 @@ namespace tool_automate\condition;
  * Condition: the user is (or is not) a member of a cohort.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class cohort_membership extends condition_base {

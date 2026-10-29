@@ -21,7 +21,7 @@ namespace tool_automate\condition;
  * Uses {course}.timemodified as a coarse proxy, fall-back to timecreated.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class course_no_activity_days extends condition_base {

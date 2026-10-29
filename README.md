@@ -9,7 +9,7 @@ plugin.
 
 ## Status
 
-Stable. See `version.php` for the current release and exact build number.
+Stable. See `version.php` for the current release (`$plugin->release`) and version number.
 
 ## What it does
 
@@ -230,15 +230,27 @@ formula-injection neutralisation (`action_base::csv_safe_row()`).
 
 ## Releasing (maintainers)
 
-The GitHub Actions workflow runs the full `moodle-plugin-ci` suite (PHP lint,
-`phpcs` Moodle standard, PHPDoc, Mustache lint, Grunt, PHPUnit, Behat) across
-every Moodle branch in `$plugin->supported` (5.1–5.3 LTS) on the PHP versions each
-supports (8.2–8.4), against PostgreSQL and MariaDB — the same tooling the Moodle
-Plugins directory runs on upload. To cut a release: keep `$plugin->version`
-monotonically increasing, set `$plugin->release` / `$plugin->maturity`, update
-`CHANGELOG.md`, tag it (`git tag -a v1.0.3 -m 'tool_automate 1.0.3'`), and
-package the ZIP with a top-level folder named `automate` (not
-`moodle-tool_automate`). Directory submission copy lives in
+The GitHub Actions workflow (`.github/workflows/moodle-ci.yml`) calls the shared
+workflow in [verzog/moodle-ci-workflows](https://github.com/verzog/moodle-ci-workflows),
+which runs the full `moodle-plugin-ci` suite (PHP lint, `phpcs` Moodle standard,
+PHPDoc, Mustache lint, Grunt, PHPUnit, Behat) across every Moodle branch in
+`$plugin->supported` (5.1–5.3 LTS, plus Moodle `main`, allowed to fail) on the PHP
+versions each supports (8.2–8.4), against PostgreSQL and MariaDB, in the
+`Australia/Sydney` time zone — the same tooling the Moodle Plugins directory runs on
+upload.
+
+To cut a release:
+
+1. Bump `$plugin->version` (keep it increasing) and set `$plugin->release` to the
+   plain version number, e.g. `'1.5.1'` — no build suffix — and `$plugin->maturity`.
+2. Add the release to `CHANGELOG.md`, and merge to `main` once CI is green.
+3. On GitHub, publish a release whose tag is `v` plus `$plugin->release`, e.g.
+   `v1.5.1`. The **Release zip** workflow checks the tag matches `version.php` and
+   attaches `tool_automate-v1.5.1.zip`, whose top-level folder is `automate`, as
+   Moodle's *Install plugins* page expects. To rebuild the zip for an existing
+   release, run **Actions → Release zip → Run workflow** with its tag.
+
+Directory submission copy lives in
 [`docs/plugin-description.md`](docs/plugin-description.md).
 
 ## Credits and acknowledgements
@@ -262,7 +274,7 @@ please open an issue or pull request.
 
 ## Licence
 
-2026 verzog <verzog@gmail.com>
+2026 Vernon Spain
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

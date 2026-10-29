@@ -20,7 +20,7 @@ namespace tool_automate\action;
  * Action: assign a system-context role to the user.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assign_role extends action_base {

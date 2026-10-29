@@ -26,7 +26,7 @@ use tool_automate\canvas_repository;
  * install, so the test skips when it is absent.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(import_canvas::class)]

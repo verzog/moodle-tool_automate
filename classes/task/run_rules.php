@@ -21,7 +21,7 @@ namespace tool_automate\task;
  * schedule says they're due (hourly, daily, monthly, or a one-off date).
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class run_rules extends \core\task\scheduled_task {

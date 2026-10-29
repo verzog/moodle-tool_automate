@@ -27,7 +27,7 @@ namespace tool_automate\admin;
  * advisory and does not block saving.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class setting_restore_source_dir extends \admin_setting_configtext {

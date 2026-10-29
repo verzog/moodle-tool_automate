@@ -20,7 +20,7 @@ namespace tool_automate\action;
  * Action: email every teacher (editingteacher) in the course.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class course_email_teachers extends action_base {

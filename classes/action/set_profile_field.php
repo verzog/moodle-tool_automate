@@ -20,7 +20,7 @@ namespace tool_automate\action;
  * Action: set a standard user profile field to a value.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class set_profile_field extends action_base {

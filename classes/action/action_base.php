@@ -24,7 +24,7 @@ namespace tool_automate\action;
  * named - there is no raw-SQL action in this plugin.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 abstract class action_base {

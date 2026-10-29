@@ -25,7 +25,7 @@ use tool_automate\calendar_import;
  * These need local_grpcalendarimport v1.2.0 or later and are skipped without it.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(course_create_group_event::class)]

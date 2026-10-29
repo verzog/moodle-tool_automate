@@ -25,7 +25,7 @@ namespace tool_automate\task;
  * chain of synchronous delete_course() calls.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class delete_course extends \core\task\adhoc_task {

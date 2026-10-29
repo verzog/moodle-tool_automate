@@ -21,7 +21,7 @@ namespace tool_automate\condition;
  * specific role.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class enrolled_in_course extends condition_base {

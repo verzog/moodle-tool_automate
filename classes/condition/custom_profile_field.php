@@ -20,7 +20,7 @@ namespace tool_automate\condition;
  * Condition: a custom profile field (user_info_data) equals or contains a value.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class custom_profile_field extends condition_base {

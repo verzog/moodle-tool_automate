@@ -20,7 +20,7 @@ namespace tool_automate\action;
  * Action: add the user to a cohort (cohort sync then handles enrolment).
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class add_to_cohort extends action_base {

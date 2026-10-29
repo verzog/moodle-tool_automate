@@ -20,7 +20,7 @@ namespace tool_automate\condition;
  * Condition: a standard user profile field equals or contains a value.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class profile_field extends condition_base {
