@@ -25,7 +25,7 @@ use tool_automate\calendar_import;
  * moves to "processed" (or "failed" if it could not be read at all) with a results CSV beside it.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class import_calendar_file extends \core\task\adhoc_task {

@@ -26,7 +26,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
  * admin who turns it off can stop pending deletions.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(delete_course::class)]

@@ -22,7 +22,7 @@ namespace tool_automate\condition;
  * the range open-ended on that side.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class course_startdate_between extends condition_base {

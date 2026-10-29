@@ -20,7 +20,7 @@ namespace tool_automate\action;
  * Action: remove the user from a cohort.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class remove_from_cohort extends action_base {

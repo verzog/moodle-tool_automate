@@ -32,7 +32,7 @@ require_once($CFG->dirroot . '/course/lib.php');
  * checks the task is a quiet no-op when its backup file has gone missing.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 #[CoversClass(restore_course::class)]

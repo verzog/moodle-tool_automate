@@ -4,6 +4,16 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.5.1] - Unreleased
+
+### Changed
+- CI moves to the shared workflow in `verzog/moodle-ci-workflows`, with an allowed-to-fail
+  Moodle `main` cell alongside Moodle 5.1–5.3 LTS.
+- Publishing a GitHub release now builds and attaches `tool_automate-v<release>.zip`
+  automatically. `$plugin->release` is now the plain version number (`1.5.1`), so it
+  matches the release tag.
+- The copyright holder in every file header is now Vernon Spain.
+
 ## [1.5.0] - 2026-10-16
 
 ### Added

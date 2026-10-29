@@ -27,7 +27,7 @@ use tool_automate\calendar_import;
  * repeatedly without creating copies.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class course_create_group_event extends action_base {

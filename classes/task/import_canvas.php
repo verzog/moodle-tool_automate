@@ -33,7 +33,7 @@ use tool_automate\canvas_repository;
  * Uplifter's own throttled adhoc task, which this task hands the package to.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class import_canvas extends \core\task\adhoc_task {

@@ -31,7 +31,7 @@ namespace tool_automate;
  * when the file itself could not be read, writing a results CSV beside it either way.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class calendar_import {

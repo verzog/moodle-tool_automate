@@ -25,7 +25,7 @@ namespace tool_automate\action;
  * courses off an existing one, not cloning enrolments and submissions.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class course_copy extends action_base {

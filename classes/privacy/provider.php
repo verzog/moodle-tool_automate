@@ -64,7 +64,7 @@ use core_privacy\local\request\writer;
  * context-wide purge still deletes the whole area.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class provider implements

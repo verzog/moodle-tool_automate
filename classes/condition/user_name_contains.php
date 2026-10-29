@@ -22,7 +22,7 @@ namespace tool_automate\condition;
  * For wildcard matching use user_name_matches.
  *
  * @package    tool_automate
- * @copyright  2026 verzog <verzog@gmail.com>
+ * @copyright  2026 Vernon Spain
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class user_name_contains extends condition_base {
