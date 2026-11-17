@@ -45,15 +45,4 @@ $tasks = [
         'dayofweek' => '*',
         'month'     => '*',
     ],
-    [
-        // Picks up slide decks for booktool_importpptx and local_lessonimportpptx. Does nothing
-        // unless the slide import setting is on and one of those plugins is installed.
-        'classname' => 'tool_automate\\task\\queue_slide_imports',
-        'blocking'  => 0,
-        'minute'    => '*/15',
-        'hour'      => '*',
-        'day'       => '*',
-        'dayofweek' => '*',
-        'month'     => '*',
-    ],
 ];

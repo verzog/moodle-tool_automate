@@ -13,7 +13,7 @@ Stable. See `version.php` for the current release (`$plugin->release`) and versi
 
 ## What it does
 
-A rule targets either **users** or **courses** (or, with [watch folders](#watch-folder-rules)
+A rule targets either **users** or **courses** (or, with [watch folders](#importing-slide-decks-watch-folder-rules)
 switched on, **files** waiting in a server folder). The editor walks through five
 steps:
 
@@ -60,7 +60,7 @@ Calendar Group Event Importer — see [Group calendar events](#group-calendar-ev
 * Optional: [PowerPoint import for Book](https://github.com/verzog/moodle-booktool_importpptx)
   (`booktool_importpptx`) 1.18.0 or later, or
   [PowerPoint import for Lesson](https://github.com/verzog/moodle-local_lessonimportpptx)
-  (`local_lessonimportpptx`) 1.13.0 or later, for slide folder import.
+  (`local_lessonimportpptx`) 1.13.0 or later, for importing slide decks.
 
 ## Installing via uploaded ZIP file
 
@@ -187,55 +187,25 @@ each row. Moodle must be able to write to the folder.
 The folder import sits behind an off-by-default *Allow calendar folder import* kill-switch,
 and *Skip duplicate events* is on by default.
 
-## Slide folder import
+## Importing slide decks (watch-folder rules)
 
 When [PowerPoint import for Book](https://github.com/verzog/moodle-booktool_importpptx)
 (`booktool_importpptx`, 1.18.0 or later) or [PowerPoint import for Lesson](https://github.com/verzog/moodle-local_lessonimportpptx)
-(`local_lessonimportpptx`, 1.13.0 or later) is installed, Automate can import a folder of slide decks in bulk.
-This is a **soft integration**, like the two above: the settings only appear when one of those
-plugins is installed, and `tool_automate` still works standalone.
+(`local_lessonimportpptx`, 1.13.0 or later) is installed, an Automate rule can import slide
+decks from a folder on the server into a course. This is a **soft integration**, like the two
+above: the settings and the rule type only appear when one of those plugins is installed, and
+`tool_automate` still works standalone.
 
-Drop PowerPoint (`.pptx`) files into the folder set in *Slide import folder*. PDFs are accepted
-too when the server has the PDF tools those plugins use. Every 15 minutes the *Pick up slide
-decks for import* task moves the waiting decks into a `processing` subfolder and queues one
-import task per deck, run one at a time. Each run queues at most 50 decks; a longer manifest carries
-on from where it stopped on the next run. Each deck becomes a Book (one chapter per slide) or a
-Lesson (one content page per slide), as chosen in *Create slides as*. The deck then moves to
-`processed`, or to `failed` if it could not be imported, with a `<file>.results.csv` beside it
-saying what happened. Moodle must be able to write to the folder.
+The rule decides where a deck goes, so files need no special names and there is no manifest
+to write: drop the decks in the folder and the rule does the rest.
 
-*How a deck names its course* chooses how each deck says where it goes:
+**Set it up once.** A site administrator goes to *Automate > Settings > Slide import (watch
+folders)*, sets a *Watch folders base folder* that Moodle can read and write, and ticks *Allow
+watch-folder rules* (off by default). A rule can watch the base folder itself or any folder
+directly inside it; the settings page lists the folders a rule can pick. A rule can never use
+a path of its own.
 
-- **File name.** Name the deck `course__Activity name.pptx`, with two underscores between the
-  course and the activity name, for example `BIO101__Week 1 slides.pptx`.
-- **Manifest.** Put a CSV file in the folder alongside the decks. Its first row is a heading row
-  with the columns `file`, `course` and `name`, and optionally `type` (`book` or `lesson`),
-  `section` (the course section number) and `mode` (`editable` or `images`). Only decks listed
-  in a manifest are imported, and the manifest is filed away with its own results file.
-
-In both, `course` is a course ID number or, if no course has that ID number, a course short
-name. If the course already has an activity of that type with that name, the slides are added
-after its existing content; otherwise the activity is created in the course's first section
-(or the manifest's `section`). A failed deck is not retried: fix the cause and drop it in again.
-
-The folder import sits behind an off-by-default *Allow slide folder import* kill-switch.
-Anyone who can put files in the folder can add content to any course, so keep the folder
-writable only by the people who should have that ability.
-
-## Watch-folder rules
-
-The slide folder import above sends each deck to the course its file name or manifest names.
-A **watch-folder rule** turns that round: the rule chooses the destination. Use it when the
-people supplying decks should not have to know course names.
-
-A site administrator sets a *Watch folders base folder* and ticks *Allow watch-folder rules*
-(off by default). A rule can watch the base folder itself, or any folder directly inside it;
-create those on the server. The settings page lists the folders a rule can pick. A rule can
-never use a path of its own. If the base folder is also the slide import folder, only the
-folders inside it can be watched, because the slide import already takes every deck dropped
-there.
-
-Then create a rule and choose **Find files that…** as its subject:
+**Then create a rule** and choose **Find files that…** as its subject:
 
 - **Conditions:** *File is in a watch folder* and *File name matches* (wildcards, for example
   `Week*.pptx`). Give every rule a watch folder condition, or it applies to the decks in all
@@ -250,13 +220,19 @@ Then create a rule and choose **Find files that…** as its subject:
     move the content where it belongs, then delete it yourself.
   A deck is moved out of its folder when it is queued, so it goes to one place only: give a
   rule one import action. A second one is skipped, and Preview says so.
-- **When it runs:** on a schedule, or manually. **Preview** lists each waiting deck and where
-  it would go, without moving anything.
+- **When it runs:** on a schedule, or straight away with **Run now**. **Preview** lists each
+  waiting deck and where it would go, without moving anything.
 
-A run queues at most 50 decks; the rest wait for the next run. Decks are imported one at a
-time in the background, then moved to a `processed` or `failed` subfolder of their watch
-folder with a results file. Each time the rule runs, Automate checks that the person who set
-up the action may still manage activities in that course, or create courses in that category.
+PowerPoint (`.pptx`) files are picked up, and PDFs too when the server has the PDF tools those
+plugins use. A run queues at most 50 decks; the rest wait for the next run. Decks are imported
+one at a time in the background, then moved to a `processed` or `failed` subfolder of their
+watch folder with a `<file>.results.csv` saying what happened. A failed deck is not retried:
+fix the cause and put it back in the watch folder. Each time the rule runs, Automate checks
+that the person who set up the action may still manage activities in that course, or create
+courses in that category.
+
+Anyone who can put files in a watch folder can add content to whatever course its rule names,
+so keep the folders writable only by the people who should have that ability.
 
 ## Safety
 

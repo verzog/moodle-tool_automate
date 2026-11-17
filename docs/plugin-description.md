@@ -79,14 +79,13 @@ own without any of them.
 - **Group calendar events** (with the Calendar Group Event Importer,
   `local_grpcalendarimport`): a course action that adds an event to matching
   groups, and a scheduled import of CSV/TSV event files from a server folder.
-- **Slide folder import** (with PowerPoint import for Book,
-  `booktool_importpptx`, or for Lesson, `local_lessonimportpptx`): drop
-  PowerPoint files into a server folder and each becomes a Book or Lesson in
-  the course it names, by file name (`course__Activity name.pptx`) or by a CSV
-  manifest. Decks are imported one at a time in the background, and each is
-  filed as processed or failed with a results file.
-  Or create a *Find files that…* rule that watches a folder and imports its
-  decks into a course you choose, or into a hidden temporary course.
+- **Slide deck import** (with PowerPoint import for Book,
+  `booktool_importpptx`, or for Lesson, `local_lessonimportpptx`): create a
+  *Find files that…* rule that watches a server folder and imports each
+  PowerPoint dropped there as a Book or Lesson, into a course you choose or
+  into a hidden temporary course. No file renaming and no manifest. Decks are
+  imported one at a time in the background, and each is filed as processed or
+  failed with a results file.
 
 Implements the Moodle Privacy API. Licensed under the GPL v3.
 
@@ -115,7 +114,7 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
 3. A **Preview (dry run)** result listing the users/courses that would be
    affected.
 4. The **Bulk restore from repository** page with the searchable file picker.
-5. The **Settings** page showing the slide import options (optional).
+5. A **Find files that…** rule importing slide decks from a watch folder (optional).
 
 ## Packaging checklist
 

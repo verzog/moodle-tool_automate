@@ -229,6 +229,10 @@ class manager {
             // Files have no stable id, so a file rule always runs against everything waiting.
             // Switched off, or with no importer left, it finds nothing rather than failing.
             $subjects = watch_folder::is_enabled() ? watch_folder::list_files() : [];
+            if (!$dryrun && watch_folder::is_enabled()) {
+                // Decks an earlier run moved into "processing" but never managed to queue.
+                watch_folder::requeue_orphans();
+            }
         } else if ($subject === self::SUBJECT_COURSE) {
             $subjects = self::get_target_courses($conditions, $logic, $onlysubjectid);
         } else {
