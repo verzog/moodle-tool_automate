@@ -52,6 +52,7 @@ $PAGE->add_body_class('tool_automate-page');
 
 $results = \tool_automate\manager::run_rule($id, (bool) $dryrun);
 $iscourse = ($rule->subject ?? 'user') === 'course';
+$isfile = ($rule->subject ?? 'user') === 'file';
 
 echo $OUTPUT->header();
 
@@ -78,13 +79,13 @@ foreach ($results as $row) {
     $bysubject[$row->userid]['fullname'] = $row->fullname;
     $bysubject[$row->userid]['changes'][] = $row;
 }
-$countstring = $iscourse ? 'matchedcourses' : 'matchedusers';
+$countstring = $isfile ? 'matchedfiles' : ($iscourse ? 'matchedcourses' : 'matchedusers');
 echo html_writer::tag('p', get_string($countstring, 'tool_automate', count($bysubject)));
 
 if ($bysubject) {
     $table = new html_table();
     $table->head = [
-        get_string($iscourse ? 'course' : 'user', 'tool_automate'),
+        get_string($isfile ? 'file' : ($iscourse ? 'course' : 'user'), 'tool_automate'),
         $dryrun
             ? get_string('plannedchanges', 'tool_automate')
             : get_string('changes', 'tool_automate'),

@@ -85,6 +85,8 @@ own without any of them.
   the course it names, by file name (`course__Activity name.pptx`) or by a CSV
   manifest. Decks are imported one at a time in the background, and each is
   filed as processed or failed with a results file.
+  Or create a *Find files that…* rule that watches a folder and imports its
+  decks into a course you choose, or into a hidden temporary course.
 
 Implements the Moodle Privacy API. Licensed under the GPL v3.
 
@@ -98,7 +100,7 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
 - **Supported Moodle versions:** 5.1 – 5.3 LTS
 - **Licence:** GNU GPL v3 or later
 - **Maturity:** Stable
-- **Current release:** 1.6.0
+- **Current release:** 1.7.0
 - **Tags:** `automation`, `admin tool`, `rules`, `workflow`, `user management`,
   `course management`, `bulk restore`, `canvas import`, `powerpoint import`,
   `calendar`, `scheduled tasks`, `site administration`, `no-code`
@@ -121,8 +123,8 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
   `main`, and confirm CI is green on that commit — the directory runs the same
   `moodle-plugin-ci` checks on upload.
 - Publish a GitHub release whose tag is `v` plus `$plugin->release` (for
-  example `v1.6.0`). The **Release zip** workflow checks the tag against
-  `version.php` and attaches `tool_automate-v1.6.0.zip`, whose top-level folder
+  example `v1.7.0`). The **Release zip** workflow checks the tag against
+  `version.php` and attaches `tool_automate-v1.7.0.zip`, whose top-level folder
   is `automate`, as the directory and Moodle's *Install plugins* page expect.
 - Upload that attached zip to the directory. Do not build a zip by hand or use
   GitHub's "Source code (zip)", whose top-level folder is wrong.

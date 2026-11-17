@@ -4,6 +4,28 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.7.0] - Unreleased
+
+### Added
+- **Watch-folder rules.** A third kind of rule, *Find files that…*, runs against slide decks
+  waiting in watch folders and chooses where each one goes, instead of the file naming its own
+  course. Conditions: *File is in a watch folder* and *File name matches*. Actions:
+  - *Import slides into a course*: an existing course picked in the rule.
+  - *Import slides into a temporary course*: one hidden holding course per rule, created in a
+    chosen category the first time the rule has a deck to import and reused after that.
+    Automate never deletes it.
+- A site administrator sets one *Watch folders base folder*; a rule can only pick a folder
+  directly inside it. Off by default behind *Allow watch-folder rules*.
+- Preview (dry run) lists each waiting deck and where it would go. Decks are queued and imported
+  one at a time by the same task as the slide folder import, at most 50 per rule run, and filed
+  into the watch folder's `processed` or `failed` subfolder with a results CSV.
+- The permission of the person who set up the action is checked again each time the rule runs:
+  managing activities in the course, or creating courses in the category.
+
+### Changed
+- The slide import task accepts decks from a watch folder's `processing` subfolder as well as
+  the slide import folder's, and still refuses any other path.
+
 ## [1.6.0] - 2026-11-17
 
 ### Added

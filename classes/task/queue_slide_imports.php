@@ -17,6 +17,7 @@
 namespace tool_automate\task;
 
 use tool_automate\slide_import;
+use tool_automate\watch_folder;
 
 /**
  * Scheduled task that picks up slide decks dropped into the configured folder.
@@ -44,6 +45,13 @@ class queue_slide_imports extends \core\task\scheduled_task {
      * Queue an import task for each waiting deck.
      */
     public function execute(): void {
+        // Decks a watch-folder rule moved into processing but never managed to queue.
+        if (watch_folder::is_enabled()) {
+            $requeued = watch_folder::requeue_orphans();
+            if ($requeued > 0) {
+                mtrace('tool_automate: queued ' . $requeued . ' slide deck(s) left waiting in watch folders');
+            }
+        }
         if (!slide_import::is_available() || !slide_import::is_enabled()) {
             return;
         }

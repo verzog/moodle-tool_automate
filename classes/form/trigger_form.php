@@ -45,6 +45,11 @@ class trigger_form extends \moodleform {
             'event'  => get_string('trigger_event', 'tool_automate'),
             'manual' => get_string('trigger_manual', 'tool_automate'),
         ];
+        if ($subject === 'file') {
+            // Nothing in Moodle announces a file arriving in a folder, so a file rule can only
+            // run on a schedule or by hand.
+            unset($triggers['event']);
+        }
         $triggerel = $mform->addElement(
             'select',
             'triggertype',

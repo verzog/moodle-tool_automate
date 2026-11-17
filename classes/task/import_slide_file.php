@@ -55,17 +55,17 @@ class import_slide_file extends \core\task\adhoc_task {
             mtrace('tool_automate: slide deck ' . $filepath . ' is gone, skipping');
             return;
         }
-        // Only ever import from the configured folder's own processing subfolder, whatever the
-        // queued data says.
-        $expected = slide_import::get_source_dir() . DIRECTORY_SEPARATOR . slide_import::DIR_PROCESSING;
-        if (dirname($filepath) !== $expected || !slide_import::is_deck_filename(basename($filepath))) {
+        // Only ever import from the processing subfolder of the slide import folder or of a
+        // watch folder, whatever the queued data says.
+        $check = slide_import::check_queued_path($filepath);
+        if ($check === 'outside') {
             mtrace('tool_automate: ' . $filepath . ' is not in the slide import folder, skipping');
             return;
         }
         // Re-check at run time: an admin who switches the import off, or uninstalls the
         // importers, expects queued work to stop. The deck stays in "processing", and the
         // scheduled task queues it again once the import is switched back on.
-        if (!slide_import::is_available() || !slide_import::is_enabled()) {
+        if ($check === 'off') {
             mtrace('tool_automate: slide import is switched off, leaving ' . $filepath . ' in place');
             return;
         }

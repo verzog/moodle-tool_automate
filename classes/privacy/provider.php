@@ -134,7 +134,12 @@ class provider implements
     }
 
     /** Action types that record their configurer as authorid in the JSON config. */
-    protected const AUTHORED_ACTION_TYPES = ['assign_role', 'course_create_group_event'];
+    protected const AUTHORED_ACTION_TYPES = [
+        'assign_role',
+        'course_create_group_event',
+        'file_import_to_course',
+        'file_import_to_holding',
+    ];
 
     /**
      * Map of authored action id => configurer user id, read out of the
@@ -281,7 +286,7 @@ class provider implements
                 if ($action->type === 'assign_role') {
                     $roleid = (int) ($config['roleid'] ?? 0);
                     $item->role = $roleid ? (string) $DB->get_field('role', 'shortname', ['id' => $roleid]) : '';
-                } else {
+                } else if ($action->type === 'course_create_group_event') {
                     $item->event = (string) ($config['name'] ?? '');
                 }
                 $authored[] = $item;

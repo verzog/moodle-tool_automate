@@ -13,7 +13,8 @@ Stable. See `version.php` for the current release (`$plugin->release`) and versi
 
 ## What it does
 
-A rule targets either **users** or **courses**. The editor walks through five
+A rule targets either **users** or **courses** (or, with [watch folders](#watch-folder-rules)
+switched on, **files** waiting in a server folder). The editor walks through five
 steps:
 
 1. **Name** the rule.
@@ -220,6 +221,39 @@ after its existing content; otherwise the activity is created in the course's fi
 The folder import sits behind an off-by-default *Allow slide folder import* kill-switch.
 Anyone who can put files in the folder can add content to any course, so keep the folder
 writable only by the people who should have that ability.
+
+## Watch-folder rules
+
+The slide folder import above sends each deck to the course its file name or manifest names.
+A **watch-folder rule** turns that round: the rule chooses the destination. Use it when the
+people supplying decks should not have to know course names.
+
+A site administrator sets a *Watch folders base folder* and ticks *Allow watch-folder rules*
+(off by default). Each folder directly inside the base folder is a watch folder; create them
+on the server. A rule can only pick one of those folders, never a path of its own.
+
+Then create a rule and choose **Find files that…** as its subject:
+
+- **Conditions:** *File is in a watch folder* and *File name matches* (wildcards, for example
+  `Week*.pptx`). Give every rule a watch folder condition, or it applies to the decks in all
+  of them.
+- **Actions:**
+  - *Import slides into a course*: pick an existing course, Book or Lesson, the section, and
+    editable content or faithful images. The activity is named after the file; if the course
+    already has one with that name, the slides are added to it.
+  - *Import slides into a temporary course*: pick a category. The first time the rule has a
+    deck to import it creates one hidden course there, named "Temporary slide import: (rule
+    name)", and every deck from that rule goes into it. Automate never deletes this course:
+    move the content where it belongs, then delete it yourself.
+  A deck is moved out of its folder when it is queued, so it goes to one place only: give a
+  rule one import action. A second one is skipped, and Preview says so.
+- **When it runs:** on a schedule, or manually. **Preview** lists each waiting deck and where
+  it would go, without moving anything.
+
+A run queues at most 50 decks; the rest wait for the next run. Decks are imported one at a
+time in the background, then moved to a `processed` or `failed` subfolder of their watch
+folder with a results file. Each time the rule runs, Automate checks that the person who set
+up the action may still manage activities in that course, or create courses in that category.
 
 ## Safety
 
