@@ -24,6 +24,9 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
   managing activities in the course, or creating courses in the category.
 
 ### Changed
+- The *Pick up slide decks for import* task now says in its task log why a run did nothing:
+  no importer installed, the import switched off, or no matching files in the folder for the
+  current *How a deck names its course* setting. Before, an empty run wrote nothing at all.
 - The slide import task accepts decks from a watch folder's `processing` subfolder as well as
   the slide import folder's, and still refuses any other path.
 

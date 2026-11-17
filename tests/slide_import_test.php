@@ -448,6 +448,54 @@ final class slide_import_test extends \advanced_testcase {
     }
 
     /**
+     * A run that queues nothing says why in the task log.
+     *
+     * @param bool $enabled Whether the import is switched on.
+     * @param string $mapping One of the slide_import::MAPPING_* constants.
+     * @param string[] $files Files to put in the folder first.
+     * @param string $expected A regular expression the task's output must match.
+     */
+    #[DataProvider('nothing_queued_provider')]
+    public function test_empty_run_says_why(bool $enabled, string $mapping, array $files, string $expected): void {
+        $this->require_importer('book');
+        $this->resetAfterTest();
+        $dir = $this->enable($mapping);
+        set_config('allow_slide_import', (int) $enabled, 'tool_automate');
+        mkdir($dir . '/sub');
+        foreach ($files as $file) {
+            file_put_contents($dir . '/' . $file, 'x');
+        }
+
+        $this->expectOutputRegex($expected);
+        (new task\queue_slide_imports())->execute();
+
+        $this->assertCount(0, \core\task\manager::get_adhoc_tasks(task\import_slide_file::class));
+    }
+
+    /**
+     * Data provider for {@see self::test_empty_run_says_why()}.
+     *
+     * @return array[]
+     */
+    public static function nothing_queued_provider(): array {
+        $filename = slide_import::MAPPING_FILENAME;
+        $manifest = slide_import::MAPPING_MANIFEST;
+        return [
+            'switched off' => [false, $filename, ['A__B.pptx'], '/"Allow slide folder import" is switched off/'],
+            'empty folder' => [true, $filename, [], '/no \.pptx or \.pdf file is waiting directly in/'],
+            'decks only in a subfolder' => [true, $filename, ['sub/A__B.pptx'], '/files in subfolders are not/'],
+            'manifest ignored' => [true, $filename, ['batch.csv'], '/1 manifest\(s\) are there, but the setting/'],
+            'no manifest' => [true, $manifest, [], '/no manifest \(\.csv\) is waiting in/'],
+            'decks without a manifest' => [
+                true,
+                $manifest,
+                ['a.pptx', 'b.pptx'],
+                '/2 deck\(s\) are waiting there with no manifest/',
+            ],
+        ];
+    }
+
+    /**
      * A manifest without the required columns is filed under "failed" and queues nothing.
      */
     public function test_bad_manifest_goes_to_failed(): void {
@@ -457,6 +505,7 @@ final class slide_import_test extends \advanced_testcase {
         $this->drop_deck($dir, 'week1.pptx');
         file_put_contents($dir . '/batch.csv', "deck,where\nweek1.pptx,BIO101\n");
 
+        $this->expectOutputRegex('/read 1 manifest\(s\) but queued no decks/');
         (new task\queue_slide_imports())->execute();
 
         $this->assertSame(['week1.pptx'], slide_import::list_files($dir));
