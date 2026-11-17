@@ -228,8 +228,9 @@ class slide_import {
     /**
      * Check and tidy a target, whatever its source (file name, manifest row or target file).
      *
-     * @param array $raw Keys course, name and optionally type, section, mode.
-     * @return array Keys course, name, type, section, mode, plus error (a lang string key in
+     * @param array $raw Keys course (a reference) or courseid, name and optionally type, section,
+     *                   mode.
+     * @return array Keys courseid, course, name, type, section, mode, plus error (a lang string key in
      *               tool_automate, empty when the target is usable).
      */
     public static function clean_target(array $raw): array {
@@ -239,6 +240,7 @@ class slide_import {
         $type = strtolower($text($raw['type'] ?? ''));
         $mode = strtolower($text($raw['mode'] ?? ''));
         $target = [
+            'courseid' => max(0, (int) $text($raw['courseid'] ?? '')),
             'course' => $text($raw['course'] ?? ''),
             'name' => \core_text::substr($text($raw['name'] ?? ''), 0, 255),
             'type' => $type === '' ? self::get_default_type() : $type,
@@ -246,7 +248,7 @@ class slide_import {
             'mode' => in_array($mode, ['editable', 'images'], true) ? $mode : self::get_default_mode(),
             'error' => '',
         ];
-        if ($target['course'] === '' || $target['name'] === '') {
+        if (($target['course'] === '' && $target['courseid'] === 0) || $target['name'] === '') {
             $target['error'] = 'slideimport_notarget';
         } else if (!isset(self::available_types()[$target['type']])) {
             $target['error'] = 'slideimport_badtype';
@@ -497,10 +499,11 @@ class slide_import {
      *
      * @param string $dir The source folder.
      * @param string $name The deck's file name.
-     * @param array $target Keys course, name and optionally type, section, mode.
+     * @param array $target Keys course (a reference) or courseid, name and optionally type,
+     *                      section, mode.
      * @return bool False when the deck could not be moved; it is left where it was.
      */
-    protected static function queue_deck(string $dir, string $name, array $target): bool {
+    public static function queue_deck(string $dir, string $name, array $target): bool {
         $processing = self::subfolder($dir, self::DIR_PROCESSING);
         if ($processing === null) {
             return false;
@@ -512,7 +515,7 @@ class slide_import {
         if (file_exists($dest) || !@rename($source, $dest)) {
             return false;
         }
-        $stored = array_intersect_key($target, array_flip(['course', 'name', 'type', 'section', 'mode']));
+        $stored = array_intersect_key($target, array_flip(['courseid', 'course', 'name', 'type', 'section', 'mode']));
         if (@file_put_contents($dest . self::TARGET_SUFFIX, json_encode($stored + ['original' => $name])) === false) {
             // For example a name too long to take the suffix. Put the deck back and carry on,
             // so one awkward file cannot stop the rest of the folder being queued.
@@ -537,7 +540,7 @@ class slide_import {
      * @param string $dir The source folder.
      * @return int How many decks were queued.
      */
-    protected static function requeue_orphans(string $dir): int {
+    public static function requeue_orphans(string $dir): int {
         $processing = $dir . DIRECTORY_SEPARATOR . self::DIR_PROCESSING;
         $files = self::list_files($processing);
         if (empty($files)) {
@@ -570,6 +573,34 @@ class slide_import {
     }
 
     /**
+     * May a queued deck at this path be imported now?
+     *
+     * A deck is only ever imported from the "processing" subfolder of the slide import folder
+     * or of a watch folder, whatever the queued task data says, and only while the feature that
+     * owns that folder is switched on.
+     *
+     * @param string $filepath Absolute path from the queued task.
+     * @return string 'ok', 'off' (the owning feature is switched off: leave the deck where it
+     *                is) or 'outside' (not a path Automate imports from).
+     */
+    public static function check_queued_path(string $filepath): string {
+        $processing = dirname($filepath);
+        if (basename($processing) !== self::DIR_PROCESSING || !self::is_deck_filename(basename($filepath))) {
+            return 'outside';
+        }
+        $owner = dirname($processing);
+        $source = self::get_source_dir();
+        if ($source !== '' && $owner === $source) {
+            return (self::is_available() && self::is_enabled()) ? 'ok' : 'off';
+        }
+        $folder = watch_folder::folder_path(basename($owner));
+        if ($folder !== null && $folder === $owner) {
+            return watch_folder::is_enabled() ? 'ok' : 'off';
+        }
+        return 'outside';
+    }
+
+    /**
      * Import one deck that is waiting in the processing subfolder, then file it away.
      *
      * If the deck cannot be moved to processed or failed, it is renamed in place with a ".done"
@@ -591,6 +622,9 @@ class slide_import {
         }
         $target = self::clean_target(is_array($raw) ? $raw : []);
         $outcome = ['error' => '', 'count' => 0] + array_intersect_key($target, array_flip(['course', 'name', 'type']));
+        if ($outcome['course'] === '' && $target['courseid'] > 0) {
+            $outcome['course'] = '#' . $target['courseid'];
+        }
         if ($target['error'] !== '') {
             $outcome['error'] = get_string($target['error'], 'tool_automate', self::SEPARATOR);
         } else {
@@ -636,14 +670,24 @@ class slide_import {
      * @return int The number of chapters or pages created.
      */
     protected static function import_deck(string $filepath, array $target): int {
+        global $DB;
         $api = self::available_types()[$target['type']];
         $extension = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
         if (!in_array($extension, $api::extensions(), true)) {
             throw new \moodle_exception('slideimport_badextension', 'tool_automate', '', $extension);
         }
-        $course = self::find_course($target['course']);
+        if ($target['courseid'] > 0) {
+            // A watch-folder rule chose the course itself, so there is no reference to look up.
+            $course = $DB->get_record('course', ['id' => $target['courseid']]) ?: null;
+            if ($course !== null && (int) $course->id === (int) SITEID) {
+                $course = null;
+            }
+        } else {
+            $course = self::find_course($target['course']);
+        }
         if ($course === null) {
-            throw new \moodle_exception('slideimport_nocourse', 'tool_automate', '', $target['course']);
+            $reference = $target['courseid'] > 0 ? '#' . $target['courseid'] : $target['course'];
+            throw new \moodle_exception('slideimport_nocourse', 'tool_automate', '', $reference);
         }
         $cmid = $api::find_activity((int) $course->id, $target['name']);
         if (!$cmid) {

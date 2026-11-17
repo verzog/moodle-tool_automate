@@ -32,11 +32,30 @@ class manager {
     /** Subject discriminator: rule operates on courses. */
     public const SUBJECT_COURSE = 'course';
 
+    /** Subject discriminator: rule operates on files waiting in watch folders. */
+    public const SUBJECT_FILE = 'file';
+
     /** Polarity: condition matches if its test is true. */
     public const POLARITY_MATCH = 'match';
 
     /** Polarity: condition matches if its test is false. */
     public const POLARITY_NOTMATCH = 'notmatch';
+
+    /**
+     * Reduce a submitted rule subject to one a new rule may have.
+     *
+     * @param string $subject As submitted from the rule form.
+     * @return string 'user', 'course', or 'file' while watch folders are switched on.
+     */
+    public static function clean_subject(string $subject): string {
+        if ($subject === self::SUBJECT_COURSE) {
+            return self::SUBJECT_COURSE;
+        }
+        if ($subject === self::SUBJECT_FILE && watch_folder::is_enabled()) {
+            return self::SUBJECT_FILE;
+        }
+        return self::SUBJECT_USER;
+    }
 
     /**
      * Registry of condition types (all subjects).
@@ -65,13 +84,15 @@ class manager {
             'course_no_activity_days' => condition\course_no_activity_days::class,
             'course_startdate_between' => condition\course_startdate_between::class,
             'course_completion_rate' => condition\course_completion_rate::class,
+            'file_in_folder' => condition\file_in_folder::class,
+            'file_name_matches' => condition\file_name_matches::class,
         ];
     }
 
     /**
      * Registry of condition types filtered by subject.
      *
-     * @param string $subject 'user' or 'course'.
+     * @param string $subject 'user', 'course' or 'file'.
      * @return array Type code => fully qualified class name.
      */
     public static function get_condition_types_for_subject(string $subject): array {
@@ -109,13 +130,15 @@ class manager {
             'course_copy'             => action\course_copy::class,
             'course_delete'           => action\course_delete::class,
             'course_create_group_event' => action\course_create_group_event::class,
+            'file_import_to_course' => action\file_import_to_course::class,
+            'file_import_to_holding' => action\file_import_to_holding::class,
         ];
     }
 
     /**
      * Registry of action types filtered by subject.
      *
-     * @param string $subject 'user' or 'course'.
+     * @param string $subject 'user', 'course' or 'file'.
      * @return array Type code => fully qualified class name.
      */
     public static function get_action_types_for_subject(string $subject): array {
@@ -202,9 +225,15 @@ class manager {
         foreach ($actions as $action) {
             $action->set_rule($rule);
         }
-        $subjects = $subject === self::SUBJECT_COURSE
-            ? self::get_target_courses($conditions, $logic, $onlysubjectid)
-            : self::get_target_users($conditions, $logic, $onlysubjectid);
+        if ($subject === self::SUBJECT_FILE) {
+            // Files have no stable id, so a file rule always runs against everything waiting.
+            // Switched off, or with no importer left, it finds nothing rather than failing.
+            $subjects = watch_folder::is_enabled() ? watch_folder::list_files() : [];
+        } else if ($subject === self::SUBJECT_COURSE) {
+            $subjects = self::get_target_courses($conditions, $logic, $onlysubjectid);
+        } else {
+            $subjects = self::get_target_users($conditions, $logic, $onlysubjectid);
+        }
 
         $results = [];
         foreach ($subjects as $record) {
@@ -279,6 +308,9 @@ class manager {
     protected static function describe_subject(string $subject, \stdClass $record): string {
         if ($subject === self::SUBJECT_COURSE) {
             return format_string($record->fullname ?? ('#' . $record->id));
+        }
+        if ($subject === self::SUBJECT_FILE) {
+            return ($record->folder ?? '') . '/' . ($record->name ?? '');
         }
         return fullname($record);
     }

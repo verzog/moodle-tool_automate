@@ -234,6 +234,26 @@ if ($hassiteconfig) {
                 'images' => get_string('slidemode_images', 'tool_automate'),
             ]
         ));
+        // Watch folders for "Find files that..." rules. A separate switch from the folder import
+        // above, and off by default: it lets people who manage rules choose where decks go.
+        $settings->add(new admin_setting_heading(
+            'tool_automate/watch_heading',
+            get_string('setting_watch_heading', 'tool_automate'),
+            get_string('setting_watch_heading_desc', 'tool_automate')
+        ));
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_automate/allow_watch_folders',
+            get_string('setting_allow_watch_folders', 'tool_automate'),
+            get_string('setting_allow_watch_folders_desc', 'tool_automate'),
+            0
+        ));
+        $settings->add(new \tool_automate\admin\setting_restore_source_dir(
+            'tool_automate/watch_base_dir',
+            get_string('setting_watch_base_dir', 'tool_automate'),
+            get_string('setting_watch_base_dir_desc', 'tool_automate'),
+            '',
+            PARAM_RAW_TRIMMED
+        ));
     }
 
     $ADMIN->add('tool_automate_category', $settings);

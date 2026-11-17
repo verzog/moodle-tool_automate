@@ -56,6 +56,11 @@ class rule_form extends \moodleform {
             'user'   => get_string('subject_user', 'tool_automate'),
             'course' => get_string('subject_course', 'tool_automate'),
         ];
+        // Watch-folder rules are offered only while the feature is switched on, but a rule that
+        // already is one keeps its label.
+        if (\tool_automate\watch_folder::is_enabled() || ($this->_customdata['subject'] ?? '') === 'file') {
+            $subjects['file'] = get_string('subject_file', 'tool_automate');
+        }
         $subjectel = $mform->addElement(
             'select',
             'subject',

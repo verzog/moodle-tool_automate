@@ -108,7 +108,7 @@ if ($id && $delaction && confirm_sesskey()) {
 }
 
 $lockedsubject = $id && (count($conditions) > 0 || count($actions) > 0);
-$mform = new rule_form(null, ['lockedsubject' => $lockedsubject]);
+$mform = new rule_form(null, ['lockedsubject' => $lockedsubject, 'subject' => $rulesubject]);
 // Anchor the logic and trigger forms to $selfurl so their POST carries the
 // rule id. With a null action, moodleform defaults to
 // strip_querystring(qualified_me()), dropping the "?id=" - the submit would
@@ -362,7 +362,7 @@ if ($mform->is_cancelled()) {
     $record = (object) [
         'name'         => $formdata->name,
         'description'  => $formdata->description ?? '',
-        'subject'      => $lockedsubject ? $rulesubject : ($formdata->subject ?? 'user'),
+        'subject'      => $lockedsubject ? $rulesubject : manager::clean_subject((string) ($formdata->subject ?? '')),
         'enabled'      => $formdata->enabled,
         'usermodified' => $USER->id,
         'timemodified' => $now,
@@ -413,9 +413,8 @@ $rendercondsection = function () use (
     ob_start();
     echo html_writer::start_tag('div', ['data-inline-target' => 'conditions']);
 
-    $heading = $rulesubject === 'course'
-        ? get_string('conditionheading_course', 'tool_automate')
-        : get_string('conditionheading_user', 'tool_automate');
+    $headings = ['course' => 'conditionheading_course', 'file' => 'conditionheading_file'];
+    $heading = get_string($headings[$rulesubject] ?? 'conditionheading_user', 'tool_automate');
     echo $OUTPUT->heading($heading, 3);
 
     // Combinator picker: visible whenever there are 2+ conditions so
