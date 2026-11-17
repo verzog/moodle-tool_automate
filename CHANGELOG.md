@@ -4,6 +4,21 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
+## [1.6.0] - Unreleased
+
+### Added
+- **Slide folder import.** A new *Pick up slide decks for import* scheduled task (every
+  15 minutes) imports PowerPoint files (and PDFs, where the server supports them) from a
+  server folder into Book or Lesson activities, one adhoc task per deck, filing each into
+  `processed` or `failed` with a results CSV. Needs PowerPoint import for Book
+  (`booktool_importpptx`) or for Lesson (`local_lessonimportpptx`), in a version that has the
+  importer API. Off by default behind *Allow slide folder import*.
+- A site setting chooses how a deck names its course and activity: by file name
+  (`course__Activity name.pptx`) or by a CSV manifest in the same folder (columns `file`,
+  `course`, `name`, and optionally `type`, `section`, `mode`). The course is a course ID
+  number or, failing that, a short name. The activity is created if the course has none with
+  that name; otherwise the slides are added to it.
+
 ## [1.5.1] - Unreleased
 
 ### Changed

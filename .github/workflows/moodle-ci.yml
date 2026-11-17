@@ -37,5 +37,8 @@ jobs:
           {"moodle-branch": "MOODLE_503_STABLE", "php": "8.4", "database": "mariadb"},
           {"moodle-branch": "main", "php": "8.4", "database": "pgsql"}
         ]
-      # Soft dependency, installed so the calendar action and folder import tests run rather than skip.
-      extra-plugins: verzog/moodle-local_grpcalendarimport
+      # Soft dependencies, installed so the calendar and slide import tests run rather than skip.
+      extra-plugins: |
+        verzog/moodle-local_grpcalendarimport
+        verzog/moodle-booktool_importpptx
+        verzog/moodle-local_lessonimportpptx

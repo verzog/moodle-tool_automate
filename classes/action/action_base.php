@@ -183,7 +183,7 @@ abstract class action_base {
      * @param array $row Row values destined for fputcsv().
      * @return array The same row with risky leading characters neutralised.
      */
-    protected static function csv_safe_row(array $row): array {
+    public static function csv_safe_row(array $row): array {
         foreach ($row as $i => $value) {
             $value = (string) $value;
             if ($value !== '' && strpbrk($value[0], "=+-@\t\r") !== false) {
