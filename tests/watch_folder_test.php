@@ -337,6 +337,15 @@ final class watch_folder_test extends \advanced_testcase {
         $this->assertSame([], watch_folder::list_files());
         $this->assertFalse((new condition\file_in_folder(['folder' => 'processed']))->matches((object) ['folder' => 'processed']));
 
+        // The same folder under another spelling, or reached through a link, is still shared.
+        set_config('slide_source_dir', $base . '/.', 'tool_automate');
+        $this->assertNull(watch_folder::folder_path('.'));
+        $alias = make_request_directory() . '/alias';
+        symlink($base, $alias);
+        set_config('slide_source_dir', $alias, 'tool_automate');
+        $this->assertNull(watch_folder::folder_path('.'));
+        set_config('slide_source_dir', $base, 'tool_automate');
+
         rmdir($base . '/inbox');
         $setting = new admin\setting_watch_base_dir('tool_automate/watch_base_dir', 'Base', '', '', PARAM_RAW_TRIMMED);
         $this->assertStringContainsString('No watch folders a rule can pick', $setting->output_html($base));

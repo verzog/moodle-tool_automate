@@ -89,7 +89,7 @@ class watch_folder {
     public static function folder_path(string $folder): ?string {
         $base = self::get_base_dir();
         if ($folder === self::BASE) {
-            $usable = $base !== '' && is_dir($base) && $base !== slide_import::get_source_dir();
+            $usable = $base !== '' && is_dir($base) && !self::same_folder($base, slide_import::get_source_dir());
             return $usable ? $base : null;
         }
         if ($base === '' || !self::is_folder_name($folder)) {
@@ -97,6 +97,24 @@ class watch_folder {
         }
         $path = $base . DIRECTORY_SEPARATOR . $folder;
         return (is_dir($path) && !is_link($path)) ? $path : null;
+    }
+
+    /**
+     * Do two paths name the same folder, however each is spelled (a trailing "/.", a link)?
+     *
+     * @param string $one
+     * @param string $two
+     * @return bool
+     */
+    protected static function same_folder(string $one, string $two): bool {
+        if ($one === '' || $two === '') {
+            return false;
+        }
+        if ($one === $two) {
+            return true;
+        }
+        $realone = realpath($one);
+        return $realone !== false && $realone === realpath($two);
     }
 
     /**
