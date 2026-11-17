@@ -4,7 +4,7 @@ All notable changes to this plugin are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
-## [1.7.0] - Unreleased
+## [1.7.0] - 2026-11-17
 
 ### Added
 - **Watch-folder rules.** A third kind of rule, *Find files that…*, runs against slide decks
