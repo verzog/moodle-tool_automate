@@ -447,11 +447,15 @@ class slide_import {
         if (file_exists($dest) || !@rename($source, $dest)) {
             return false;
         }
+        $stored = array_intersect_key($target, array_flip(['course', 'name', 'type', 'section', 'mode']));
+        if (@file_put_contents($dest . self::TARGET_SUFFIX, json_encode($stored + ['original' => $name])) === false) {
+            // For example a name too long to take the suffix. Put the deck back and carry on,
+            // so one awkward file cannot stop the rest of the folder being queued.
+            @unlink($dest . self::TARGET_SUFFIX);
+            @rename($dest, $source);
+            return false;
+        }
         try {
-            $stored = array_intersect_key($target, array_flip(['course', 'name', 'type', 'section', 'mode']));
-            if (file_put_contents($dest . self::TARGET_SUFFIX, json_encode($stored + ['original' => $name])) === false) {
-                throw new \moodle_exception('slideimport_notwritable', 'tool_automate', '', $processing);
-            }
             self::queue_file($dest);
         } catch (\Throwable $e) {
             // Put the deck back so the next run picks it up again, then let the task fail.
@@ -514,9 +518,10 @@ class slide_import {
     public static function import_queued_file(string $filepath): array {
         $targetfile = $filepath . self::TARGET_SUFFIX;
         $raw = is_file($targetfile) ? json_decode((string) file_get_contents($targetfile), true) : null;
-        if (!is_array($raw)) {
+        if (!is_array($raw) && self::get_mapping() === self::MAPPING_FILENAME) {
             // No target file (for example a deck put straight into processing): fall back to the
-            // deck's own name, without the timestamp added when it was queued.
+            // deck's own name, without the timestamp added when it was queued. Never do this for
+            // the manifest mapping, where the name says nothing reliable about the course.
             $raw = self::parse_filename(preg_replace('/^\d{8}-\d{6}-/', '', basename($filepath)));
         }
         $target = self::clean_target(is_array($raw) ? $raw : []);

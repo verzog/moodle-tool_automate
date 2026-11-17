@@ -421,6 +421,45 @@ final class slide_import_test extends \advanced_testcase {
     }
 
     /**
+     * With the manifest mapping, a deck whose target file is missing is never placed by its name.
+     */
+    public function test_manifest_orphan_without_target_goes_to_failed(): void {
+        global $DB;
+        $this->require_importer('book');
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $this->getDataGenerator()->create_course(['idnumber' => 'BIO101']);
+        $dir = $this->enable(slide_import::MAPPING_MANIFEST);
+        mkdir($dir . '/processing');
+        $this->drop_deck($dir . '/processing', '20260101-000000-BIO101__Week 1.pptx');
+
+        $this->expectOutputRegex('/slide import of .* failed/');
+        $this->run_import();
+
+        $this->assertCount(1, slide_import::list_files($dir . '/failed'));
+        $this->assertEquals(0, $DB->count_records('book'));
+    }
+
+    /**
+     * A deck whose name is too long to take the target file suffix is left alone; others still queue.
+     */
+    public function test_overlong_name_does_not_block_the_folder(): void {
+        $this->require_importer('book');
+        $this->resetAfterTest();
+        $dir = $this->enable();
+        $long = 'BIO101__' . str_repeat('a', 220) . '.pptx';
+        $this->drop_deck($dir, $long);
+        $this->drop_deck($dir, 'BIO101__Week 1.pptx');
+
+        $this->expectOutputRegex('/queued 1 slide deck.*could not move 1 slide import file/s');
+        (new task\queue_slide_imports())->execute();
+
+        $this->assertSame([$long], slide_import::list_files($dir));
+        $this->assertCount(1, slide_import::list_files($dir . '/processing'));
+        $this->assertCount(1, \core\task\manager::get_adhoc_tasks(task\import_slide_file::class));
+    }
+
+    /**
      * The import task refuses a path outside the configured folder's processing subfolder.
      */
     public function test_task_refuses_paths_outside_the_folder(): void {
