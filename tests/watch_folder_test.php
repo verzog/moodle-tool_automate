@@ -145,6 +145,77 @@ final class watch_folder_test extends \advanced_testcase {
     }
 
     /**
+     * A linked "processing" subfolder is never followed, and linked decks are never accepted.
+     */
+    public function test_linked_processing_folder_is_refused(): void {
+        $this->require_importer();
+        $this->resetAfterTest();
+        $base = $this->enable(['inbox', 'other']);
+        $elsewhere = make_request_directory();
+        $this->drop_deck($elsewhere, 'Outside.pptx');
+        symlink($elsewhere, $base . '/inbox/processing');
+        mkdir($base . '/other/processing');
+        symlink($elsewhere . '/Outside.pptx', $base . '/other/processing/Linked.pptx');
+
+        $this->assertSame(0, watch_folder::requeue_orphans());
+        $this->assertSame('outside', slide_import::check_queued_path($base . '/inbox/processing/Outside.pptx'));
+        $this->assertSame('outside', slide_import::check_queued_path($base . '/other/processing/Linked.pptx'));
+
+        // A deck cannot be queued through a linked processing subfolder either.
+        $this->drop_deck($base . '/inbox', 'Deck.pptx');
+        $this->assertFalse(slide_import::queue_deck($base . '/inbox', 'Deck.pptx', ['courseid' => 2, 'name' => 'Deck']));
+        $this->assertFileExists($base . '/inbox/Deck.pptx');
+        $this->assertFileExists($elsewhere . '/Outside.pptx');
+        $this->assertCount(0, \core\task\manager::get_adhoc_tasks(task\import_slide_file::class));
+    }
+
+    /**
+     * Every waiting file reaches the rule's conditions, however many are waiting ahead of it.
+     */
+    public function test_all_waiting_files_are_considered(): void {
+        $this->require_importer();
+        $this->resetAfterTest();
+        $base = $this->enable(['a-busy', 'z-mine']);
+        for ($i = 0; $i < 600; $i++) {
+            touch($base . '/a-busy/deck' . $i . '.pptx');
+        }
+        touch($base . '/z-mine/Wanted.pptx');
+
+        $files = watch_folder::list_files();
+        $this->assertCount(601, $files);
+        $this->assertSame('Wanted.pptx', end($files)->name);
+    }
+
+    /**
+     * A deck goes to one place: a second import action in the same rule says it was taken.
+     */
+    public function test_second_import_action_reports_deck_taken(): void {
+        global $DB, $USER;
+        $this->require_importer();
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $other = $this->getDataGenerator()->create_course();
+        $base = $this->enable();
+        $this->drop_deck($base . '/inbox', 'Deck.pptx');
+        $ruleid = $this->create_rule('inbox', 'file_import_to_course', ['courseid' => $course->id]);
+        $DB->insert_record('tool_automate_action', (object) [
+            'ruleid' => $ruleid,
+            'type' => 'file_import_to_course',
+            'configdata' => json_encode(['courseid' => $other->id, 'type' => 'book', 'authorid' => $USER->id]),
+            'sortorder' => 1,
+        ]);
+
+        foreach ([true, false] as $dryrun) {
+            $results = manager::run_rule($ruleid, $dryrun);
+            $this->assertCount(2, $results);
+            $this->assertStringContainsString($dryrun ? 'Would import' : 'Queued', $results[0]->message);
+            $this->assertStringContainsString('already taken', $results[1]->message);
+        }
+        $this->assertCount(1, \core\task\manager::get_adhoc_tasks(task\import_slide_file::class));
+    }
+
+    /**
      * Watch folders need the switch, a base folder and an importer.
      */
     public function test_is_enabled(): void {
@@ -249,6 +320,35 @@ final class watch_folder_test extends \advanced_testcase {
         $this->expectOutputRegex('/created 9 book page.*created 9 book page/s');
         $this->runAdhocTasks(task\import_slide_file::class);
         $this->assertEquals(2, $DB->count_records('book', ['course' => $holding->id]));
+    }
+
+    /**
+     * Once the author may no longer create courses, the rule stops adding to its holding course.
+     */
+    public function test_holding_course_reuse_rechecks_the_author(): void {
+        global $DB;
+        $this->require_importer();
+        $this->resetAfterTest();
+        $category = $this->getDataGenerator()->create_category();
+        $author = $this->getDataGenerator()->create_user();
+        $roleid = $DB->get_field('role', 'id', ['shortname' => 'coursecreator'], MUST_EXIST);
+        role_assign($roleid, $author->id, \context_coursecat::instance($category->id));
+        $this->setUser($author);
+        $base = $this->enable();
+        $this->drop_deck($base . '/inbox', 'Deck one.pptx');
+        $ruleid = $this->create_rule('inbox', 'file_import_to_holding', ['categoryid' => $category->id]);
+
+        $results = manager::run_rule($ruleid, false);
+        $this->assertStringContainsString('Queued', $results[0]->message);
+        $this->assertNotNull(watch_folder::find_holding_course($ruleid));
+
+        role_unassign($roleid, $author->id, \context_coursecat::instance($category->id)->id);
+        $this->drop_deck($base . '/inbox', 'Deck two.pptx');
+        $results = manager::run_rule($ruleid, false);
+
+        $this->assertStringContainsString('no longer allowed', $results[0]->message);
+        $this->assertFileExists($base . '/inbox/Deck two.pptx');
+        $this->assertCount(1, \core\task\manager::get_adhoc_tasks(task\import_slide_file::class));
     }
 
     /**

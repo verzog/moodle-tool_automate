@@ -53,12 +53,11 @@ class file_import_to_holding extends file_import_base {
         if (empty($this->rule->id)) {
             return $fail('fileimport_unavailable');
         }
+        // An existing holding course is checked in the category it is in now; a new one, in the
+        // category the action names. Either way the author must still be allowed to create
+        // courses there, so withdrawing that stops the rule adding to its holding course too.
         $existing = watch_folder::find_holding_course((int) $this->rule->id);
-        if ($existing !== null) {
-            return ['error' => '', 'courseid' => (int) $existing->id, 'label' => format_string($existing->fullname)];
-        }
-
-        $categoryid = (int) ($this->config['categoryid'] ?? 0);
+        $categoryid = $existing !== null ? (int) $existing->category : (int) ($this->config['categoryid'] ?? 0);
         $category = $categoryid ? $DB->get_record('course_categories', ['id' => $categoryid]) : false;
         if (!$category) {
             return $fail('categorygone');
@@ -66,6 +65,9 @@ class file_import_to_holding extends file_import_base {
         $author = $this->author();
         if ($author === null || !has_capability(self::CAPABILITY, \context_coursecat::instance($category->id), $author)) {
             return $fail('fileimport_notallowed');
+        }
+        if ($existing !== null) {
+            return ['error' => '', 'courseid' => (int) $existing->id, 'label' => format_string($existing->fullname)];
         }
         if ($dryrun) {
             $label = get_string('holdingcourse_new', 'tool_automate', format_string($category->name));

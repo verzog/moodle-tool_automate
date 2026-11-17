@@ -329,6 +329,7 @@ $string['fileimport_notallowed'] = 'Skipped: the user who set up this action is 
 $string['fileimport_queued'] = 'Queued "{$a->file}" to be imported as the {$a->type} "{$a->name}" in {$a->course}';
 $string['fileimport_section'] = 'Course section number';
 $string['fileimport_section_help'] = 'The section a new activity is added to. 0 is the general section at the top of the course. If the course already has an activity of this kind with the same name as the file, the slides are added to that activity wherever it is.';
+$string['fileimport_taken'] = 'Skipped: another action in this rule has already taken this deck. A deck can only be imported into one place';
 $string['fileimport_unavailable'] = 'Skipped: watch folders are switched off, the folder has gone, or this is not a slide deck';
 $string['fileimport_would'] = 'Would import "{$a->file}" as the {$a->type} "{$a->name}" in {$a->course}';
 $string['filenamepattern'] = 'File name pattern';

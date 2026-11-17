@@ -245,6 +245,8 @@ Then create a rule and choose **Find files that…** as its subject:
     deck to import it creates one hidden course there, named "Temporary slide import: (rule
     name)", and every deck from that rule goes into it. Automate never deletes this course:
     move the content where it belongs, then delete it yourself.
+  A deck is moved out of its folder when it is queued, so it goes to one place only: give a
+  rule one import action. A second one is skipped, and Preview says so.
 - **When it runs:** on a schedule, or manually. **Preview** lists each waiting deck and where
   it would go, without moving anything.
 

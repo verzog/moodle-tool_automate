@@ -34,6 +34,22 @@ abstract class file_import_base extends action_base {
     /** @var int Decks this action has queued during the current rule run. */
     protected int $queued = 0;
 
+    /** @var bool[] Paths of the decks an import action has already taken during the current rule run. */
+    protected static array $taken = [];
+
+    /**
+     * Start a new rule run: no deck has been taken yet.
+     *
+     * The engine gives every action its rule before it runs any of them, so this clears the
+     * record left by an earlier run in the same request (a preview followed by a real run).
+     *
+     * @param \stdClass $rule
+     */
+    public function set_rule(\stdClass $rule): void {
+        parent::set_rule($rule);
+        self::$taken = [];
+    }
+
     /**
      * Subject discriminator.
      *
@@ -78,6 +94,12 @@ abstract class file_import_base extends action_base {
         if ($name === '') {
             return get_string('slideimport_notarget', 'tool_automate', slide_import::SEPARATOR);
         }
+        // A deck is moved out of its folder when it is queued, so it can only go to one place.
+        // A second import action in the same rule says so, in preview as well as for real.
+        $path = (string) ($subject->path ?? '');
+        if (isset(self::$taken[$path])) {
+            return get_string('fileimport_taken', 'tool_automate');
+        }
         if ($this->queued >= slide_import::BATCH) {
             return get_string('fileimport_nextrun', 'tool_automate', slide_import::BATCH);
         }
@@ -94,6 +116,7 @@ abstract class file_import_base extends action_base {
         ];
         if ($dryrun) {
             $this->queued++;
+            self::$taken[$path] = true;
             return get_string('fileimport_would', 'tool_automate', $a);
         }
 
@@ -108,6 +131,7 @@ abstract class file_import_base extends action_base {
             return get_string('slideimport_rowmovefailed', 'tool_automate');
         }
         $this->queued++;
+        self::$taken[$path] = true;
         return get_string('fileimport_queued', 'tool_automate', $a);
     }
 

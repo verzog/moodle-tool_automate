@@ -200,7 +200,9 @@ class slide_import {
         }
         $files = [];
         foreach ((scandir($dir) ?: []) as $entry) {
-            if (self::is_safe_filename($entry, $extensions) && is_file($dir . DIRECTORY_SEPARATOR . $entry)) {
+            $path = $dir . DIRECTORY_SEPARATOR . $entry;
+            // A link could point anywhere on the server, so only real files count.
+            if (self::is_safe_filename($entry, $extensions) && is_file($path) && !is_link($path)) {
                 $files[] = $entry;
             }
         }
@@ -542,7 +544,8 @@ class slide_import {
      */
     public static function requeue_orphans(string $dir): int {
         $processing = $dir . DIRECTORY_SEPARATOR . self::DIR_PROCESSING;
-        $files = self::list_files($processing);
+        // Never follow a linked processing subfolder out of the folder.
+        $files = is_link($processing) ? [] : self::list_files($processing);
         if (empty($files)) {
             return 0;
         }
@@ -588,6 +591,10 @@ class slide_import {
         if (basename($processing) !== self::DIR_PROCESSING || !self::is_deck_filename(basename($filepath))) {
             return 'outside';
         }
+        // The path must be what it looks like: a link here could reach anywhere on the server.
+        if (is_link($processing) || is_link($filepath)) {
+            return 'outside';
+        }
         $owner = dirname($processing);
         $source = self::get_source_dir();
         if ($source !== '' && $owner === $source) {
@@ -613,7 +620,8 @@ class slide_import {
      */
     public static function import_queued_file(string $filepath): array {
         $targetfile = $filepath . self::TARGET_SUFFIX;
-        $raw = is_file($targetfile) ? json_decode((string) file_get_contents($targetfile), true) : null;
+        $readable = is_file($targetfile) && !is_link($targetfile);
+        $raw = $readable ? json_decode((string) file_get_contents($targetfile), true) : null;
         if (!is_array($raw) && self::get_mapping() === self::MAPPING_FILENAME) {
             // No target file (for example a deck put straight into processing): fall back to the
             // deck's own name, without the timestamp added when it was queued. Never do this for
@@ -701,11 +709,12 @@ class slide_import {
      *
      * @param string $dir Parent folder.
      * @param string $name Subfolder name.
-     * @return string|null The subfolder path, or null if it cannot be created or written to.
+     * @return string|null The subfolder path, or null if it is a link, or cannot be created or
+     *                     written to.
      */
     protected static function subfolder(string $dir, string $name): ?string {
         $path = $dir . DIRECTORY_SEPARATOR . $name;
-        if (!is_dir($path) && !@mkdir($path, 0770)) {
+        if (is_link($path) || (!is_dir($path) && !@mkdir($path, 0770))) {
             return null;
         }
         return is_writable($path) ? $path : null;

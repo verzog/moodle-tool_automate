@@ -29,9 +29,6 @@ namespace tool_automate;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class watch_folder {
-    /** Most files one rule run considers, across all watch folders. */
-    public const MAX_FILES = 500;
-
     /** ID number prefix of the holding course a rule creates; the rule id follows. */
     public const HOLDING_IDNUMBER = 'tool_automate_holding_';
 
@@ -115,6 +112,9 @@ class watch_folder {
     /**
      * List the files waiting in every watch folder, as the records a file rule runs against.
      *
+     * Every waiting file is listed, so a rule's conditions see them all. The limit on how many
+     * are queued per run is applied afterwards, by the import actions, to the files that match.
+     *
      * @return \stdClass[] Each has id (a counter starting at 1, only meaningful within this
      *                     list), folder, name and path.
      */
@@ -124,13 +124,7 @@ class watch_folder {
             $dir = (string) self::folder_path($folder);
             foreach (slide_import::list_files($dir) as $name) {
                 $path = $dir . DIRECTORY_SEPARATOR . $name;
-                if (is_link($path)) {
-                    continue;
-                }
                 $files[] = (object) ['id' => count($files) + 1, 'folder' => $folder, 'name' => $name, 'path' => $path];
-                if (count($files) >= self::MAX_FILES) {
-                    return $files;
-                }
             }
         }
         return $files;
