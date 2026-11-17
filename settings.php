@@ -181,5 +181,60 @@ if ($hassiteconfig) {
         ));
     }
 
+    // Slide import settings, shown only when a PowerPoint importer plugin is installed. Off by
+    // default - the folder import creates activities in bulk, so a site admin opts in here first.
+    if (\tool_automate\slide_import::is_available()) {
+        $settings->add(new admin_setting_heading(
+            'tool_automate/slide_heading',
+            get_string('setting_slide_heading', 'tool_automate'),
+            get_string('setting_slide_heading_desc', 'tool_automate')
+        ));
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_automate/allow_slide_import',
+            get_string('setting_allow_slide_import', 'tool_automate'),
+            get_string('setting_allow_slide_import_desc', 'tool_automate'),
+            0
+        ));
+        // Reuses the readable/not-readable badge setting from bulk restore.
+        $settings->add(new \tool_automate\admin\setting_restore_source_dir(
+            'tool_automate/slide_source_dir',
+            get_string('setting_slide_source_dir', 'tool_automate'),
+            get_string('setting_slide_source_dir_desc', 'tool_automate'),
+            '',
+            PARAM_RAW_TRIMMED
+        ));
+        $settings->add(new admin_setting_configselect(
+            'tool_automate/slide_mapping',
+            get_string('setting_slide_mapping', 'tool_automate'),
+            get_string('setting_slide_mapping_desc', 'tool_automate'),
+            \tool_automate\slide_import::MAPPING_FILENAME,
+            [
+                \tool_automate\slide_import::MAPPING_FILENAME => get_string('slidemapping_filename', 'tool_automate'),
+                \tool_automate\slide_import::MAPPING_MANIFEST => get_string('slidemapping_manifest', 'tool_automate'),
+            ]
+        ));
+        $slidetypes = [];
+        foreach (array_keys(\tool_automate\slide_import::available_types()) as $slidetype) {
+            $slidetypes[$slidetype] = get_string('slidetype_' . $slidetype, 'tool_automate');
+        }
+        $settings->add(new admin_setting_configselect(
+            'tool_automate/slide_default_type',
+            get_string('setting_slide_default_type', 'tool_automate'),
+            get_string('setting_slide_default_type_desc', 'tool_automate'),
+            array_key_first($slidetypes),
+            $slidetypes
+        ));
+        $settings->add(new admin_setting_configselect(
+            'tool_automate/slide_import_mode',
+            get_string('setting_slide_import_mode', 'tool_automate'),
+            get_string('setting_slide_import_mode_desc', 'tool_automate'),
+            'editable',
+            [
+                'editable' => get_string('slidemode_editable', 'tool_automate'),
+                'images' => get_string('slidemode_images', 'tool_automate'),
+            ]
+        ));
+    }
+
     $ADMIN->add('tool_automate_category', $settings);
 }

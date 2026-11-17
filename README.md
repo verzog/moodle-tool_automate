@@ -56,6 +56,9 @@ Calendar Group Event Importer — see [Group calendar events](#group-calendar-ev
   for bulk Canvas import.
 * Optional: [Calendar Group Event Importer](https://github.com/verzog/moodle-local_grpcalendarimport)
   (`local_grpcalendarimport`) v1.2.0 or later for group calendar events.
+* Optional: [PowerPoint import for Book](https://github.com/verzog/moodle-booktool_importpptx)
+  (`booktool_importpptx`) or [PowerPoint import for Lesson](https://github.com/verzog/moodle-local_lessonimportpptx)
+  (`local_lessonimportpptx`), in a version that has the importer API, for slide folder import.
 
 ## Installing via uploaded ZIP file
 
@@ -181,6 +184,41 @@ each row. Moodle must be able to write to the folder.
 
 The folder import sits behind an off-by-default *Allow calendar folder import* kill-switch,
 and *Skip duplicate events* is on by default.
+
+## Slide folder import
+
+When [PowerPoint import for Book](https://github.com/verzog/moodle-booktool_importpptx)
+(`booktool_importpptx`) or [PowerPoint import for Lesson](https://github.com/verzog/moodle-local_lessonimportpptx)
+(`local_lessonimportpptx`) is installed, Automate can import a folder of slide decks in bulk.
+This is a **soft integration**, like the two above: the settings only appear when one of those
+plugins is installed, and `tool_automate` still works standalone.
+
+Drop PowerPoint (`.pptx`) files into the folder set in *Slide import folder*. PDFs are accepted
+too when the server has the PDF tools those plugins use. Every 15 minutes the *Pick up slide
+decks for import* task moves the waiting decks into a `processing` subfolder and queues one
+import task per deck, run one at a time. Each run queues at most 50 decks; a longer manifest carries
+on from where it stopped on the next run. Each deck becomes a Book (one chapter per slide) or a
+Lesson (one content page per slide), as chosen in *Create slides as*. The deck then moves to
+`processed`, or to `failed` if it could not be imported, with a `<file>.results.csv` beside it
+saying what happened. Moodle must be able to write to the folder.
+
+*How a deck names its course* chooses how each deck says where it goes:
+
+- **File name.** Name the deck `course__Activity name.pptx`, with two underscores between the
+  course and the activity name, for example `BIO101__Week 1 slides.pptx`.
+- **Manifest.** Put a CSV file in the folder alongside the decks. Its first row is a heading row
+  with the columns `file`, `course` and `name`, and optionally `type` (`book` or `lesson`),
+  `section` (the course section number) and `mode` (`editable` or `images`). Only decks listed
+  in a manifest are imported, and the manifest is filed away with its own results file.
+
+In both, `course` is a course ID number or, if no course has that ID number, a course short
+name. If the course already has an activity of that type with that name, the slides are added
+after its existing content; otherwise the activity is created in the course's first section
+(or the manifest's `section`). A failed deck is not retried: fix the cause and drop it in again.
+
+The folder import sits behind an off-by-default *Allow slide folder import* kill-switch.
+Anyone who can put files in the folder can add content to any course, so keep the folder
+writable only by the people who should have that ability.
 
 ## Safety
 

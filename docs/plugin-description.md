@@ -6,12 +6,12 @@ Keep this in step with the feature set as the plugin evolves.
 ## Short description (one line)
 
 <!-- Keep within 255 characters when the wrapped lines are joined (directory
-limit). Current length: 253. -->
+limit). Current length: 252. -->
 
-No-code Moodle admin automation: build rules — a trigger, conditions and
-bounded actions — to automate user and course management, with dry-run preview
-and audit logging. Includes bulk course restore from a backup directory with a
-searchable picker.
+No-code Moodle admin automation: rules made of a trigger, conditions and
+bounded actions for user and course management, with dry-run preview and audit
+logging. Plus bulk course restore, Canvas import, and calendar and slide
+import from server folders.
 
 ## Full description
 
@@ -45,7 +45,8 @@ last-modified time, not learner/teacher activity), start date between,
 visibility.
 
 *Course actions:* copy, delete (guarded), move to a category, set visibility,
-email teachers, generate a CSV report.
+email teachers, generate a CSV report, create a group calendar event (needs the
+Calendar Group Event Importer plugin).
 
 **Built for safe operation.** Every rule has a **Preview (dry run)** that shows
 exactly which users or courses would be affected — and what would happen —
@@ -66,6 +67,25 @@ page or the CLI. The admin page offers a **server-side searchable,
 type-to-filter file picker** that scales to directories holding hundreds of
 backups, and previews the selection before queueing.
 
+**Works with other plugins, when they are installed.** These are soft
+integrations: each feature only appears when its companion plugin is installed,
+each sits behind its own off-by-default kill-switch, and Automate works on its
+own without any of them.
+
+- **Bulk Canvas import** (with CourseUplift, `tool_courseuplift`): import many
+  Canvas Common Cartridge (`.imscc`) exports from a list of download URLs or a
+  server directory, either building the courses straight away or staging them
+  for review first.
+- **Group calendar events** (with the Calendar Group Event Importer,
+  `local_grpcalendarimport`): a course action that adds an event to matching
+  groups, and a scheduled import of CSV/TSV event files from a server folder.
+- **Slide folder import** (with PowerPoint import for Book,
+  `booktool_importpptx`, or for Lesson, `local_lessonimportpptx`): drop
+  PowerPoint files into a server folder and each becomes a Book or Lesson in
+  the course it names, by file name (`course__Activity name.pptx`) or by a CSV
+  manifest. Decks are imported one at a time in the background, and each is
+  filed as processed or failed with a results file.
+
 Implements the Moodle Privacy API. Licensed under the GPL v3.
 
 ## Submission fields
@@ -78,10 +98,10 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
 - **Supported Moodle versions:** 5.1 – 5.3 LTS
 - **Licence:** GNU GPL v3 or later
 - **Maturity:** Stable
-- **Current release:** 1.0.3
+- **Current release:** 1.6.0
 - **Tags:** `automation`, `admin tool`, `rules`, `workflow`, `user management`,
-  `course management`, `bulk restore`, `scheduled tasks`, `site administration`,
-  `no-code`
+  `course management`, `bulk restore`, `canvas import`, `powerpoint import`,
+  `calendar`, `scheduled tasks`, `site administration`, `no-code`
   (These are the directory's own search/browse keywords — set them on the
   listing so admins searching for "automation", "bulk restore", etc. find the
   plugin. Match the terms real queries use, not internal jargon.)
@@ -93,14 +113,18 @@ Implements the Moodle Privacy API. Licensed under the GPL v3.
 3. A **Preview (dry run)** result listing the users/courses that would be
    affected.
 4. The **Bulk restore from repository** page with the searchable file picker.
+5. The **Settings** page showing the slide import options (optional).
 
 ## Packaging checklist
 
-- Tag the release in Git to match `$plugin->release` (e.g.
-  `git tag -a v1.0.3 -m 'tool_automate 1.0.3' && git push origin v1.0.3`).
-- Build the ZIP so its **top-level folder is named `automate`** (the install
-  folder under `admin/tool/`), not `moodle-tool_automate`:
-  from the parent of a checkout named `automate`,
-  `zip -r automate.zip automate -x '*.git*'`.
-- Confirm CI is green for the tagged commit — the directory runs the same
+- Bump `$plugin->version` and `$plugin->release` in `version.php`, merge to
+  `main`, and confirm CI is green on that commit — the directory runs the same
   `moodle-plugin-ci` checks on upload.
+- Publish a GitHub release whose tag is `v` plus `$plugin->release` (for
+  example `v1.6.0`). The **Release zip** workflow checks the tag against
+  `version.php` and attaches `tool_automate-v1.6.0.zip`, whose top-level folder
+  is `automate`, as the directory and Moodle's *Install plugins* page expect.
+- Upload that attached zip to the directory. Do not build a zip by hand or use
+  GitHub's "Source code (zip)", whose top-level folder is wrong.
+- Check this description still matches the features, requirements and
+  supported versions in the README.
