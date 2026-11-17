@@ -31,7 +31,8 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
   task and the settings *Allow slide folder import*, *Slide import folder*, *How a deck names
   its course*, *Create slides as* and *Import slides as*.
 - On upgrade, the old *Slide import folder* becomes the *Watch folders base folder* if none is
-  set. *Allow watch-folder rules* is **not** switched on for you, and no rule is created:
+  set, and decks it had queued but not yet imported are put back in the folder under their own
+  names. *Allow watch-folder rules* is **not** switched on for you, and no rule is created:
   after upgrading, tick it and create a *Find files that…* rule, or decks left in the folder
   are not imported.
 

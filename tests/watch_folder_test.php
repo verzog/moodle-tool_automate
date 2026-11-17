@@ -492,8 +492,19 @@ final class watch_folder_test extends \advanced_testcase {
         // The new switch is not turned on for anyone.
         $this->assertEmpty(get_config('tool_automate', 'allow_watch_folders'));
 
-        // A base folder that is already set is kept.
-        set_config('slide_source_dir', '/srv/other', 'tool_automate');
+        // A base folder that is already set is kept, and decks the old import had queued are
+        // put back under their own names for a rule to pick up.
+        $old = make_request_directory();
+        mkdir($old . '/processing');
+        file_put_contents($old . '/processing/20261117-131502-BIO101__Week 1.pptx', 'x');
+        file_put_contents($old . '/processing/20261117-131502-BIO101__Week 1.pptx.target.json', '{"course":"BIO101"}');
+        set_config('slide_source_dir', $old . '/', 'tool_automate');
+        watch_folder::migrate_from_slide_folder_import();
+        $this->assertSame('/srv/decks', get_config('tool_automate', 'watch_base_dir'));
+        $this->assertFileExists($old . '/BIO101__Week 1.pptx');
+        $this->assertSame([], glob($old . '/processing/*'));
+
+        // With no old folder set, there is nothing to do.
         watch_folder::migrate_from_slide_folder_import();
         $this->assertSame('/srv/decks', get_config('tool_automate', 'watch_base_dir'));
     }

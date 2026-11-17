@@ -171,15 +171,48 @@ class watch_folder {
      * does not have to be typed in again, and its settings are dropped. The watch folders switch
      * is deliberately left as it is: it lets rule managers choose where decks go, which the old
      * switch did not.
+     *
+     * Decks the old import had queued but not yet imported are put back in the folder under
+     * their own names. Their target files named a course the old way, which nothing reads any
+     * more, so left alone they would be filed as failed; put back, they wait for a rule.
      */
     public static function migrate_from_slide_folder_import(): void {
-        $oldfolder = trim((string) get_config('tool_automate', 'slide_source_dir'));
-        if ($oldfolder !== '' && self::get_base_dir() === '') {
-            set_config('watch_base_dir', $oldfolder, 'tool_automate');
+        $oldfolder = rtrim(trim((string) get_config('tool_automate', 'slide_source_dir')), '/\\');
+        if ($oldfolder !== '') {
+            self::return_queued_decks($oldfolder);
+            if (self::get_base_dir() === '') {
+                set_config('watch_base_dir', $oldfolder, 'tool_automate');
+            }
         }
         foreach (['allow_slide_import', 'slide_source_dir', 'slide_mapping', 'slide_default_type', 'slide_import_mode'] as $name) {
             unset_config($name, 'tool_automate');
         }
+    }
+
+    /**
+     * Put the decks waiting in a folder's processing subfolder back in the folder itself, without
+     * the timestamp added when they were queued, and remove their target files.
+     *
+     * A deck whose name is already taken in the folder is left where it is.
+     *
+     * @param string $dir The folder.
+     * @return int How many decks were put back.
+     */
+    protected static function return_queued_decks(string $dir): int {
+        $processing = $dir . DIRECTORY_SEPARATOR . slide_import::DIR_PROCESSING;
+        if (is_link($processing) || !is_dir($processing)) {
+            return 0;
+        }
+        $returned = 0;
+        foreach (slide_import::list_files($processing) as $name) {
+            $source = $processing . DIRECTORY_SEPARATOR . $name;
+            $dest = $dir . DIRECTORY_SEPARATOR . preg_replace('/^\d{8}-\d{6}-/', '', $name);
+            if (!file_exists($dest) && @rename($source, $dest)) {
+                @unlink($source . slide_import::TARGET_SUFFIX);
+                $returned++;
+            }
+        }
+        return $returned;
     }
 
     /**
