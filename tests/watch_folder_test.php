@@ -31,6 +31,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(action\file_import_base::class)]
 #[CoversClass(action\file_import_to_course::class)]
 #[CoversClass(action\file_import_to_holding::class)]
+#[CoversClass(admin\setting_watch_base_dir::class)]
 final class watch_folder_test extends \advanced_testcase {
     /**
      * Skip a test that needs the Book importer when it is not installed.
@@ -135,13 +136,13 @@ final class watch_folder_test extends \advanced_testcase {
         file_put_contents($elsewhere . '/secret.pptx', 'x');
         symlink($elsewhere . '/secret.pptx', $base . '/biology/link.pptx');
 
-        $this->assertSame(['biology', 'inbox'], watch_folder::list_folders());
+        $this->assertSame(['.', 'biology', 'inbox'], watch_folder::list_folders());
         $this->assertNull(watch_folder::folder_path('linked'));
         $this->assertNull(watch_folder::folder_path('../' . basename($elsewhere)));
         $files = watch_folder::list_files();
-        $this->assertSame(['a.pdf', 'b.pptx'], array_column($files, 'name'));
-        $this->assertSame(['inbox', 'inbox'], array_column($files, 'folder'));
-        $this->assertSame([1, 2], array_column($files, 'id'));
+        $this->assertSame(['loose.pptx', 'a.pdf', 'b.pptx'], array_column($files, 'name'));
+        $this->assertSame(['.', 'inbox', 'inbox'], array_column($files, 'folder'));
+        $this->assertSame([1, 2, 3], array_column($files, 'id'));
     }
 
     /**
@@ -289,6 +290,59 @@ final class watch_folder_test extends \advanced_testcase {
     }
 
     /**
+     * A rule can watch the base folder itself, so the decks' own folder can be the setting.
+     */
+    public function test_base_folder_is_a_watch_folder(): void {
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/adminlib.php');
+        $this->require_importer();
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $base = $this->enable([]);
+        $this->drop_deck($base, 'Week 1 slides.pptx');
+        $ruleid = $this->create_rule(watch_folder::BASE, 'file_import_to_course', ['courseid' => $course->id]);
+
+        $this->assertSame(['.'], watch_folder::list_folders());
+        $this->assertSame('The base folder itself', watch_folder::folder_label('.'));
+        $this->assertStringContainsString('The base folder itself', condition\file_in_folder::describe(['folder' => '.']));
+        $setting = new admin\setting_watch_base_dir('tool_automate/watch_base_dir', 'Base', '', '', PARAM_RAW_TRIMMED);
+        $this->assertStringContainsString('The base folder itself', $setting->output_html($base));
+
+        $results = manager::run_rule($ruleid, false);
+        $this->assertSame('Week 1 slides.pptx', $results[0]->fullname);
+        $this->assertStringContainsString('Queued', $results[0]->message);
+        $this->expectOutputRegex('/created 9 book page/');
+        $this->runAdhocTasks(task\import_slide_file::class);
+
+        $this->assertEquals(1, $DB->count_records('book', ['course' => $course->id]));
+        $this->assertCount(1, slide_import::list_files($base . '/processed'));
+    }
+
+    /**
+     * The base folder is not offered while it is also the slide import folder.
+     */
+    public function test_base_folder_shared_with_slide_import_is_not_a_watch_folder(): void {
+        global $CFG;
+        require_once($CFG->libdir . '/adminlib.php');
+        $this->require_importer();
+        $this->resetAfterTest();
+        $base = $this->enable(['inbox']);
+        mkdir($base . '/processed');
+        set_config('slide_source_dir', $base, 'tool_automate');
+        file_put_contents($base . '/loose.pptx', 'x');
+
+        $this->assertSame(['inbox'], watch_folder::list_folders());
+        $this->assertNull(watch_folder::folder_path('.'));
+        $this->assertSame([], watch_folder::list_files());
+        $this->assertFalse((new condition\file_in_folder(['folder' => 'processed']))->matches((object) ['folder' => 'processed']));
+
+        rmdir($base . '/inbox');
+        $setting = new admin\setting_watch_base_dir('tool_automate/watch_base_dir', 'Base', '', '', PARAM_RAW_TRIMMED);
+        $this->assertStringContainsString('No watch folders a rule can pick', $setting->output_html($base));
+    }
+
+    /**
      * A rule creates one hidden holding course, then reuses it on later runs.
      */
     public function test_import_to_holding_course(): void {
@@ -413,7 +467,7 @@ final class watch_folder_test extends \advanced_testcase {
 
         $this->assertSame('ok', slide_import::check_queued_path($base . '/inbox/processing/deck.pptx'));
         $this->assertSame('outside', slide_import::check_queued_path($base . '/inbox/deck.pptx'));
-        $this->assertSame('outside', slide_import::check_queued_path($base . '/processing/deck.pptx'));
+        $this->assertSame('ok', slide_import::check_queued_path($base . '/processing/deck.pptx'));
         $this->assertSame('outside', slide_import::check_queued_path($base . '/missing/processing/deck.pptx'));
         $this->assertSame('outside', slide_import::check_queued_path($elsewhere . '/processing/deck.pptx'));
         $this->assertSame('outside', slide_import::check_queued_path($base . '/inbox/processing/deck.php'));

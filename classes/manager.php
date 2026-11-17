@@ -310,7 +310,8 @@ class manager {
             return format_string($record->fullname ?? ('#' . $record->id));
         }
         if ($subject === self::SUBJECT_FILE) {
-            return ($record->folder ?? '') . '/' . ($record->name ?? '');
+            $folder = (string) ($record->folder ?? '');
+            return ($folder === watch_folder::BASE ? '' : $folder . '/') . ($record->name ?? '');
         }
         return fullname($record);
     }

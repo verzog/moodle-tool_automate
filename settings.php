@@ -247,7 +247,7 @@ if ($hassiteconfig) {
             get_string('setting_allow_watch_folders_desc', 'tool_automate'),
             0
         ));
-        $settings->add(new \tool_automate\admin\setting_restore_source_dir(
+        $settings->add(new \tool_automate\admin\setting_watch_base_dir(
             'tool_automate/watch_base_dir',
             get_string('setting_watch_base_dir', 'tool_automate'),
             get_string('setting_watch_base_dir_desc', 'tool_automate'),

@@ -19,8 +19,8 @@ namespace tool_automate;
 /**
  * Watch folders: the server folders that "Find files that..." rules read from.
  *
- * A site administrator sets one base folder. A rule can only name a subfolder directly inside
- * it, never a path, so someone who may manage rules cannot point Automate at an arbitrary part
+ * A site administrator sets one base folder. A rule can only pick that folder or a folder
+ * directly inside it, never a path, so someone who may manage rules cannot point Automate at an arbitrary part
  * of the server. Everything found in those folders is untrusted input: folder and file names
  * must be bare names, and links are ignored.
  *
@@ -29,6 +29,9 @@ namespace tool_automate;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class watch_folder {
+    /** The name a rule stores for the base folder itself, as opposed to a folder inside it. */
+    public const BASE = '.';
+
     /** ID number prefix of the holding course a rule creates; the rule id follows. */
     public const HOLDING_IDNUMBER = 'tool_automate_holding_';
 
@@ -75,13 +78,20 @@ class watch_folder {
     }
 
     /**
-     * The path of a watch folder, if it exists as a real folder inside the base folder.
+     * The path of a watch folder: the base folder itself, or a real folder directly inside it.
      *
-     * @param string $folder The folder's name.
+     * The base folder is not a watch folder while it is also the slide import folder, because
+     * the scheduled slide import already takes every deck dropped there.
+     *
+     * @param string $folder The folder's name, or {@see self::BASE} for the base folder.
      * @return string|null Null when the name is not usable or there is no such folder.
      */
     public static function folder_path(string $folder): ?string {
         $base = self::get_base_dir();
+        if ($folder === self::BASE) {
+            $usable = $base !== '' && is_dir($base) && $base !== slide_import::get_source_dir();
+            return $usable ? $base : null;
+        }
         if ($base === '' || !self::is_folder_name($folder)) {
             return null;
         }
@@ -90,9 +100,9 @@ class watch_folder {
     }
 
     /**
-     * List the watch folders that exist now.
+     * List the watch folders that exist now: the base folder itself, then the folders in it.
      *
-     * @return string[] Sorted folder names.
+     * @return string[] Folder names, {@see self::BASE} first and the rest sorted.
      */
     public static function list_folders(): array {
         $base = self::get_base_dir();
@@ -101,12 +111,25 @@ class watch_folder {
         }
         $folders = [];
         foreach ((scandir($base) ?: []) as $entry) {
-            if (self::folder_path($entry) !== null) {
+            if ($entry !== self::BASE && self::folder_path($entry) !== null) {
                 $folders[] = $entry;
             }
         }
         sort($folders, SORT_STRING);
+        if (self::folder_path(self::BASE) !== null) {
+            array_unshift($folders, self::BASE);
+        }
         return $folders;
+    }
+
+    /**
+     * A watch folder's name as people should see it.
+     *
+     * @param string $folder The folder's name, or {@see self::BASE}.
+     * @return string
+     */
+    public static function folder_label(string $folder): string {
+        return $folder === self::BASE ? get_string('watchfolder_base', 'tool_automate') : $folder;
     }
 
     /**

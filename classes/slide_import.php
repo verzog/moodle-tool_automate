@@ -600,8 +600,9 @@ class slide_import {
         if ($source !== '' && $owner === $source) {
             return (self::is_available() && self::is_enabled()) ? 'ok' : 'off';
         }
-        $folder = watch_folder::folder_path(basename($owner));
-        if ($folder !== null && $folder === $owner) {
+        $iswatchfolder = watch_folder::folder_path(watch_folder::BASE) === $owner
+            || watch_folder::folder_path(basename($owner)) === $owner;
+        if ($iswatchfolder) {
             return watch_folder::is_enabled() ? 'ok' : 'off';
         }
         return 'outside';
