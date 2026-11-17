@@ -196,7 +196,8 @@ plugins is installed, and `tool_automate` still works standalone.
 Drop PowerPoint (`.pptx`) files into the folder set in *Slide import folder*. PDFs are accepted
 too when the server has the PDF tools those plugins use. Every 15 minutes the *Pick up slide
 decks for import* task moves the waiting decks into a `processing` subfolder and queues one
-import task per deck, run one at a time. Each deck becomes a Book (one chapter per slide) or a
+import task per deck, run one at a time. Each run queues at most 50 decks; a longer manifest carries
+on from where it stopped on the next run. Each deck becomes a Book (one chapter per slide) or a
 Lesson (one content page per slide), as chosen in *Create slides as*. The deck then moves to
 `processed`, or to `failed` if it could not be imported, with a `<file>.results.csv` beside it
 saying what happened. Moodle must be able to write to the folder.

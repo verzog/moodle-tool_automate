@@ -12,7 +12,8 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
   server folder into Book or Lesson activities, one adhoc task per deck, filing each into
   `processed` or `failed` with a results CSV. Needs PowerPoint import for Book
   (`booktool_importpptx`) or for Lesson (`local_lessonimportpptx`), in a version that has the
-  importer API. Off by default behind *Allow slide folder import*.
+  importer API. Off by default behind *Allow slide folder import*. Each run queues at most 50
+  decks, whichever way they are named.
 - A site setting chooses how a deck names its course and activity: by file name
   (`course__Activity name.pptx`) or by a CSV manifest in the same folder (columns `file`,
   `course`, `name`, and optionally `type`, `section`, `mode`). The course is a course ID

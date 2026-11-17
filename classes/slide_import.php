@@ -62,7 +62,7 @@ class slide_import {
     /** Extensions (lower-case, no dot) the importers can ever accept. */
     public const DECK_EXTENSIONS = ['pptx', 'pdf'];
 
-    /** Most decks moved into processing and queued by one scheduled run. */
+    /** Most decks moved into processing and queued by one scheduled run, whichever the mapping. */
     public const BATCH = 50;
 
     /** Most rows read from one manifest. */
@@ -70,6 +70,12 @@ class slide_import {
 
     /** Suffix of the target file written beside a deck in the processing subfolder. */
     public const TARGET_SUFFIX = '.target.json';
+
+    /** Suffix of the file recording how far a part-queued manifest has got, in the processing subfolder. */
+    public const PROGRESS_SUFFIX = '.progress.json';
+
+    /** Suffix of every results file. */
+    public const RESULTS_SUFFIX = '.results.csv';
 
     /** Subfolder for decks queued but not yet imported. */
     public const DIR_PROCESSING = 'processing';
@@ -297,6 +303,8 @@ class slide_import {
         $queued = self::requeue_orphans($dir);
         $manifest = self::get_mapping() === self::MAPPING_MANIFEST;
         $waiting = $manifest ? self::list_files($dir, ['csv']) : self::list_files($dir);
+        // A results file left in the folder itself is not a manifest.
+        $waiting = array_values(array_filter($waiting, fn($name) => !str_ends_with($name, self::RESULTS_SUFFIX)));
         if (empty($waiting)) {
             return ['queued' => $queued, 'error' => ''];
         }
@@ -308,7 +316,7 @@ class slide_import {
         $failed = 0;
         if ($manifest) {
             foreach ($waiting as $name) {
-                $outcome = self::queue_manifest($dir, $name);
+                $outcome = self::queue_manifest($dir, $name, max(0, self::BATCH - $queued));
                 $queued += $outcome['queued'];
                 $failed += $outcome['failed'];
             }
@@ -329,38 +337,60 @@ class slide_import {
     }
 
     /**
-     * Queue every deck a manifest lists, then file the manifest away with a results CSV.
+     * Queue the decks a manifest lists, then file the manifest away with a results CSV.
+     *
+     * At most $allowance decks are queued. If rows are left over, the manifest stays where it is
+     * and a progress file records how far it got, so the next run carries on from there.
      *
      * @param string $dir The source folder.
      * @param string $manifest The manifest's file name.
+     * @param int $allowance How many more decks this run may queue.
      * @return array Keys: queued (int), failed (int, decks or manifests that could not be moved).
      */
-    protected static function queue_manifest(string $dir, string $manifest): array {
+    protected static function queue_manifest(string $dir, string $manifest, int $allowance): array {
         $path = $dir . DIRECTORY_SEPARATOR . $manifest;
         $parsed = self::read_manifest($path);
-        $results = [];
+        $progressfile = implode(DIRECTORY_SEPARATOR, [$dir, self::DIR_PROCESSING, $manifest . self::PROGRESS_SUFFIX]);
+        $progress = self::read_progress($progressfile, (string) @md5_file($path));
+        $results = $progress['results'];
+        $seen = $progress['seen'];
+        $done = $progress['done'];
         $queued = 0;
         $failed = 0;
-        $seen = [];
-        foreach ($parsed['rows'] as $row) {
+        $total = count($parsed['rows']);
+        while ($done < $total) {
+            $row = $parsed['rows'][$done];
             $file = $row['file'];
-            if (!self::is_deck_filename($file) || !is_file($dir . DIRECTORY_SEPARATOR . $file)) {
+            if (!self::is_deck_filename($file)) {
                 $results[] = [$row['line'], $file, 'error', get_string('slideimport_filemissing', 'tool_automate')];
-                continue;
-            }
-            if (isset($seen[$file])) {
+            } else if (isset($seen[$file])) {
                 $results[] = [$row['line'], $file, 'error', get_string('slideimport_duplicate', 'tool_automate')];
-                continue;
-            }
-            $seen[$file] = true;
-            if (self::queue_deck($dir, $file, $row)) {
+            } else if (!is_file($dir . DIRECTORY_SEPARATOR . $file)) {
+                $results[] = [$row['line'], $file, 'error', get_string('slideimport_filemissing', 'tool_automate')];
+            } else if ($queued >= $allowance) {
+                // This run's share is used up: keep the rest of the manifest for the next run.
+                break;
+            } else if (self::queue_deck($dir, $file, $row)) {
+                $seen[$file] = true;
                 $queued++;
                 $results[] = [$row['line'], $file, 'queued', ''];
             } else {
                 $failed++;
                 $results[] = [$row['line'], $file, 'error', get_string('slideimport_rowmovefailed', 'tool_automate')];
             }
+            $done++;
         }
+
+        if ($done < $total) {
+            $saved = ['hash' => (string) @md5_file($path), 'done' => $done, 'seen' => array_keys($seen), 'results' => $results];
+            if (@file_put_contents($progressfile, json_encode($saved)) !== false) {
+                return ['queued' => $queued, 'failed' => $failed];
+            }
+            // Without a record of how far it got, the next run would start this manifest again and
+            // report the decks queued so far as missing. File it away now with what was done.
+            $parsed['error'] = get_string('slideimport_manifestpartial', 'tool_automate', $done);
+        }
+        @unlink($progressfile);
 
         $destdir = self::subfolder($dir, $parsed['error'] === '' ? self::DIR_PROCESSED : self::DIR_FAILED);
         $dest = ($destdir ?? $dir) . DIRECTORY_SEPARATOR . date('Ymd-His') . '-' . $manifest;
@@ -375,8 +405,43 @@ class slide_import {
         if ($parsed['error'] !== '') {
             $rows[] = [0, '', 'error', $parsed['error']];
         }
-        self::write_csv($dest . '.results.csv', array_merge($rows, $results));
+        self::write_csv($dest . self::RESULTS_SUFFIX, array_merge($rows, $results));
         return ['queued' => $queued, 'failed' => $failed];
+    }
+
+    /**
+     * Read how far an earlier run got through a manifest.
+     *
+     * The progress file lives in the folder, so it is untrusted: every value is checked, and it
+     * is ignored unless it was written for exactly this manifest's contents.
+     *
+     * @param string $progressfile Absolute path to the progress file.
+     * @param string $hash MD5 of the manifest as it is now.
+     * @return array Keys: done (int, rows already handled), seen (deck file name => true) and
+     *               results (list of result rows).
+     */
+    protected static function read_progress(string $progressfile, string $hash): array {
+        $fresh = ['done' => 0, 'seen' => [], 'results' => []];
+        $raw = is_file($progressfile) ? json_decode((string) file_get_contents($progressfile), true) : null;
+        if (!is_array($raw) || $hash === '' || ($raw['hash'] ?? '') !== $hash) {
+            return $fresh;
+        }
+        $done = $raw['done'] ?? null;
+        if (!is_int($done) || $done < 0 || !is_array($raw['seen'] ?? null) || !is_array($raw['results'] ?? null)) {
+            return $fresh;
+        }
+        $progress = ['done' => $raw['done'], 'seen' => [], 'results' => []];
+        foreach ($raw['seen'] as $file) {
+            if (is_string($file) && self::is_deck_filename($file)) {
+                $progress['seen'][$file] = true;
+            }
+        }
+        foreach ($raw['results'] as $result) {
+            if (is_array($result) && count($result) === 4) {
+                $progress['results'][] = array_map(fn($cell) => is_scalar($cell) ? (string) $cell : '', array_values($result));
+            }
+        }
+        return $progress;
     }
 
     /**
@@ -548,7 +613,7 @@ class slide_import {
             $dest = $filepath;
         }
         @unlink($targetfile);
-        self::write_csv($dest . '.results.csv', [
+        self::write_csv($dest . self::RESULTS_SUFFIX, [
             ['file', 'course', 'activity', 'type', 'status', 'created', 'message'],
             [
                 basename($filepath),

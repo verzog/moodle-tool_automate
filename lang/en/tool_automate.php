@@ -508,6 +508,7 @@ $string['slideimport_badtype'] = 'The activity type is not "book" or "lesson", o
 $string['slideimport_duplicate'] = 'This file is listed more than once; only the first row was used';
 $string['slideimport_filemissing'] = 'This file is not in the folder, or is not a PowerPoint (.pptx) or PDF file';
 $string['slideimport_manifestcolumns'] = 'The first row must be a heading row with the columns file, course and name';
+$string['slideimport_manifestpartial'] = 'Moodle could not record how far it had got, so only the first {$a} rows were handled. Put the rest in another manifest';
 $string['slideimport_manifesttoolong'] = 'Only the first {$a} rows were read. Put the rest in another manifest';
 $string['slideimport_manifestunreadable'] = 'Moodle could not open this manifest';
 $string['slideimport_movefailed'] = 'Moodle could not move {$a} slide import file(s) out of the folder; they will be tried again on the next run';

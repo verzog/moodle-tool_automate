@@ -385,6 +385,69 @@ final class slide_import_test extends \advanced_testcase {
     }
 
     /**
+     * A long manifest is queued a batch at a time, carrying on where the last run stopped.
+     */
+    public function test_manifest_is_queued_in_batches(): void {
+        $this->require_importer('book');
+        $this->resetAfterTest();
+        $dir = $this->enable(slide_import::MAPPING_MANIFEST);
+        $total = slide_import::BATCH + 2;
+        $lines = ['file,course,name', 'missing.pptx,BIO101,Missing'];
+        for ($i = 1; $i <= $total; $i++) {
+            $this->drop_deck($dir, "deck{$i}.pptx");
+            $lines[] = "deck{$i}.pptx,BIO101,Deck {$i}";
+        }
+        file_put_contents($dir . '/batch.csv', implode("\n", $lines) . "\n");
+
+        $this->expectOutputRegex('/queued ' . slide_import::BATCH . ' slide deck.*queued 2 slide deck/s');
+        (new task\queue_slide_imports())->execute();
+
+        // The first run stops at the limit and leaves the manifest, and the last two decks, waiting.
+        $this->assertCount(slide_import::BATCH, \core\task\manager::get_adhoc_tasks(task\import_slide_file::class));
+        $this->assertSame(['batch.csv'], slide_import::list_files($dir, ['csv']));
+        $this->assertCount(2, slide_import::list_files($dir));
+        $this->assertFileExists($dir . '/processing/batch.csv' . slide_import::PROGRESS_SUFFIX);
+
+        (new task\queue_slide_imports())->execute();
+
+        $this->assertCount($total, \core\task\manager::get_adhoc_tasks(task\import_slide_file::class));
+        $this->assertSame([], slide_import::list_files($dir));
+        $this->assertSame([], slide_import::list_files($dir, ['csv']));
+        $this->assertFileDoesNotExist($dir . '/processing/batch.csv' . slide_import::PROGRESS_SUFFIX);
+        $results = glob($dir . '/processed/*batch.csv.results.csv');
+        $this->assertCount(1, $results);
+        $rows = array_map(fn($line) => str_getcsv($line, ',', '"', ''), file($results[0], FILE_IGNORE_NEW_LINES));
+        $statuses = array_count_values(array_column(array_slice($rows, 1), 2));
+        $this->assertSame(['error' => 1, 'queued' => $total], $statuses);
+
+        // Nothing is left to do, and the filed results are not mistaken for a manifest.
+        (new task\queue_slide_imports())->execute();
+        $this->assertCount($total, \core\task\manager::get_adhoc_tasks(task\import_slide_file::class));
+    }
+
+    /**
+     * Progress recorded for a manifest is ignored once the manifest's contents change.
+     */
+    public function test_manifest_progress_is_ignored_for_a_changed_manifest(): void {
+        $this->require_importer('book');
+        $this->resetAfterTest();
+        $dir = $this->enable(slide_import::MAPPING_MANIFEST);
+        mkdir($dir . '/processing');
+        $this->drop_deck($dir, 'week1.pptx');
+        file_put_contents($dir . '/batch.csv', "file,course,name\nweek1.pptx,BIO101,Week 1\n");
+        file_put_contents(
+            $dir . '/processing/batch.csv' . slide_import::PROGRESS_SUFFIX,
+            json_encode(['hash' => md5('some other manifest'), 'done' => 1, 'seen' => [], 'results' => []])
+        );
+
+        $this->expectOutputRegex('/queued 1 slide deck/');
+        (new task\queue_slide_imports())->execute();
+
+        $this->assertSame([], slide_import::list_files($dir));
+        $this->assertFileDoesNotExist($dir . '/processing/batch.csv' . slide_import::PROGRESS_SUFFIX);
+    }
+
+    /**
      * A manifest without the required columns is filed under "failed" and queues nothing.
      */
     public function test_bad_manifest_goes_to_failed(): void {
