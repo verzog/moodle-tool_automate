@@ -229,8 +229,11 @@ A **watch-folder rule** turns that round: the rule chooses the destination. Use 
 people supplying decks should not have to know course names.
 
 A site administrator sets a *Watch folders base folder* and ticks *Allow watch-folder rules*
-(off by default). Each folder directly inside the base folder is a watch folder; create them
-on the server. A rule can only pick one of those folders, never a path of its own.
+(off by default). A rule can watch the base folder itself, or any folder directly inside it;
+create those on the server. The settings page lists the folders a rule can pick. A rule can
+never use a path of its own. If the base folder is also the slide import folder, only the
+folders inside it can be watched, because the slide import already takes every deck dropped
+there.
 
 Then create a rule and choose **Find files that…** as its subject:
 

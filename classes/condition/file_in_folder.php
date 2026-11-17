@@ -52,7 +52,8 @@ class file_in_folder extends condition_base {
      */
     public function matches(\stdClass $subject): bool {
         $folder = (string) ($this->config['folder'] ?? '');
-        return $folder !== '' && watch_folder::is_folder_name($folder) && (string) ($subject->folder ?? '') === $folder;
+        $usable = $folder === watch_folder::BASE || watch_folder::is_folder_name($folder);
+        return $usable && (string) ($subject->folder ?? '') === $folder;
     }
 
     /**
@@ -70,7 +71,7 @@ class file_in_folder extends condition_base {
             'select',
             'config_folder',
             get_string('watchfolder', 'tool_automate'),
-            array_combine($folders, $folders)
+            array_combine($folders, array_map([watch_folder::class, 'folder_label'], $folders))
         );
         $mform->addHelpButton('config_folder', 'watchfolder', 'tool_automate');
     }
@@ -103,6 +104,7 @@ class file_in_folder extends condition_base {
      * @return string
      */
     public static function describe(array $config): string {
-        return get_string('cond_file_in_folder_desc', 'tool_automate', s((string) ($config['folder'] ?? '')));
+        $label = watch_folder::folder_label((string) ($config['folder'] ?? ''));
+        return get_string('cond_file_in_folder_desc', 'tool_automate', s($label));
     }
 }

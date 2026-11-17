@@ -211,6 +211,44 @@ class slide_import {
     }
 
     /**
+     * List the manifests waiting in a folder (top level only).
+     *
+     * @param string $dir Folder to scan.
+     * @return string[] Sorted basenames of the CSV files, leaving out results files.
+     */
+    public static function list_manifests(string $dir): array {
+        // A results file left in the folder itself is not a manifest.
+        $files = array_filter(self::list_files($dir, ['csv']), fn($name) => !str_ends_with($name, self::RESULTS_SUFFIX));
+        return array_values($files);
+    }
+
+    /**
+     * Say why a run of the scheduled import queued nothing, for the task log.
+     *
+     * @param int $decks How many decks were waiting in the folder before the run.
+     * @param int $manifests How many manifests were waiting in the folder before the run.
+     * @return string A plain-English reason.
+     */
+    public static function describe_nothing_queued(int $decks, int $manifests): string {
+        $dir = self::get_source_dir();
+        if (self::get_mapping() === self::MAPPING_MANIFEST) {
+            if ($manifests > 0) {
+                return 'read ' . $manifests . ' manifest(s) but queued no decks; each manifest has been filed under "processed"'
+                    . ' or "failed" with a results file saying why';
+            }
+            $reason = 'nothing to do: no manifest (.csv) is waiting in ' . $dir . '. The setting "How a deck names its course"'
+                . ' is "Manifest", so only decks listed in a manifest are imported';
+            return $decks > 0 ? $reason . '; ' . $decks . ' deck(s) are waiting there with no manifest' : $reason;
+        }
+        $reason = 'nothing to do: no .pptx or .pdf file is waiting directly in ' . $dir . ' (files in subfolders are not'
+            . ' picked up)';
+        return $manifests > 0
+            ? $reason . '. ' . $manifests . ' manifest(s) are there, but the setting "How a deck names its course" is "File name",'
+                . ' so manifests are ignored'
+            : $reason;
+    }
+
+    /**
      * Read the course and activity name out of a deck's file name.
      *
      * @param string $filename For example "BIO101__Week 1 slides.pptx".
@@ -306,9 +344,7 @@ class slide_import {
 
         $queued = self::requeue_orphans($dir);
         $manifest = self::get_mapping() === self::MAPPING_MANIFEST;
-        $waiting = $manifest ? self::list_files($dir, ['csv']) : self::list_files($dir);
-        // A results file left in the folder itself is not a manifest.
-        $waiting = array_values(array_filter($waiting, fn($name) => !str_ends_with($name, self::RESULTS_SUFFIX)));
+        $waiting = $manifest ? self::list_manifests($dir) : self::list_files($dir);
         if (empty($waiting)) {
             return ['queued' => $queued, 'error' => ''];
         }
@@ -600,8 +636,9 @@ class slide_import {
         if ($source !== '' && $owner === $source) {
             return (self::is_available() && self::is_enabled()) ? 'ok' : 'off';
         }
-        $folder = watch_folder::folder_path(basename($owner));
-        if ($folder !== null && $folder === $owner) {
+        $iswatchfolder = watch_folder::folder_path(watch_folder::BASE) === $owner
+            || watch_folder::folder_path(basename($owner)) === $owner;
+        if ($iswatchfolder) {
             return watch_folder::is_enabled() ? 'ok' : 'off';
         }
         return 'outside';
