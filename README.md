@@ -57,8 +57,9 @@ Calendar Group Event Importer — see [Group calendar events](#group-calendar-ev
 * Optional: [Calendar Group Event Importer](https://github.com/verzog/moodle-local_grpcalendarimport)
   (`local_grpcalendarimport`) v1.2.0 or later for group calendar events.
 * Optional: [PowerPoint import for Book](https://github.com/verzog/moodle-booktool_importpptx)
-  (`booktool_importpptx`) or [PowerPoint import for Lesson](https://github.com/verzog/moodle-local_lessonimportpptx)
-  (`local_lessonimportpptx`), in a version that has the importer API, for slide folder import.
+  (`booktool_importpptx`) 1.18.0 or later, or
+  [PowerPoint import for Lesson](https://github.com/verzog/moodle-local_lessonimportpptx)
+  (`local_lessonimportpptx`) 1.13.0 or later, for slide folder import.
 
 ## Installing via uploaded ZIP file
 
@@ -188,8 +189,8 @@ and *Skip duplicate events* is on by default.
 ## Slide folder import
 
 When [PowerPoint import for Book](https://github.com/verzog/moodle-booktool_importpptx)
-(`booktool_importpptx`) or [PowerPoint import for Lesson](https://github.com/verzog/moodle-local_lessonimportpptx)
-(`local_lessonimportpptx`) is installed, Automate can import a folder of slide decks in bulk.
+(`booktool_importpptx`, 1.18.0 or later) or [PowerPoint import for Lesson](https://github.com/verzog/moodle-local_lessonimportpptx)
+(`local_lessonimportpptx`, 1.13.0 or later) is installed, Automate can import a folder of slide decks in bulk.
 This is a **soft integration**, like the two above: the settings only appear when one of those
 plugins is installed, and `tool_automate` still works standalone.
 
