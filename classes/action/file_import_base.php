@@ -23,7 +23,7 @@ use tool_automate\watch_folder;
  * Shared behaviour of the actions that import a slide deck from a watch folder.
  *
  * Nothing is imported while the rule runs. The deck is moved into its folder's "processing"
- * subfolder and an adhoc task is queued for it, exactly as the slide folder import does, so a
+ * subfolder and an adhoc task is queued for it, so a
  * rule run from the browser returns straight away and decks are imported one at a time.
  *
  * @package    tool_automate
@@ -92,7 +92,7 @@ abstract class file_import_base extends action_base {
         }
         $name = \core_text::substr(trim(clean_param(pathinfo($filename, PATHINFO_FILENAME), PARAM_TEXT)), 0, 255);
         if ($name === '') {
-            return get_string('slideimport_notarget', 'tool_automate', slide_import::SEPARATOR);
+            return get_string('fileimport_noname', 'tool_automate');
         }
         // A deck is moved out of its folder when it is queued, so it can only go to one place.
         // A second import action in the same rule says so, in preview as well as for real.

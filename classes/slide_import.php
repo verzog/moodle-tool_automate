@@ -17,25 +17,20 @@
 namespace tool_automate;
 
 /**
- * Slide folder import, via booktool_importpptx and local_lessonimportpptx.
+ * Importing slide decks from watch folders, via booktool_importpptx and local_lessonimportpptx.
  *
  * A soft integration, like {@see calendar_import}: tool_automate does not declare a hard
- * dependency on either importer. When at least one of them is installed with its API class,
- * a scheduled task imports PowerPoint (and, where the server supports it, PDF) files dropped
- * into a server folder, each into a Book or Lesson activity in the course the file names.
+ * dependency on either importer. When at least one of them is installed with its API class, a
+ * "Find files that..." rule can import PowerPoint (and, where the server supports it, PDF) files
+ * from a watch folder into a Book or Lesson activity in a course the rule chooses.
  *
- * How a file names its course and activity is a site setting:
- *  - "filename": the file is called <course>__<activity name>.pptx; or
- *  - "manifest": a CSV file in the same folder lists file, course and name for each deck.
- * In both, <course> is a course ID number or, failing that, a course short name.
+ * This class does the part that follows the rule's decision. The rule's action moves a deck
+ * from its watch folder into that folder's "processing" subfolder, writes a small target file
+ * beside it saying where it goes, and queues one adhoc task for it. The task imports the deck
+ * and moves it to "processed" or "failed", writing a results CSV beside it either way.
  *
- * The import works in place. Each run moves waiting decks from the folder into its
- * "processing" subfolder, writes a small target file beside each one saying where it goes,
- * and queues one adhoc task per deck. The task imports the deck and moves it to "processed"
- * or "failed", writing a results CSV beside it either way.
- *
- * Everything read back from the folder (file names, manifests and target files) is treated as
- * untrusted input: names must be bare file names, and every value is checked again before use.
+ * Everything read back from a folder (file names and target files) is treated as untrusted
+ * input: names must be bare file names, and every value is checked again before use.
  *
  * @package    tool_automate
  * @copyright  2026 Vernon Spain
@@ -50,29 +45,14 @@ class slide_import {
 
     /** Lowest importer API version this integration supports. */
     public const MIN_API_VERSION = 1;
-
-    /** Mapping mode: the course and activity name are in the file name. */
-    public const MAPPING_FILENAME = 'filename';
-    /** Mapping mode: a CSV manifest lists the course and activity name for each file. */
-    public const MAPPING_MANIFEST = 'manifest';
-
-    /** Separator between the course and the activity name in a file name. */
-    public const SEPARATOR = '__';
-
     /** Extensions (lower-case, no dot) the importers can ever accept. */
     public const DECK_EXTENSIONS = ['pptx', 'pdf'];
 
     /** Most decks moved into processing and queued by one scheduled run, whichever the mapping. */
     public const BATCH = 50;
 
-    /** Most rows read from one manifest. */
-    public const MAX_MANIFEST_ROWS = 1000;
-
     /** Suffix of the target file written beside a deck in the processing subfolder. */
     public const TARGET_SUFFIX = '.target.json';
-
-    /** Suffix of the file recording how far a part-queued manifest has got, in the processing subfolder. */
-    public const PROGRESS_SUFFIX = '.progress.json';
 
     /** Suffix of every results file. */
     public const RESULTS_SUFFIX = '.results.csv';
@@ -109,57 +89,6 @@ class slide_import {
      */
     public static function is_available(): bool {
         return !empty(self::available_types());
-    }
-
-    /**
-     * Whether the scheduled folder import is switched on for the site.
-     *
-     * Off by default: it creates activities in bulk, so a site admin opts in first.
-     *
-     * @return bool
-     */
-    public static function is_enabled(): bool {
-        return (bool) get_config('tool_automate', 'allow_slide_import');
-    }
-
-    /**
-     * The configured source folder, without a trailing separator.
-     *
-     * @return string Empty when not configured.
-     */
-    public static function get_source_dir(): string {
-        $dir = trim((string) get_config('tool_automate', 'slide_source_dir'));
-        return $dir === '' ? '' : rtrim($dir, '/\\');
-    }
-
-    /**
-     * How files say where they go.
-     *
-     * @return string One of the MAPPING_* constants.
-     */
-    public static function get_mapping(): string {
-        $mapping = (string) get_config('tool_automate', 'slide_mapping');
-        return $mapping === self::MAPPING_MANIFEST ? self::MAPPING_MANIFEST : self::MAPPING_FILENAME;
-    }
-
-    /**
-     * The activity type used when a file does not say (always, for the file name mapping).
-     *
-     * @return string 'book' or 'lesson'; empty when no importer is installed.
-     */
-    public static function get_default_type(): string {
-        $types = self::available_types();
-        $type = (string) get_config('tool_automate', 'slide_default_type');
-        return isset($types[$type]) ? $type : (string) (array_key_first($types) ?? '');
-    }
-
-    /**
-     * The import mode used when a file does not say.
-     *
-     * @return string 'editable' or 'images'.
-     */
-    public static function get_default_mode(): string {
-        return get_config('tool_automate', 'slide_import_mode') === 'images' ? 'images' : 'editable';
     }
 
     /**
@@ -211,84 +140,26 @@ class slide_import {
     }
 
     /**
-     * List the manifests waiting in a folder (top level only).
+     * Check and tidy a target read back from a target file.
      *
-     * @param string $dir Folder to scan.
-     * @return string[] Sorted basenames of the CSV files, leaving out results files.
-     */
-    public static function list_manifests(string $dir): array {
-        // A results file left in the folder itself is not a manifest.
-        $files = array_filter(self::list_files($dir, ['csv']), fn($name) => !str_ends_with($name, self::RESULTS_SUFFIX));
-        return array_values($files);
-    }
-
-    /**
-     * Say why a run of the scheduled import queued nothing, for the task log.
-     *
-     * @param int $decks How many decks were waiting in the folder before the run.
-     * @param int $manifests How many manifests were waiting in the folder before the run.
-     * @return string A plain-English reason.
-     */
-    public static function describe_nothing_queued(int $decks, int $manifests): string {
-        $dir = self::get_source_dir();
-        if (self::get_mapping() === self::MAPPING_MANIFEST) {
-            if ($manifests > 0) {
-                return 'read ' . $manifests . ' manifest(s) but queued no decks; each manifest has been filed under "processed"'
-                    . ' or "failed" with a results file saying why';
-            }
-            $reason = 'nothing to do: no manifest (.csv) is waiting in ' . $dir . '. The setting "How a deck names its course"'
-                . ' is "Manifest", so only decks listed in a manifest are imported';
-            return $decks > 0 ? $reason . '; ' . $decks . ' deck(s) are waiting there with no manifest' : $reason;
-        }
-        $reason = 'nothing to do: no .pptx or .pdf file is waiting directly in ' . $dir . ' (files in subfolders are not'
-            . ' picked up)';
-        return $manifests > 0
-            ? $reason . '. ' . $manifests . ' manifest(s) are there, but the setting "How a deck names its course" is "File name",'
-                . ' so manifests are ignored'
-            : $reason;
-    }
-
-    /**
-     * Read the course and activity name out of a deck's file name.
-     *
-     * @param string $filename For example "BIO101__Week 1 slides.pptx".
-     * @return array|null Keys course and name, or null when the name does not follow the pattern.
-     */
-    public static function parse_filename(string $filename): ?array {
-        $stem = pathinfo($filename, PATHINFO_FILENAME);
-        $pos = strpos($stem, self::SEPARATOR);
-        if ($pos === false) {
-            return null;
-        }
-        $course = trim(substr($stem, 0, $pos));
-        $name = trim(substr($stem, $pos + strlen(self::SEPARATOR)));
-        return ($course === '' || $name === '') ? null : ['course' => $course, 'name' => $name];
-    }
-
-    /**
-     * Check and tidy a target, whatever its source (file name, manifest row or target file).
-     *
-     * @param array $raw Keys course (a reference) or courseid, name and optionally type, section,
-     *                   mode.
-     * @return array Keys courseid, course, name, type, section, mode, plus error (a lang string key in
+     * @param array $raw Keys courseid, name, type and optionally section, mode.
+     * @return array Keys courseid, name, type, section, mode, plus error (a lang string key in
      *               tool_automate, empty when the target is usable).
      */
     public static function clean_target(array $raw): array {
         $text = function ($value): string {
             return is_scalar($value) ? trim(clean_param((string) $value, PARAM_TEXT)) : '';
         };
-        $type = strtolower($text($raw['type'] ?? ''));
         $mode = strtolower($text($raw['mode'] ?? ''));
         $target = [
             'courseid' => max(0, (int) $text($raw['courseid'] ?? '')),
-            'course' => $text($raw['course'] ?? ''),
             'name' => \core_text::substr($text($raw['name'] ?? ''), 0, 255),
-            'type' => $type === '' ? self::get_default_type() : $type,
+            'type' => strtolower($text($raw['type'] ?? '')),
             'section' => max(0, (int) $text($raw['section'] ?? '')),
-            'mode' => in_array($mode, ['editable', 'images'], true) ? $mode : self::get_default_mode(),
+            'mode' => $mode === 'images' ? 'images' : 'editable',
             'error' => '',
         ];
-        if (($target['course'] === '' && $target['courseid'] === 0) || $target['name'] === '') {
+        if ($target['courseid'] === 0 || $target['name'] === '') {
             $target['error'] = 'slideimport_notarget';
         } else if (!isset(self::available_types()[$target['type']])) {
             $target['error'] = 'slideimport_badtype';
@@ -297,248 +168,11 @@ class slide_import {
     }
 
     /**
-     * Find a course by ID number or, failing that, short name. The site course never matches.
-     *
-     * @param string $reference
-     * @return \stdClass|null The course record.
-     */
-    public static function find_course(string $reference): ?\stdClass {
-        if ($reference === '') {
-            return null;
-        }
-        $course = self::single_course('idnumber', $reference) ?? self::single_course('shortname', $reference);
-        return ($course === null || (int) $course->id === (int) SITEID) ? null : $course;
-    }
-
-    /**
-     * The one course with this value in a field.
-     *
-     * @param string $field 'idnumber' or 'shortname'.
-     * @param string $value
-     * @return \stdClass|null Null when no course matches, or when more than one does (Moodle does
-     *                        not allow that through its own forms, but the database does).
-     */
-    protected static function single_course(string $field, string $value): ?\stdClass {
-        global $DB;
-        $courses = $DB->get_records('course', [$field => $value], 'id', '*', 0, 2);
-        return count($courses) === 1 ? reset($courses) : null;
-    }
-
-    /**
-     * Move waiting decks into the processing subfolder and queue an import task for each.
-     *
-     * Decks already in processing that no queued task owns (for example after a crash between
-     * the move and the queueing) are queued again first.
-     *
-     * @param string|null $dir Folder to scan; defaults to the configured one.
-     * @return array Keys: queued (int), error (string, empty when nothing went wrong).
-     */
-    public static function queue_waiting_files(?string $dir = null): array {
-        $dir = $dir ?? self::get_source_dir();
-        if ($dir === '' || !is_dir($dir)) {
-            return ['queued' => 0, 'error' => get_string('slideimport_nodir', 'tool_automate')];
-        }
-        if (!is_readable($dir)) {
-            return ['queued' => 0, 'error' => get_string('slideimport_notreadable', 'tool_automate', $dir)];
-        }
-
-        $queued = self::requeue_orphans($dir);
-        $manifest = self::get_mapping() === self::MAPPING_MANIFEST;
-        $waiting = $manifest ? self::list_manifests($dir) : self::list_files($dir);
-        if (empty($waiting)) {
-            return ['queued' => $queued, 'error' => ''];
-        }
-        // Moving a file out of the folder needs write access to the folder itself.
-        if (!is_writable($dir) || self::subfolder($dir, self::DIR_PROCESSING) === null) {
-            return ['queued' => $queued, 'error' => get_string('slideimport_notwritable', 'tool_automate', $dir)];
-        }
-
-        $failed = 0;
-        if ($manifest) {
-            foreach ($waiting as $name) {
-                $outcome = self::queue_manifest($dir, $name, max(0, self::BATCH - $queued));
-                $queued += $outcome['queued'];
-                $failed += $outcome['failed'];
-            }
-        } else {
-            foreach (array_slice($waiting, 0, max(0, self::BATCH - $queued)) as $name) {
-                // A name that does not follow the pattern is still queued: the task files it
-                // under "failed" with a results file that says why.
-                $target = self::parse_filename($name) ?? ['course' => '', 'name' => ''];
-                if (self::queue_deck($dir, $name, $target)) {
-                    $queued++;
-                } else {
-                    $failed++;
-                }
-            }
-        }
-        $error = $failed ? get_string('slideimport_movefailed', 'tool_automate', $failed) : '';
-        return ['queued' => $queued, 'error' => $error];
-    }
-
-    /**
-     * Queue the decks a manifest lists, then file the manifest away with a results CSV.
-     *
-     * At most $allowance decks are queued. If rows are left over, the manifest stays where it is
-     * and a progress file records how far it got, so the next run carries on from there.
-     *
-     * @param string $dir The source folder.
-     * @param string $manifest The manifest's file name.
-     * @param int $allowance How many more decks this run may queue.
-     * @return array Keys: queued (int), failed (int, decks or manifests that could not be moved).
-     */
-    protected static function queue_manifest(string $dir, string $manifest, int $allowance): array {
-        $path = $dir . DIRECTORY_SEPARATOR . $manifest;
-        $parsed = self::read_manifest($path);
-        $progressfile = implode(DIRECTORY_SEPARATOR, [$dir, self::DIR_PROCESSING, $manifest . self::PROGRESS_SUFFIX]);
-        $progress = self::read_progress($progressfile, (string) @md5_file($path));
-        $results = $progress['results'];
-        $seen = $progress['seen'];
-        $done = $progress['done'];
-        $queued = 0;
-        $failed = 0;
-        $total = count($parsed['rows']);
-        while ($done < $total) {
-            $row = $parsed['rows'][$done];
-            $file = $row['file'];
-            if (!self::is_deck_filename($file)) {
-                $results[] = [$row['line'], $file, 'error', get_string('slideimport_filemissing', 'tool_automate')];
-            } else if (isset($seen[$file])) {
-                $results[] = [$row['line'], $file, 'error', get_string('slideimport_duplicate', 'tool_automate')];
-            } else if (!is_file($dir . DIRECTORY_SEPARATOR . $file)) {
-                $results[] = [$row['line'], $file, 'error', get_string('slideimport_filemissing', 'tool_automate')];
-            } else if ($queued >= $allowance) {
-                // This run's share is used up: keep the rest of the manifest for the next run.
-                break;
-            } else if (self::queue_deck($dir, $file, $row)) {
-                $seen[$file] = true;
-                $queued++;
-                $results[] = [$row['line'], $file, 'queued', ''];
-            } else {
-                $failed++;
-                $results[] = [$row['line'], $file, 'error', get_string('slideimport_rowmovefailed', 'tool_automate')];
-            }
-            $done++;
-        }
-
-        if ($done < $total) {
-            $saved = ['hash' => (string) @md5_file($path), 'done' => $done, 'seen' => array_keys($seen), 'results' => $results];
-            if (@file_put_contents($progressfile, json_encode($saved)) !== false) {
-                return ['queued' => $queued, 'failed' => $failed];
-            }
-            // Without a record of how far it got, the next run would start this manifest again and
-            // report the decks queued so far as missing. File it away now with what was done.
-            $parsed['error'] = get_string('slideimport_manifestpartial', 'tool_automate', $done);
-        }
-        @unlink($progressfile);
-
-        $destdir = self::subfolder($dir, $parsed['error'] === '' ? self::DIR_PROCESSED : self::DIR_FAILED);
-        $dest = ($destdir ?? $dir) . DIRECTORY_SEPARATOR . date('Ymd-His') . '-' . $manifest;
-        if ($destdir === null || file_exists($dest) || !@rename($path, $dest)) {
-            // Rename it in place so the same manifest is not read again every run.
-            $dest = $path . '.done';
-            if (!@rename($path, $dest)) {
-                return ['queued' => $queued, 'failed' => $failed + 1];
-            }
-        }
-        $rows = [['row', 'file', 'status', 'message']];
-        if ($parsed['error'] !== '') {
-            $rows[] = [0, '', 'error', $parsed['error']];
-        }
-        self::write_csv($dest . self::RESULTS_SUFFIX, array_merge($rows, $results));
-        return ['queued' => $queued, 'failed' => $failed];
-    }
-
-    /**
-     * Read how far an earlier run got through a manifest.
-     *
-     * The progress file lives in the folder, so it is untrusted: every value is checked, and it
-     * is ignored unless it was written for exactly this manifest's contents.
-     *
-     * @param string $progressfile Absolute path to the progress file.
-     * @param string $hash MD5 of the manifest as it is now.
-     * @return array Keys: done (int, rows already handled), seen (deck file name => true) and
-     *               results (list of result rows).
-     */
-    protected static function read_progress(string $progressfile, string $hash): array {
-        $fresh = ['done' => 0, 'seen' => [], 'results' => []];
-        $raw = is_file($progressfile) ? json_decode((string) file_get_contents($progressfile), true) : null;
-        if (!is_array($raw) || $hash === '' || ($raw['hash'] ?? '') !== $hash) {
-            return $fresh;
-        }
-        $done = $raw['done'] ?? null;
-        if (!is_int($done) || $done < 0 || !is_array($raw['seen'] ?? null) || !is_array($raw['results'] ?? null)) {
-            return $fresh;
-        }
-        $progress = ['done' => $raw['done'], 'seen' => [], 'results' => []];
-        foreach ($raw['seen'] as $file) {
-            if (is_string($file) && self::is_deck_filename($file)) {
-                $progress['seen'][$file] = true;
-            }
-        }
-        foreach ($raw['results'] as $result) {
-            if (is_array($result) && count($result) === 4) {
-                $progress['results'][] = array_map(fn($cell) => is_scalar($cell) ? (string) $cell : '', array_values($result));
-            }
-        }
-        return $progress;
-    }
-
-    /**
-     * Read a manifest: a CSV with a header row naming at least the file, course and name columns.
-     *
-     * @param string $path Absolute path to the manifest.
-     * @return array Keys: rows (list of arrays with line, file, course, name, type, section,
-     *               mode) and error (string, empty when the manifest could be read).
-     */
-    public static function read_manifest(string $path): array {
-        $handle = @fopen($path, 'r');
-        if (!$handle) {
-            return ['rows' => [], 'error' => get_string('slideimport_manifestunreadable', 'tool_automate')];
-        }
-        $header = fgetcsv($handle, null, ',', '"', '');
-        $columns = [];
-        foreach (($header ?: []) as $index => $label) {
-            // Spreadsheets often save a byte order mark in front of the first heading.
-            $label = strtolower(trim(str_replace("\xEF\xBB\xBF", '', (string) $label)));
-            if (in_array($label, ['file', 'course', 'name', 'type', 'section', 'mode'], true)) {
-                $columns[$label] = $index;
-            }
-        }
-        if (!isset($columns['file'], $columns['course'], $columns['name'])) {
-            fclose($handle);
-            return ['rows' => [], 'error' => get_string('slideimport_manifestcolumns', 'tool_automate')];
-        }
-
-        $rows = [];
-        $line = 1;
-        $error = '';
-        while (($cells = fgetcsv($handle, null, ',', '"', '')) !== false) {
-            $line++;
-            if ($cells === [null] || trim(implode('', $cells)) === '') {
-                continue;
-            }
-            if (count($rows) >= self::MAX_MANIFEST_ROWS) {
-                $error = get_string('slideimport_manifesttoolong', 'tool_automate', self::MAX_MANIFEST_ROWS);
-                break;
-            }
-            $row = ['line' => $line];
-            foreach (['file', 'course', 'name', 'type', 'section', 'mode'] as $label) {
-                $row[$label] = isset($columns[$label]) ? trim((string) ($cells[$columns[$label]] ?? '')) : '';
-            }
-            $rows[] = $row;
-        }
-        fclose($handle);
-        return ['rows' => $rows, 'error' => $error];
-    }
-
-    /**
      * Move one deck into the processing subfolder, record its target and queue its import.
      *
      * @param string $dir The source folder.
      * @param string $name The deck's file name.
-     * @param array $target Keys course (a reference) or courseid, name and optionally type,
-     *                      section, mode.
+     * @param array $target Keys courseid, name, type and optionally section, mode.
      * @return bool False when the deck could not be moved; it is left where it was.
      */
     public static function queue_deck(string $dir, string $name, array $target): bool {
@@ -553,7 +187,7 @@ class slide_import {
         if (file_exists($dest) || !@rename($source, $dest)) {
             return false;
         }
-        $stored = array_intersect_key($target, array_flip(['courseid', 'course', 'name', 'type', 'section', 'mode']));
+        $stored = array_intersect_key($target, array_flip(['courseid', 'name', 'type', 'section', 'mode']));
         if (@file_put_contents($dest . self::TARGET_SUFFIX, json_encode($stored + ['original' => $name])) === false) {
             // For example a name too long to take the suffix. Put the deck back and carry on,
             // so one awkward file cannot stop the rest of the folder being queued.
@@ -614,13 +248,12 @@ class slide_import {
     /**
      * May a queued deck at this path be imported now?
      *
-     * A deck is only ever imported from the "processing" subfolder of the slide import folder
-     * or of a watch folder, whatever the queued task data says, and only while the feature that
-     * owns that folder is switched on.
+     * A deck is only ever imported from the "processing" subfolder of a watch folder, whatever
+     * the queued task data says, and only while watch folders are switched on.
      *
      * @param string $filepath Absolute path from the queued task.
-     * @return string 'ok', 'off' (the owning feature is switched off: leave the deck where it
-     *                is) or 'outside' (not a path Automate imports from).
+     * @return string 'ok', 'off' (watch folders are switched off: leave the deck where it is)
+     *                or 'outside' (not a path Automate imports from).
      */
     public static function check_queued_path(string $filepath): string {
         $processing = dirname($filepath);
@@ -632,16 +265,12 @@ class slide_import {
             return 'outside';
         }
         $owner = dirname($processing);
-        $source = self::get_source_dir();
-        if ($source !== '' && $owner === $source) {
-            return (self::is_available() && self::is_enabled()) ? 'ok' : 'off';
-        }
         $iswatchfolder = watch_folder::folder_path(watch_folder::BASE) === $owner
             || watch_folder::folder_path(basename($owner)) === $owner;
-        if ($iswatchfolder) {
-            return watch_folder::is_enabled() ? 'ok' : 'off';
+        if (!$iswatchfolder) {
+            return 'outside';
         }
-        return 'outside';
+        return watch_folder::is_enabled() ? 'ok' : 'off';
     }
 
     /**
@@ -652,29 +281,23 @@ class slide_import {
      *
      * @param string $filepath Absolute path to the deck in the processing subfolder.
      * @return array Keys: error (string, empty on success), count (int, chapters or pages
-     *               created), course, name, type (the cleaned target) and movedto (path; empty
-     *               if renamed in place).
+     *               created), course (its short name), name, type and movedto (path; empty if
+     *               renamed in place).
      */
     public static function import_queued_file(string $filepath): array {
         $targetfile = $filepath . self::TARGET_SUFFIX;
         $readable = is_file($targetfile) && !is_link($targetfile);
         $raw = $readable ? json_decode((string) file_get_contents($targetfile), true) : null;
-        if (!is_array($raw) && self::get_mapping() === self::MAPPING_FILENAME) {
-            // No target file (for example a deck put straight into processing): fall back to the
-            // deck's own name, without the timestamp added when it was queued. Never do this for
-            // the manifest mapping, where the name says nothing reliable about the course.
-            $raw = self::parse_filename(preg_replace('/^\d{8}-\d{6}-/', '', basename($filepath)));
-        }
+        // With no readable target file there is nothing to say where the deck goes, so it fails.
         $target = self::clean_target(is_array($raw) ? $raw : []);
-        $outcome = ['error' => '', 'count' => 0] + array_intersect_key($target, array_flip(['course', 'name', 'type']));
-        if ($outcome['course'] === '' && $target['courseid'] > 0) {
-            $outcome['course'] = '#' . $target['courseid'];
-        }
+        $outcome = ['error' => '', 'count' => 0, 'course' => ''] + array_intersect_key($target, array_flip(['name', 'type']));
         if ($target['error'] !== '') {
-            $outcome['error'] = get_string($target['error'], 'tool_automate', self::SEPARATOR);
+            $outcome['error'] = get_string($target['error'], 'tool_automate');
         } else {
             try {
-                $outcome['count'] = self::import_deck($filepath, $target);
+                $course = self::get_target_course($target['courseid']);
+                $outcome['course'] = $course->shortname;
+                $outcome['count'] = self::import_deck($filepath, $target, $course);
             } catch (\Throwable $e) {
                 $outcome['error'] = $e->getMessage();
             }
@@ -708,31 +331,33 @@ class slide_import {
     }
 
     /**
+     * The course a target names.
+     *
+     * @param int $courseid
+     * @return \stdClass The course record.
+     */
+    protected static function get_target_course(int $courseid): \stdClass {
+        global $DB;
+        $course = $DB->get_record('course', ['id' => $courseid]);
+        if (!$course || (int) $course->id === (int) SITEID) {
+            throw new \moodle_exception('slideimport_nocourse', 'tool_automate', '', $courseid);
+        }
+        return $course;
+    }
+
+    /**
      * Import a deck into the activity its target names, creating the activity if needed.
      *
      * @param string $filepath Absolute path to the deck.
      * @param array $target A usable target from {@see self::clean_target()}.
+     * @param \stdClass $course The course the target names.
      * @return int The number of chapters or pages created.
      */
-    protected static function import_deck(string $filepath, array $target): int {
-        global $DB;
+    protected static function import_deck(string $filepath, array $target, \stdClass $course): int {
         $api = self::available_types()[$target['type']];
         $extension = strtolower(pathinfo($filepath, PATHINFO_EXTENSION));
         if (!in_array($extension, $api::extensions(), true)) {
             throw new \moodle_exception('slideimport_badextension', 'tool_automate', '', $extension);
-        }
-        if ($target['courseid'] > 0) {
-            // A watch-folder rule chose the course itself, so there is no reference to look up.
-            $course = $DB->get_record('course', ['id' => $target['courseid']]) ?: null;
-            if ($course !== null && (int) $course->id === (int) SITEID) {
-                $course = null;
-            }
-        } else {
-            $course = self::find_course($target['course']);
-        }
-        if ($course === null) {
-            $reference = $target['courseid'] > 0 ? '#' . $target['courseid'] : $target['course'];
-            throw new \moodle_exception('slideimport_nocourse', 'tool_automate', '', $reference);
         }
         $cmid = $api::find_activity((int) $course->id, $target['name']);
         if (!$cmid) {

@@ -182,5 +182,13 @@ function xmldb_tool_automate_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026061901, 'tool', 'automate');
     }
 
+    if ($oldversion < 2026111703) {
+        // The slide folder import (decks named by file name or manifest) has gone; slide decks
+        // are imported by "Find files that..." rules only.
+        \tool_automate\watch_folder::migrate_from_slide_folder_import();
+
+        upgrade_plugin_savepoint(true, 2026111703, 'tool', 'automate');
+    }
+
     return true;
 }

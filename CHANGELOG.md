@@ -8,8 +8,8 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
 
 ### Added
 - **Watch-folder rules.** A third kind of rule, *Find files that…*, runs against slide decks
-  waiting in watch folders and chooses where each one goes, instead of the file naming its own
-  course. Conditions: *File is in a watch folder* and *File name matches*. Actions:
+  waiting in watch folders and chooses where each one goes. Conditions: *File is in a watch
+  folder* and *File name matches*. Actions:
   - *Import slides into a course*: an existing course picked in the rule.
   - *Import slides into a temporary course*: one hidden holding course per rule, created in a
     chosen category the first time the rule has a deck to import and reused after that.
@@ -18,17 +18,22 @@ follows Moodle's `YYYYMMDDXX` version numbering in `version.php`.
   or a folder directly inside it, and the settings page lists the folders it found. Off by
   default behind *Allow watch-folder rules*.
 - Preview (dry run) lists each waiting deck and where it would go. Decks are queued and imported
-  one at a time by the same task as the slide folder import, at most 50 per rule run, and filed
-  into the watch folder's `processed` or `failed` subfolder with a results CSV.
+  one at a time, at most 50 per rule run, and filed into the watch folder's `processed` or
+  `failed` subfolder with a results CSV.
 - The permission of the person who set up the action is checked again each time the rule runs:
   managing activities in the course, or creating courses in the category.
 
-### Changed
-- The *Pick up slide decks for import* task now says in its task log why a run did nothing:
-  no importer installed, the import switched off, or no matching files in the folder for the
-  current *How a deck names its course* setting. Before, an empty run wrote nothing at all.
-- The slide import task accepts decks from a watch folder's `processing` subfolder as well as
-  the slide import folder's, and still refuses any other path.
+### Removed
+- **The slide folder import added in 1.6.0**, where a deck named its own course by file name
+  (`course__Activity name.pptx`) or through a CSV manifest and a scheduled task picked it up.
+  Slide decks are now imported by watch-folder rules only: one way in, with nothing to rename
+  and no manifest to write. Gone with it are the *Pick up slide decks for import* scheduled
+  task and the settings *Allow slide folder import*, *Slide import folder*, *How a deck names
+  its course*, *Create slides as* and *Import slides as*.
+- On upgrade, the old *Slide import folder* becomes the *Watch folders base folder* if none is
+  set. *Allow watch-folder rules* is **not** switched on for you, and no rule is created:
+  after upgrading, tick it and create a *Find files that…* rule, or decks left in the folder
+  are not imported.
 
 ## [1.6.0] - 2026-11-17
 

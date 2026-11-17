@@ -44,7 +44,7 @@ class setting_watch_base_dir extends setting_restore_source_dir {
         }
         $labels = array_map([watch_folder::class, 'folder_label'], watch_folder::list_folders());
         if (empty($labels)) {
-            return $status . \html_writer::div(s(get_string('watchfolder_nonefound', 'tool_automate')), 'text-danger');
+            return $status;
         }
         $found = get_string('watchfolder_found', 'tool_automate', implode(', ', $labels));
         return $status . \html_writer::div(s($found), 'text-muted');

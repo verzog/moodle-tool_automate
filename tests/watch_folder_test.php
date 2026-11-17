@@ -320,38 +320,6 @@ final class watch_folder_test extends \advanced_testcase {
     }
 
     /**
-     * The base folder is not offered while it is also the slide import folder.
-     */
-    public function test_base_folder_shared_with_slide_import_is_not_a_watch_folder(): void {
-        global $CFG;
-        require_once($CFG->libdir . '/adminlib.php');
-        $this->require_importer();
-        $this->resetAfterTest();
-        $base = $this->enable(['inbox']);
-        mkdir($base . '/processed');
-        set_config('slide_source_dir', $base, 'tool_automate');
-        file_put_contents($base . '/loose.pptx', 'x');
-
-        $this->assertSame(['inbox'], watch_folder::list_folders());
-        $this->assertNull(watch_folder::folder_path('.'));
-        $this->assertSame([], watch_folder::list_files());
-        $this->assertFalse((new condition\file_in_folder(['folder' => 'processed']))->matches((object) ['folder' => 'processed']));
-
-        // The same folder under another spelling, or reached through a link, is still shared.
-        set_config('slide_source_dir', $base . '/.', 'tool_automate');
-        $this->assertNull(watch_folder::folder_path('.'));
-        $alias = make_request_directory() . '/alias';
-        symlink($base, $alias);
-        set_config('slide_source_dir', $alias, 'tool_automate');
-        $this->assertNull(watch_folder::folder_path('.'));
-        set_config('slide_source_dir', $base, 'tool_automate');
-
-        rmdir($base . '/inbox');
-        $setting = new admin\setting_watch_base_dir('tool_automate/watch_base_dir', 'Base', '', '', PARAM_RAW_TRIMMED);
-        $this->assertStringContainsString('No watch folders a rule can pick', $setting->output_html($base));
-    }
-
-    /**
      * A rule creates one hidden holding course, then reuses it on later runs.
      */
     public function test_import_to_holding_course(): void {
@@ -457,7 +425,7 @@ final class watch_folder_test extends \advanced_testcase {
         set_config('allow_watch_folders', 0, 'tool_automate');
 
         $this->assertSame([], manager::run_rule($ruleid, false));
-        $this->expectOutputRegex('/slide import is switched off/');
+        $this->expectOutputRegex('/watch folders are switched off/');
         $this->runAdhocTasks(task\import_slide_file::class);
 
         $this->assertEquals(0, $DB->count_records('book'));
@@ -485,19 +453,48 @@ final class watch_folder_test extends \advanced_testcase {
     }
 
     /**
-     * A deck a rule moved into processing but never queued is picked up by the scheduled task.
+     * A deck a rule moved into processing but never queued is queued by the next real rule run.
      */
-    public function test_orphans_are_requeued(): void {
+    public function test_orphans_are_requeued_by_the_next_run(): void {
         $this->require_importer();
         $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
         $base = $this->enable();
         mkdir($base . '/inbox/processing');
         $this->drop_deck($base . '/inbox/processing', '20260101-000000-Deck.pptx');
+        $ruleid = $this->create_rule('inbox', 'file_import_to_course', ['courseid' => $course->id]);
 
-        $this->expectOutputRegex('/queued 1 slide deck\(s\) left waiting in watch folders/');
-        (new task\queue_slide_imports())->execute();
-        (new task\queue_slide_imports())->execute();
+        // A preview queues nothing.
+        manager::run_rule($ruleid, true);
+        $this->assertCount(0, \core\task\manager::get_adhoc_tasks(task\import_slide_file::class));
 
+        manager::run_rule($ruleid, false);
+        manager::run_rule($ruleid, false);
         $this->assertCount(1, \core\task\manager::get_adhoc_tasks(task\import_slide_file::class));
+    }
+
+    /**
+     * Upgrading from the slide folder import carries its folder over and drops its settings.
+     */
+    public function test_upgrade_carries_the_old_folder_over(): void {
+        $this->resetAfterTest();
+        set_config('slide_source_dir', '/srv/decks', 'tool_automate');
+        set_config('allow_slide_import', 1, 'tool_automate');
+        set_config('slide_mapping', 'manifest', 'tool_automate');
+
+        watch_folder::migrate_from_slide_folder_import();
+
+        $this->assertSame('/srv/decks', get_config('tool_automate', 'watch_base_dir'));
+        $this->assertFalse(get_config('tool_automate', 'slide_source_dir'));
+        $this->assertFalse(get_config('tool_automate', 'allow_slide_import'));
+        $this->assertFalse(get_config('tool_automate', 'slide_mapping'));
+        // The new switch is not turned on for anyone.
+        $this->assertEmpty(get_config('tool_automate', 'allow_watch_folders'));
+
+        // A base folder that is already set is kept.
+        set_config('slide_source_dir', '/srv/other', 'tool_automate');
+        watch_folder::migrate_from_slide_folder_import();
+        $this->assertSame('/srv/decks', get_config('tool_automate', 'watch_base_dir'));
     }
 }

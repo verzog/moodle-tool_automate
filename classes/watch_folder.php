@@ -80,41 +80,19 @@ class watch_folder {
     /**
      * The path of a watch folder: the base folder itself, or a real folder directly inside it.
      *
-     * The base folder is not a watch folder while it is also the slide import folder, because
-     * the scheduled slide import already takes every deck dropped there.
-     *
      * @param string $folder The folder's name, or {@see self::BASE} for the base folder.
      * @return string|null Null when the name is not usable or there is no such folder.
      */
     public static function folder_path(string $folder): ?string {
         $base = self::get_base_dir();
         if ($folder === self::BASE) {
-            $usable = $base !== '' && is_dir($base) && !self::same_folder($base, slide_import::get_source_dir());
-            return $usable ? $base : null;
+            return ($base !== '' && is_dir($base)) ? $base : null;
         }
         if ($base === '' || !self::is_folder_name($folder)) {
             return null;
         }
         $path = $base . DIRECTORY_SEPARATOR . $folder;
         return (is_dir($path) && !is_link($path)) ? $path : null;
-    }
-
-    /**
-     * Do two paths name the same folder, however each is spelled (a trailing "/.", a link)?
-     *
-     * @param string $one
-     * @param string $two
-     * @return bool
-     */
-    protected static function same_folder(string $one, string $two): bool {
-        if ($one === '' || $two === '') {
-            return false;
-        }
-        if ($one === $two) {
-            return true;
-        }
-        $realone = realpath($one);
-        return $realone !== false && $realone === realpath($two);
     }
 
     /**
@@ -183,6 +161,25 @@ class watch_folder {
             $queued += slide_import::requeue_orphans((string) self::folder_path($folder));
         }
         return $queued;
+    }
+
+    /**
+     * Move a site off the removed slide folder import, where decks were named by file name or
+     * manifest and picked up by a scheduled task.
+     *
+     * Its folder becomes the watch folders base folder where none is set, so the decks' folder
+     * does not have to be typed in again, and its settings are dropped. The watch folders switch
+     * is deliberately left as it is: it lets rule managers choose where decks go, which the old
+     * switch did not.
+     */
+    public static function migrate_from_slide_folder_import(): void {
+        $oldfolder = trim((string) get_config('tool_automate', 'slide_source_dir'));
+        if ($oldfolder !== '' && self::get_base_dir() === '') {
+            set_config('watch_base_dir', $oldfolder, 'tool_automate');
+        }
+        foreach (['allow_slide_import', 'slide_source_dir', 'slide_mapping', 'slide_default_type', 'slide_import_mode'] as $name) {
+            unset_config($name, 'tool_automate');
+        }
     }
 
     /**
